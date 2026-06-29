@@ -1,0 +1,251 @@
+/* Main container styles */
+.chambre-container {
+  display: flex;
+  background-color: #f8f9fa;
+  min-height: 100vh;
+}
+
+.content-container {
+  flex-grow: 1;
+  padding: 24px;
+  margin-left: 287px;
+  margin-right: 24px;
+  transition: margin 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.content-container.collapsed {
+  margin-left: 84px;
+  margin-right: 24px;
+}
+
+/* Search and export section */
+.search-export-section {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 6px 10px rgba(0,0,0,0.08);
+  padding: 20px;
+  margin-bottom: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.3s cubic-bezier(.25,.8,.25,1);
+}
+
+.search-export-section:hover {
+  box-shadow: 0 10px 20px rgba(0,0,0,0.12);
+}
+
+/* Filter section */
+.filter-section {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 6px 10px rgba(0,0,0,0.08);
+  padding: 20px;
+  margin-bottom: 24px;
+  transition: all 0.3s cubic-bezier(.25,.8,.25,1);
+}
+
+.filter-section:hover {
+  box-shadow: 0 10px 20px rgba(0,0,0,0.12);
+}
+
+/* Table container */
+.table-container {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 6px 10px rgba(0,0,0,0.08);
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(.25,.8,.25,1);
+}
+
+.table-container:hover {
+  box-shadow: 0 10px 20px rgba(0,0,0,0.12);
+}
+
+/* Table styles */
+.table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.table thead th {
+  background-color: #00afaa !important;
+  color: white !important;
+  font-weight: 500;
+  padding: 16px;
+  text-align: left;
+  border: none;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.table tbody td {
+  padding: 16px;
+  border-bottom: 1px solid #f0f0f0;
+  color: #424242;
+}
+
+.table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+/* Form container */
+.form-container {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 6px 10px rgba(0,0,0,0.08);
+  padding: 24px;
+  height: fit-content;
+  transition: all 0.3s cubic-bezier(.25,.8,.25,1);
+  position: relative;
+  z-index: 1;
+}
+
+.form-container:hover {
+  box-shadow: 0 10px 20px rgba(0,0,0,0.12);
+}
+
+/* Form controls */
+.form-control, .form-select {
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+  padding: 8px 12px;
+  transition: all 0.3s ease;
+}
+
+.form-control:focus, .form-select:focus {
+  border-color: #00afaa;
+  box-shadow: 0 0 0 2px rgba(0, 175, 169, 0.2);
+}
+
+/* Buttons */
+.btn-primary {
+  background-color: #00afaa;
+  border-color: #00afaa;
+  border-radius: 8px;
+  padding: 8px 16px;
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+  background-color: #009690;
+  border-color: #009690;
+  box-shadow: 0 4px 8px rgba(0, 175, 169, 0.2);
+}
+
+/* Carousel styles */
+.bgSecteur {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 6px 10px rgba(0,0,0,0.08);
+  padding: 20px;
+  margin-bottom: 24px;
+  position: relative;
+}
+
+.carousel-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #00afaa;
+  color: white;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 2;
+  transition: all 0.3s ease;
+}
+
+.carousel-arrow:hover {
+  background: #009690;
+}
+
+.carousel-arrow.left {
+  left: 10px;
+}
+
+.carousel-arrow.right {
+  right: 10px;
+}
+
+.category-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  padding: 10px;
+  transition: all 0.3s ease;
+}
+
+.category-item.active {
+  background: rgba(0, 175, 169, 0.1);
+  border-radius: 8px;
+}
+
+.category-img {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  margin-bottom: 8px;
+}
+
+.category-text {
+  font-size: 14px;
+  color: #424242;
+  margin: 0;
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .content-container {
+    margin-left: 0;
+    padding: 16px;
+  }
+
+  .search-export-section {
+    flex-direction: column;
+    gap: 16px;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #00afaa;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #009690;
+}
+
+/* Row and column styles */
+.row {
+  margin: 0;
+  width: 100%;
+}
+
+.col-md-8,
+.col-md-12 {
+  padding: 0;
+  transition: all 0.3s ease;
+}
+
+.col-md-4 {
+  padding-left: 2rem;
+} 

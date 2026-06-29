@@ -1,0 +1,47 @@
+
+  /* .btn-sm {
+    color: #fff;
+}
+
+.btn-sm:hover {
+    color: #ffffff;
+}
+
+.btn-sm:active {
+    color: #ffffff;
+}
+
+.btn-sm:disabled {
+    color: #ffffff;
+} */
+
+
+  .edit {
+    padding-bottom: 3px;
+    font-size: 22px;
+
+  }
+  
+  .delete {
+    font-size: 25px;
+  }
+  .addBtn{
+    align-items: center;
+    justify-content: center;
+    margin-left: 30%;
+    border: none;
+  }
+  .minibtns{
+    background-color: #ffffff;
+    border-color: #ffffff;
+  }
+  .editbtn{
+    padding-top: 4%;
+    padding-bottom: 4%;
+    width: 46px; 
+    height: 44px;
+  }
+  .deletebtn{
+    width: 46px; 
+    height: 44px;
+  }

@@ -1,0 +1,100 @@
+#formContainer {
+    position: fixed;
+    right: -100%; /* Débutera hors de l'écran */
+    width: 30%;
+    height: 100%;
+    transition: right 0.3s ease; /* Effet de glissement du formulaire */
+    border: 2px;
+    border-radius: 10px;
+    background-color:rgb(250, 250, 250);
+  }
+  #formContainerCommande {
+    position: fixed;
+    right: -100%; /* Débutera hors de l'écran */
+    width: 30%;
+    height: 100%;
+    transition: right 0.3s ease; /* Effet de glissement du formulaire */
+    border: 2px;
+    border-radius: 10px;
+    background-color:rgb(250, 250, 250);
+  }
+  #formContainer1SC{
+      position: fixed;
+      right:  -100; /* Débutera hors de l'écran */
+      width: 30%;
+      height: 100%;
+      transition: right 0.3s ease; /* Effet de glissement du formulaire */
+      border: 2px;
+      border-radius: 10px;
+      background-color:rgb(250, 250, 250);
+  }
+  #tableContainer {
+    margin-right: 350px; /* Espacement pour afficher le tableau à côté du formulaire */
+  }
+  
+  a{
+    text-decoration: none;
+  }
+  .clientS{
+  list-style-type: none;
+  margin: 0;
+  padding: 5px;
+  margin-left: 5px;
+  overflow: hidden;
+  background-color: #f1f1f1;
+  }
+  
+  .table-hover{
+    background-color:rgb(250, 250, 250);
+    border-radius: 10px;
+  
+  }
+  .page-header{
+    display: none;
+  }
+  .hidden{
+    display: none;
+  }
+  .custom-select {
+    border: none !important;
+    border-bottom: none !important;
+    box-shadow: none !important;
+    margin-left: "-10px",
+                    
+               
+  }
+  
+  .custom-table {
+    border-collapse: collapse;
+    width: 100%;
+  }
+  
+  .custom-table th, .custom-table td {
+    border: 1px solid #cb4a4a;
+    padding: 8px;
+    text-align: left;
+  }
+  
+  .custom-table th {
+    background-color: #f2f2f2;
+  }
+  .filter-container input {
+    margin-right: 10px;
+    padding: 5px;
+  }
+  .table-container {
+    width: 100%; /* Adjust the width as needed */
+    margin: 0 auto;
+    /* Center the table horizontally */
+  }
+  
+  .table {
+    width: 100%;
+    margin-top: 3%;
+  }
+  
+  
+  .input-warning {
+    border: 5px solid red; /* Add a red border */
+    color: red; /* Change text color to red */
+  }

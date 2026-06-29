@@ -1,0 +1,82 @@
+h3 {
+    color: #444;
+    vertical-align: bottom;
+    border-bottom: 2px solid #dee2e6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+  }
+.offres-form {
+    background-color: #fff;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    position: fixed;
+    right: 0%;
+    top: 22.3%;
+    width: 479px;
+    padding: 20px;
+}
+.offres-form .form-group {
+  margin-bottom: 10px;
+}
+
+.offres-form .btn-secondary {
+    background-color: #6c757d;
+    border-color: #6c757d;
+}
+.offres-form .btn-primary {
+  background-color: #dc3545;
+  border-color: #dc3545;
+  margin-right: 10px;
+}
+
+
+.prix_input{
+    margin-right: 35px;
+    border: none;
+}
+
+.code_input{
+    margin-right: 35px;
+    border: none;
+}
+.designation_input{
+    border: none;
+}
+.form_table {
+    margin-bottom: 1px;
+    color: #212529;
+    width: 479px;
+    margin-left: -21px;
+  }
+  
+  .form_table td {
+    vertical-align: top;
+    border-top: 1px solid ;
+    background-color: #ffffff;
+  
+  }
+  
+  .form_table thead th {
+    vertical-align: bottom;
+    border-bottom: 2px solid #dee2e6;
+    background-color: #bebebe; 
+  }
+  
+  
+  .form_table th,
+  .form_table td {
+    border: 1px solid #dee2e6; 
+    padding-top: 1px;
+    padding-bottom: 1px;
+  
+  }
+  .form_table .btn-danger {
+    color: #ff0000;
+    background-color: #ffffff;
+    border-color: #ffffff;
+  }
+  .detailsbtn{
+    font-size: 25px;
+  }

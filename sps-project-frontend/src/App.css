@@ -1,0 +1,384 @@
+body {
+  margin-bottom: 70px;
+   /* Ajoutez une marge en bas pour éviter que le pied de page ne chevauche le contenu */
+background-color: #f5f5f5 !important;
+  }
+
+.app-container {
+  min-height: calc(100vh - 110px); /* Calculez la hauteur minimale de votre contenu pour s'adapter à l'écran */
+}
+
+#formContainer {
+  position: fixed;
+  right: -900px; /* Débutera hors de l'écran */
+  width: 650px !important;
+  height: 900px !important;
+  transition: right 0.3s ease; /* Effet de glissement du formulaire */
+  border: 3px solid rgb(224, 224, 224);
+  background-color: #fff;
+  border-radius: 0 !important;
+  padding: 5px !important;
+  margin-right: 5px !important;
+}
+#formContainer1SC {
+  position: fixed;
+  right: -900px; /* Débutera hors de l'écran */
+  width: 500px;
+  height: auto;
+  transition: right 0.3s ease; /* Effet de glissement du formulaire */
+  border: 3px solid rgb(224, 224, 224);
+  background-color: #fff;
+  border-radius: none !important;
+}
+#tableContainer {
+ /* Espacement pour afficher le tableau à côté du formulaire */
+}
+
+a {
+  text-decoration: none;
+}
+.clientS {
+  list-style-type: none;
+  margin: 0;
+  padding: 5px;
+  margin-left: 5px;
+  overflow: hidden;
+  background-color: #f1f1f1;
+}
+
+.table-hover {
+  background-color: rgb(23, 7, 7);
+  border-radius: 10px;
+}
+.page-header {
+  display: none;
+}
+.hidden {
+  display: none;
+}
+#formContainer {
+  position: fixed;
+  right: -100%; /* Débutera hors de l'écran */
+  width: 30%;
+  height: 100%;
+  transition: right 0.3s ease; /* Effet de glissement du formulaire */
+}
+#formContainerCommande {
+  position: fixed;
+  width: 600px !important;
+  height: 800px !important;
+  transition: right 0.3s ease; /* Effet de glissement du formulaire */
+  border: 3px solid rgb(224, 224, 224);
+  background-color: #fff;
+  border-radius: 0 !important;
+  padding: 5px !important;
+}
+#formContainer1SC{
+    position: fixed;
+    right:  -100; /* Débutera hors de l'écran */
+    width: 32% !important;
+    height: 100% !important;
+    transition: right 0.3s ease; /* Effet de glissement du formulaire */
+    border: 2px;
+    background-color:rgb(250, 250, 250);
+    border-radius: none !important;
+}
+#tableContainer {
+  /* Espacement pour afficher le tableau à côté du formulaire */
+}
+
+a{
+  text-decoration: none;
+}
+.clientS{
+list-style-type: none;
+margin: 0;
+padding: 5px;
+margin-left: 5px;
+overflow: hidden;
+background-color: #f1f1f1;
+}
+
+.table-hover{
+  background-color:rgb(250, 250, 250);
+  border-radius: 10px;
+
+}
+.page-header{
+  display: none;
+}
+.hidden{
+  display: none;
+}
+.custom-select {
+  border: none !important;
+  border-bottom: none !important;
+  box-shadow: none !important;
+  margin-left: "-10px",
+                  
+             
+}
+
+.custom-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.custom-table th, .custom-table td {
+  border: 1px solid #cb4a4a !important;
+  padding: 8px;
+  text-align: left;
+}
+
+.custom-table th {
+  background-color: #f2f2f2;
+}
+.filter-container input {
+  margin-right: 10px;
+  padding: 5px;
+}
+.table-container {
+  width: 100%; /* Adjust the width as needed */
+  margin: 0 auto;
+  /* Center the table horizontally */
+}
+
+.table {
+  width: 100%;
+  margin-top: 3%;
+}
+
+
+.input-warning {
+  border: 5px solid #fa4343 !important; /* Add a red border */
+  color: red !important; /* Change text color to red */
+}
+.ddd{
+  background-color: #ddd !important;
+}
+.btn-danger{
+  border-color: red !important;
+  background-color: red !important;
+  color: #f1f1f1 !important;
+}
+.btn-secondary {
+  background-color: #928f8f !important;
+  color:  #fff !important;
+
+}
+.ddd th{
+  background-color: #ddd;
+}
+.bgtab{
+  background-color: #ddd !important;
+}
+table th{
+  background-color: #c60000;
+}
+.table_width {
+  width: 100%;
+}
+.table-bordered {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.table-bordered th, .table-bordered td {
+  border: 2px solid #ddd; /* Ajustez la largeur de la bordure ici */
+  padding: 8px;
+  text-align: left;
+}
+.black th , .black td{
+  border: 2px solid black; /* Ajustez la largeur de la bordure ici */
+  padding: 8px;
+  text-align: left;
+}
+
+#produitsTable{
+  height: 100px !important;
+}
+
+.is-invalid {
+  border-color: red;
+}
+.text-danger {
+  color: red;
+  font-size: 0.875em;
+  margin-top: 5px;
+}
+.tableHead{
+  background-color: #640000 !important;
+  color:white !important;
+  height: 35px !important;
+}
+.titreColore{
+  color:rgb(0, 0, 0) ;
+}
+.AjouteBotton{
+  color: #08b3ad;
+}
+.postionPage{
+  position: fixed;
+  top:-0px;
+  left: 290px;
+  width: 86.5%;
+}
+.widthDetails{
+  width: 10px;
+}
+.Fab{
+  background-color: #00afaa !important;
+  color: rgb(255, 255, 255) !important;
+  z-index: 1 !important;
+  padding-left: 50px !important;
+  padding-right: 50px !important;
+
+  
+}
+.FabAnnule{
+  background-color: gray !important;
+  color: rgb(255, 255, 255) !important;
+z-index: 1 !important;
+padding-left: 50px !important;
+  padding-right: 50px !important;
+/* color:##c7fffd */
+}
+
+.sidBarcomposantColore{
+  color:white !important
+}
+.sidBarSucomposantColore{
+  color:white !important;
+  margin-left: 10px !important;
+}
+.iconSedBar{
+  font-size: x-large !important;
+  color:white !important;
+
+}
+.composantDecomp{
+  color:white !important;
+
+  margin-left: 30px !important;
+  height: 35 px !important;
+}
+.ColoretableForm{
+  background-color: #00afaa !important;
+color: white !important;
+}
+.z-index{
+  z-index: 10000 !important;
+}
+.category-item {
+  text-align: center;
+}
+
+.category-img {
+  width: 70px;
+  height: 70px;
+  object-fit: cover;
+  border: 3px solid #ccc;
+  padding: 2px;
+}
+
+.category-text {
+  margin-top: px;
+  font-weight: bold;
+  margin-bottom: -3px;
+  color: #333;
+}
+
+.carousel-control-prev-icon,
+.carousel-control-next-icon {
+  background-color: rgba(0, 0, 0, 0.5);
+  border-radius: 50%;
+ 
+}
+.carousel-control-prev{
+  margin-top: 45px;
+  width: 30px;
+  height: 30px;
+}
+.carousel-control-next{
+  margin-top: 45px;
+  width: 30px;
+  height: 30px;
+}
+.carousel-control-prev-icon{
+  
+  margin-top: -40px;
+}
+.carousel-control-next-icon{
+  margin-top: -40px;
+
+}
+.bgCategories{
+  background-color: #fff;
+  width: 49% !important;
+  padding-bottom: -20px !important;
+  margin-bottom: 5px;
+  border: 1px solid #ddd;
+}
+.bgSecteur{
+  background-color: #fff;
+  width: 100% !important;
+  border: 1px solid #ddd;
+  margin-bottom: 10px;
+
+}
+.siteclient td{
+  background-color: #dcfffe !important;
+}
+.table th, .table td {
+   /* Ajoute une bordure légère autour des cellules */
+  /* Ajoute du padding pour l'espacement */
+  vertical-align: middle !important; /* Centre le texte verticalement */
+}
+.table td {
+  text-align: center !important; /* Centre le texte horizontalement */
+}
+table thead th{
+  text-align: center !important; /* Centre le texte horizontalement */
+
+}
+.category-item {
+  position: relative;
+}
+
+.category-img {
+  transition: background-color 0.3s, border-color 0.3s;
+}
+
+/* Couleur du cercle pour la catégorie sélectionnée */
+.category-item.active .category-img.selected {
+  background-color: #007bff; /* Couleur à changer selon vos préférences */
+  border: 3px solid #007bff; /* Ajouter une bordure si nécessaire */
+}
+
+.category-item.active .category-img {
+  border: 2px solid #007bff; /* Bordure pour le cercle actif */
+}
+.input-error {
+  border: 1px solid red; /* Changer la bordure en rouge */
+}
+
+.custom-dropdown {
+  border-radius: 5px; /* Rounded corners */
+  border: 1px solid #ccc; /* Border color */
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+}
+
+.custom-dropdown-item {
+  padding: 10px 15px; /* Padding for each item */
+  transition: background-color 0.2s ease; /* Smooth background transition */
+}
+
+.custom-dropdown-item:hover {
+  background-color: #f8f9fa; /* Light background on hover */
+}
+
+
+/* styles.css */
+
+/* Styles pour le groupe de formulaire */
+
