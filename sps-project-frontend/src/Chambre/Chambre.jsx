@@ -48,10 +48,19 @@ const Chambre = () => {
   const [types, setTypes] = useState([]);
   const [selectedVue, setSelectedVue] = useState(null);
   const [selectedEtage, setSelectedEtage] = useState(null);
-  const [newTypeChambre, setNewTypeChambre] = useState({
-    code: "", type_chambre: "", nb_lit: "", nb_salle: "", commentaire: "",
-    codeAdd: "", type_chambreAdd: "", nb_litAdd: "", nb_salleAdd: "", commentaireAdd: ""
-  });
+  const emptyTypeChambre = {
+  code: "",
+  type_chambre: "",
+  nb_lit: "",
+  nb_salle: "",
+  commentaire: "",
+  codeAdd: "",
+  type_chambreAdd: "",
+  nb_litAdd: "",
+  nb_salleAdd: "",
+  commentaireAdd: "",
+};
+  const [newTypeChambre, setNewTypeChambre] = useState(emptyTypeChambre);
   const [submitted, setSubmitted] = useState(false);
 
   //---------------form-------------------//
@@ -222,14 +231,27 @@ const [typeFilter, setTypeFilter] = useState('');
     setSearchTerm(term);
   };
 
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]:
-        e.target.type === "file" ? e.target.files[0] : e.target.value,
-    });
-  };
+const handleChange = (e) => {
+  const { name, value, type, files } = e.target;
 
+  if (name === "type_chambre") {
+    const selectedType = types.find((type) => String(type.id) === String(value));
+
+    setFormData((prev) => ({
+      ...prev,
+      type_chambre: value,
+      nb_lit: selectedType ? selectedType.nb_lit : "",
+      nb_salle: selectedType ? selectedType.nb_salle : "",
+    }));
+
+    return;
+  }
+
+  setFormData((prev) => ({
+    ...prev,
+    [name]: type === "file" ? files[0] : value,
+  }));
+};
   // const handleChange = (e) => {
   //   setUser({
   //     ...user,
@@ -327,7 +349,7 @@ const [typeFilter, setTypeFilter] = useState('');
           types_chambre.some((type) => sanitizeInput(type?.code) === sanitizeInput(newTypeChambre.codeAdd));
         newTypeErrors.nb_litAdd = newTypeChambre.nb_litAdd === "";
         newTypeErrors.nb_salleAdd = newTypeChambre.nb_salleAdd === "";
-        newTypeErrors.commentaireAdd = newTypeChambre.commentaireAdd === "";
+        newTypeErrors.commentaire = false;
         if (editingType) {
           newTypeErrors.code =
             newTypeChambre.code === "" ||
@@ -335,7 +357,7 @@ const [typeFilter, setTypeFilter] = useState('');
               sanitizeInput(newTypeChambre.code) !== sanitizeInput(editingType?.code));
           newTypeErrors.nb_salle = newTypeChambre.nb_salle === "";
           newTypeErrors.nb_lit = newTypeChambre.nb_lit === "";
-          newTypeErrors.commentaire = newTypeChambre.commentaire === "";
+          newTypeErrors.commentaire = false;
           newTypeErrors.type_chambre =
             newTypeChambre.type_chambre === "" ||
             (types_chambre.some((type) => sanitizeInput(type?.type_chambre) === sanitizeInput(newTypeChambre.type_chambre)) &&
@@ -1174,43 +1196,116 @@ const handleSelectItem = (item) => {
   }
 
 };
+const resetAddTypeChambreForm = () => {
+  setNewTypeChambre(emptyTypeChambre);
+
+  setTypeErrors({
+    codeAdd: "",
+    type_chambreAdd: "",
+    nb_litAdd: "",
+    nb_salleAdd: "",
+    commentaireAdd: "",
+  });
+};
+const validateAddTypeChambre = () => {
+  const errors = {};
+
+  if (!newTypeChambre.codeAdd.trim()) {
+    errors.codeAdd = "Le code est obligatoire.";
+  }
+
+  if (!newTypeChambre.type_chambreAdd.trim()) {
+    errors.type_chambreAdd = "Le type de chambre est obligatoire.";
+  }
+
+  const nbLit = Number(newTypeChambre.nb_litAdd);
+  if (
+    newTypeChambre.nb_litAdd === "" ||
+    !Number.isInteger(nbLit) ||
+    nbLit < 1
+  ) {
+    errors.nb_litAdd = "Le nombre de lits doit être un nombre entier supérieur ou égal à 1.";
+  }
+
+  const nbSalle = Number(newTypeChambre.nb_salleAdd);
+  if (
+    newTypeChambre.nb_salleAdd === "" ||
+    !Number.isInteger(nbSalle) ||
+    nbSalle < 1
+  ) {
+    errors.nb_salleAdd = "Le nombre de salles doit être un nombre entier supérieur ou égal à 1.";
+  }
+
+  return errors;
+};
 const handleAddTypeChambre = async () => {
-  try {
-    const hasErrors = Object.values(typeErrors).some(error => error === true);
-      if (hasErrors) {
-        alert(JSON.stringify(typeErrors))
-        return;
-      }
-    const formData = new FormData();
-    formData.append("code", newTypeChambre.codeAdd);
-    formData.append("type_chambre", newTypeChambre.type_chambreAdd);
-    formData.append("nb_lit", newTypeChambre.nb_litAdd);
-    formData.append("nb_salle", newTypeChambre.nb_salleAdd);
-    formData.append("commentaire", newTypeChambre.commentaireAdd);
-    const response = await axios.post("http://localhost:8000/api/types-chambre", formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    });
+  const validationErrors = validateAddTypeChambre();
 
-    await fetchChambres();
-    if (response.status === 201) {
-            Swal.fire({
-                        icon: "success",
-                        title: "Succès!",
-                        text: "Type Chambre ajoutée avec succès.",
-                      }); 
-                      setShowAddCategory(false);
-                      fetchChambres();
-            }
+  if (Object.keys(validationErrors).length > 0) {
+    setTypeErrors(validationErrors);
 
-  } catch (error) {
     Swal.fire({
       icon: "error",
-      title: "Error!",
-      text: error
-    }); 
-    setShowAddCategory(false);
+      title: "Champs invalides",
+      text: "Veuillez remplir correctement les champs obligatoires.",
+    });
+
+    return;
+  }
+
+  try {
+    const payload = {
+      code: newTypeChambre.codeAdd.trim(),
+      type_chambre: newTypeChambre.type_chambreAdd.trim(),
+      nb_lit: Number(newTypeChambre.nb_litAdd),
+      nb_salle: Number(newTypeChambre.nb_salleAdd),
+      commentaire: newTypeChambre.commentaireAdd?.trim() || null,
+    };
+
+    console.log("Payload Type Chambre:", payload);
+
+    const response = await axios.post(
+      "http://localhost:8000/api/types-chambre",
+      payload
+    );
+
+    if (response.status === 201) {
+      await fetchChambres();
+
+      Swal.fire({
+        icon: "success",
+        title: "Succès!",
+        text: "Type Chambre ajoutée avec succès.",
+      });
+
+      resetAddTypeChambreForm();
+      setShowAddCategory(false);
+    }
+  } catch (error) {
+    console.error("Add type error:", error.response?.data || error);
+
+    if (error.response?.status === 422) {
+      const validationErrors = error.response.data.errors || {};
+      const messages = Object.values(validationErrors).flat();
+
+      Swal.fire({
+        icon: "warning",
+        title: "Erreur de validation",
+        html: `
+          <div style="text-align:left">
+            ${messages.map((msg) => `<p>${msg}</p>`).join("")}
+          </div>
+        `,
+      });
+
+      return;
+    }
+
+    Swal.fire({
+      icon: "error",
+      title: "Erreur!",
+      text: "Impossible d'ajouter le type de chambre.",
+    });
   }
 };
 const handleDeleteTypeChambre = async (categorieId) => {
@@ -1543,7 +1638,10 @@ const columns = [
                       icon={faPlus}
                       className="text-primary me-2"
                       style={{ cursor: "pointer" }}
-                      onClick={() => setShowAddCategory(true)}
+                      onClick={() => {
+  resetAddTypeChambreForm();
+  setShowAddCategory(true);
+}}
                     />
                     <Form.Label>Type</Form.Label>
                   </div>
@@ -1994,65 +2092,105 @@ const columns = [
   </Fab>
       </Form.Group>
     </Modal>
-                  <Modal show={showAddCategory} onHide={() => setShowAddCategory(false)}>
+                  <Modal show={showAddCategory} onHide={() => {
+  resetAddTypeChambreForm();
+  setShowAddCategory(false);
+}}>
         <Modal.Header closeButton>
           <Modal.Title>Ajouter un Type</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Form>
           <Form.Group>
-              <Form.Label>Code Chambre</Form.Label>
-              <Form.Control
-                type="text"
-                placeholder="Code Chambre"
-                isInvalid={!!typeErrors.codeAdd}
-                name="code"
-                onChange={(e) => setNewTypeChambre({ ...newTypeChambre, codeAdd: e.target.value })}
-              />
+              <Form.Label>Code</Form.Label>
+<Form.Control
+  type="text"
+  placeholder="Code"
+  value={newTypeChambre.codeAdd}
+  isInvalid={!!typeErrors.codeAdd}
+  onChange={(e) =>
+    setNewTypeChambre({
+      ...newTypeChambre,
+      codeAdd: e.target.value,
+    })
+  }
+/>
+<Form.Control.Feedback type="invalid">
+  {typeErrors.codeAdd}
+</Form.Control.Feedback>
             </Form.Group>
           <Form.Group>
               <Form.Label>Type Chambre</Form.Label>
-              <Form.Control
-                type="text"
-                placeholder="Type Chambre"
-                isInvalid={!!typeErrors.type_chambreAdd}
-                name="type_chambre"
-                onChange={(e) => setNewTypeChambre({ ...newTypeChambre, type_chambreAdd: e.target.value })}
-              />
+<Form.Control
+  type="text"
+  placeholder="Type chambre"
+  value={newTypeChambre.type_chambreAdd}
+  isInvalid={!!typeErrors.type_chambreAdd}
+  onChange={(e) =>
+    setNewTypeChambre({
+      ...newTypeChambre,
+      type_chambreAdd: e.target.value,
+    })
+  }
+/>
+<Form.Control.Feedback type="invalid">
+  {typeErrors.type_chambreAdd}
+</Form.Control.Feedback>
             </Form.Group>
             
             <Form.Group>
               <Form.Label>Nombre de Lit</Form.Label>
-              <Form.Control
-                type="number"
-                isInvalid={!!typeErrors.nb_litAdd}
-                placeholder="Nombre de Lit"
-                name="nb_lit"
-                min="0"
-                onChange={(e) => setNewTypeChambre({ ...newTypeChambre, nb_litAdd: e.target.value })}
-              />
+<Form.Control
+  type="number"
+  min="1"
+  placeholder="Nombre de lits"
+  value={newTypeChambre.nb_litAdd}
+  isInvalid={!!typeErrors.nb_litAdd}
+  onChange={(e) =>
+    setNewTypeChambre({
+      ...newTypeChambre,
+      nb_litAdd: e.target.value,
+    })
+  }
+/>
+<Form.Control.Feedback type="invalid">
+  {typeErrors.nb_litAdd}
+</Form.Control.Feedback>
             </Form.Group>
             <Form.Group>
               <Form.Label>Nombre de Salle</Form.Label>
-              <Form.Control
-                type="number"
-                placeholder="Nombre de Salle"
-                name="nb_salle"
-                min="0"
-                isInvalid={!!typeErrors.nb_salleAdd}
-                onChange={(e) => setNewTypeChambre({ ...newTypeChambre, nb_salleAdd: e.target.value })}
-              />
+<Form.Control
+  type="number"
+  min="1"
+  placeholder="Nombre de salles"
+  value={newTypeChambre.nb_salleAdd}
+  isInvalid={!!typeErrors.nb_salleAdd}
+  onChange={(e) =>
+    setNewTypeChambre({
+      ...newTypeChambre,
+      nb_salleAdd: e.target.value,
+    })
+  }
+/>
+<Form.Control.Feedback type="invalid">
+  {typeErrors.nb_salleAdd}
+</Form.Control.Feedback>
             </Form.Group>
             
             <Form.Group>
               <Form.Label>Commentaire</Form.Label>
-              <Form.Control
-                type="text"
-                placeholder="Commentaire"
-                name="commentaire"
-                isInvalid={!!typeErrors.commentaireAdd}
-                onChange={(e) => setNewTypeChambre({ ...newTypeChambre, commentaireAdd: e.target.value })}
-              />
+<Form.Control
+  as="textarea"
+  rows={2}
+  placeholder="Commentaire optionnel"
+  value={newTypeChambre.commentaireAdd}
+  onChange={(e) =>
+    setNewTypeChambre({
+      ...newTypeChambre,
+      commentaireAdd: e.target.value,
+    })
+  }
+/>
             </Form.Group>
           
             <Form.Group className="mt-3">
@@ -2137,6 +2275,7 @@ const columns = [
                     isInvalid={submitted && !!errors.nb_salle}
                     value={formData.nb_salle}
                     onChange={handleChange}
+                    readOnly
                   >
                     <option value="">Nombre de Salle</option>
                     {Array.from({ length: 7 }, (_, i) => (
@@ -2155,6 +2294,7 @@ const columns = [
                     isInvalid={submitted && !!errors.nb_lit}
                     value={formData.nb_lit}
                     onChange={handleChange}
+                    readOnly
                   >
                     <option value="">Nombre de Lit</option>
                     {Array.from({ length: 7 }, (_, i) => (
