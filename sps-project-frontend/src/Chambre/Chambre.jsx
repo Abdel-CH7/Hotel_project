@@ -60,6 +60,34 @@ const Chambre = () => {
   nb_salleAdd: "",
   commentaireAdd: "",
 };
+  const [typeCreationMode, setTypeCreationMode] = useState("preset");
+  const roomTypePresets = {
+  "Chambre simple": {
+    nb_lit: 1,
+    nb_salle: 1,
+    commentaire: "Chambre simple avec un lit.",
+  },
+  "Chambre double": {
+    nb_lit: 2,
+    nb_salle: 1,
+    commentaire: "Chambre double avec deux lits.",
+  },
+  "Chambre triple": {
+    nb_lit: 3,
+    nb_salle: 1,
+    commentaire: "Chambre triple avec trois lits.",
+  },
+  "Suite junior": {
+    nb_lit: 2,
+    nb_salle: 2,
+    commentaire: "Suite junior avec deux lits et deux salles.",
+  },
+  "Chambre familiale": {
+    nb_lit: 4,
+    nb_salle: 1,
+    commentaire: "Chambre familiale avec quatre lits.",
+  },
+};
   const [newTypeChambre, setNewTypeChambre] = useState(emptyTypeChambre);
   const [submitted, setSubmitted] = useState(false);
 
@@ -1198,6 +1226,7 @@ const handleSelectItem = (item) => {
 };
 const resetAddTypeChambreForm = () => {
   setNewTypeChambre(emptyTypeChambre);
+  setTypeCreationMode("preset");
 
   setTypeErrors({
     codeAdd: "",
@@ -1237,6 +1266,17 @@ const validateAddTypeChambre = () => {
   }
 
   return errors;
+};
+const handlePresetTypeChange = (value) => {
+  const preset = roomTypePresets[value];
+
+  setNewTypeChambre((prev) => ({
+    ...prev,
+    type_chambreAdd: value,
+    nb_litAdd: preset ? String(preset.nb_lit) : "",
+    nb_salleAdd: preset ? String(preset.nb_salle) : "",
+    commentaireAdd: preset ? preset.commentaire : "",
+  }));
 };
 const handleAddTypeChambre = async () => {
   const validationErrors = validateAddTypeChambre();
@@ -2101,6 +2141,27 @@ const columns = [
         </Modal.Header>
         <Modal.Body>
           <Form>
+            <Form.Group className="mb-3">
+  <Form.Label>Mode de création</Form.Label>
+  <Form.Select
+    value={typeCreationMode}
+    onChange={(e) => {
+      setTypeCreationMode(e.target.value);
+
+      setNewTypeChambre((prev) => ({
+        ...prev,
+        type_chambreAdd: "",
+        nb_litAdd: "",
+        nb_salleAdd: "",
+        commentaireAdd: "",
+      }));
+    }}
+  >
+    <option value="preset">Type prédéfini</option>
+    <option value="custom">Type personnalisé</option>
+  </Form.Select>
+</Form.Group>
+
           <Form.Group>
               <Form.Label>Code</Form.Label>
 <Form.Control
@@ -2119,25 +2180,41 @@ const columns = [
   {typeErrors.codeAdd}
 </Form.Control.Feedback>
             </Form.Group>
-          <Form.Group>
-              <Form.Label>Type Chambre</Form.Label>
-<Form.Control
-  type="text"
-  placeholder="Type chambre"
-  value={newTypeChambre.type_chambreAdd}
-  isInvalid={!!typeErrors.type_chambreAdd}
-  onChange={(e) =>
-    setNewTypeChambre({
-      ...newTypeChambre,
-      type_chambreAdd: e.target.value,
-    })
-  }
-/>
-<Form.Control.Feedback type="invalid">
-  {typeErrors.type_chambreAdd}
-</Form.Control.Feedback>
-            </Form.Group>
-            
+<Form.Group className="mb-3">
+  <Form.Label>Type Chambre</Form.Label>
+
+  {typeCreationMode === "preset" ? (
+    <Form.Select
+      value={newTypeChambre.type_chambreAdd}
+      isInvalid={!!typeErrors.type_chambreAdd}
+      onChange={(e) => handlePresetTypeChange(e.target.value)}
+    >
+      <option value="">Sélectionner un type prédéfini</option>
+      {Object.keys(roomTypePresets).map((typeName) => (
+        <option key={typeName} value={typeName}>
+          {typeName}
+        </option>
+      ))}
+    </Form.Select>
+  ) : (
+    <Form.Control
+      type="text"
+      placeholder="Ex: Suite royale"
+      value={newTypeChambre.type_chambreAdd}
+      isInvalid={!!typeErrors.type_chambreAdd}
+      onChange={(e) =>
+        setNewTypeChambre({
+          ...newTypeChambre,
+          type_chambreAdd: e.target.value,
+        })
+      }
+    />
+  )}
+
+  <Form.Control.Feedback type="invalid">
+    {typeErrors.type_chambreAdd}
+  </Form.Control.Feedback>
+</Form.Group>            
             <Form.Group>
               <Form.Label>Nombre de Lit</Form.Label>
 <Form.Control
@@ -2145,6 +2222,7 @@ const columns = [
   min="1"
   placeholder="Nombre de lits"
   value={newTypeChambre.nb_litAdd}
+  readOnly={typeCreationMode === "preset"}
   isInvalid={!!typeErrors.nb_litAdd}
   onChange={(e) =>
     setNewTypeChambre({
@@ -2164,6 +2242,7 @@ const columns = [
   min="1"
   placeholder="Nombre de salles"
   value={newTypeChambre.nb_salleAdd}
+  readOnly={typeCreationMode === "preset"}
   isInvalid={!!typeErrors.nb_salleAdd}
   onChange={(e) =>
     setNewTypeChambre({
