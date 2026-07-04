@@ -43,23 +43,25 @@ class ChambreController extends Controller
     {
         try {
             Log::info('Incoming Data:', $request->all());
-            $rules = [
-                'type_chambre' => 'required|integer',
-                'num_chambre' => 'required|integer|unique:chambres,num_chambre',
-                'etage_id' => 'required|integer',
-                'nb_lit' => 'required|integer',
-                'nb_salle' => 'required|integer',
-                'climat' => 'required',
-                'wifi' => 'required',
-                'vue_id' => 'required|integer',
-            ];
-
+$rules = [
+    'type_chambre' => 'required|integer|exists:types_chambre,id',
+    'num_chambre' => 'required|integer|unique:chambres,num_chambre',
+    'etage_id' => 'required|integer|exists:etages,id',
+    'climat' => 'required',
+    'wifi' => 'required',
+    'vue_id' => 'required|integer|exists:vues,id',
+];
             $validator = Validator::make($request->all(), $rules);
             if ($validator->fails()) {
                 return response()->json(['errors' => $validator->errors()], 422);
             }
 
             $validatedData = $validator->validated();
+
+            $typeChambre = TypeChambre::findOrFail($validatedData['type_chambre']);
+
+$validatedData['nb_lit'] = $typeChambre->nb_lit;
+$validatedData['nb_salle'] = $typeChambre->nb_salle;
 
             // Coerce common boolean-like values (including French 'oui'/'non') to actual booleans
             $validatedData['climat'] = $this->toBool($validatedData['climat']);
@@ -103,23 +105,25 @@ class ChambreController extends Controller
         try {
             $chambre = Chambre::findOrFail($num_chambre);
 
-            $rules = [
-                'num_chambre' => 'required|integer|unique:chambres,num_chambre,' . $chambre->id,
-                'type_chambre' => 'required|integer',
-                'etage_id' => 'required|integer',
-                'nb_lit' => 'required|integer',
-                'nb_salle' => 'required|integer',
-                'climat' => 'required',
-                'wifi' => 'required',
-                'vue_id' => 'required|integer',
-            ];
-
+$rules = [
+    'num_chambre' => 'required|integer|unique:chambres,num_chambre,' . $chambre->id,
+    'type_chambre' => 'required|integer|exists:types_chambre,id',
+    'etage_id' => 'required|integer|exists:etages,id',
+    'climat' => 'required',
+    'wifi' => 'required',
+    'vue_id' => 'required|integer|exists:vues,id',
+];
             $validator = Validator::make($request->all(), $rules);
             if ($validator->fails()) {
                 return response()->json(['errors' => $validator->errors()], 422);
             }
 
             $validatedData = $validator->validated();
+
+            $typeChambre = TypeChambre::findOrFail($validatedData['type_chambre']);
+
+$validatedData['nb_lit'] = $typeChambre->nb_lit;
+$validatedData['nb_salle'] = $typeChambre->nb_salle;
 
             // Coerce boolean-like values
             $validatedData['climat'] = $this->toBool($validatedData['climat']);

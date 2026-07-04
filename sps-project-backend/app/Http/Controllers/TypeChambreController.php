@@ -14,13 +14,13 @@ class TypeChambreController extends Controller
 
     public function ajouterTypeChambre(Request $request)
     {
-            $validatedData = $request->validate([
-            'code' => 'required|string|unique:types_chambre,code',
-            'type_chambre' => 'required|string',
-            'nb_lit' => 'required|integer',
-            'nb_salle' => 'required|integer',
-            'commentaire' => 'nullable|string',
-            ]);
+$validatedData = $request->validate([
+    'code' => 'required|string|unique:types_chambre,code',
+    'type_chambre' => 'required|string|unique:types_chambre,type_chambre',
+    'nb_lit' => 'required|integer|min:1',
+    'nb_salle' => 'required|integer|min:1',
+    'commentaire' => 'nullable|string',
+]);
             $typeChambre = TypeChambre::create($validatedData);
             return response()->json($typeChambre, 201);
     }
@@ -34,13 +34,13 @@ class TypeChambreController extends Controller
     public function updateTypeChambre(Request $request, string $type_chambre_code)
     {
         $typeChambre = TypeChambre::findOrFail($type_chambre_code);
-        $validatedData = $request->validate([
-            'code' => 'required|string',
-            'type_chambre' => 'required|string',
-            'nb_lit' => 'required|integer',
-            'nb_salle' => 'required|integer',
-            'commentaire' => 'nullable|string',
-        ]);
+$validatedData = $request->validate([
+    'code' => 'required|string|unique:types_chambre,code,' . $typeChambre->id,
+    'type_chambre' => 'required|string|unique:types_chambre,type_chambre,' . $typeChambre->id,
+    'nb_lit' => 'required|integer|min:1',
+    'nb_salle' => 'required|integer|min:1',
+    'commentaire' => 'nullable|string',
+]);
         $typeChambre->update($validatedData);
         return response()->json($typeChambre);
     }

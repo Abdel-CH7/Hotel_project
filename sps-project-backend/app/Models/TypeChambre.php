@@ -21,7 +21,7 @@ class TypeChambre extends Model
         "commentaire",
     ];
     public function chambres() {
-        return $this->hasMany(Chambre::class, 'type_chambres');
+        return $this->hasMany(Chambre::class, 'type_chambre');
     }
     
 
