@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEdit, faTrash } from '@fortawesome/free-solid-svg-icons';
 import Button from '@mui/material/Button';
@@ -25,54 +25,128 @@ const ExpandRTable = ({
   toggleRowExpansion,
   renderExpandedRow,
   renderCustomActions,
+  uiVariant = "default",
 }) => {
-  
   const hasActions = handleEdit || handleDelete || renderCustomActions;
   const displayData = filteredData || data || [];
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+const [containerWidth, setContainerWidth] = useState(0);
+const isAppTable = uiVariant === "app";
+const scrollContainerRef = useRef(null);
 
-  // Calculate total minimum width including all columns
-  const totalMinWidth = 50 + // Checkbox column
-    columns.reduce((acc, col) => acc + (col.minWidth || 120), 0) + // Data columns
-    100 + // Status column
-    (hasActions ? 80 : 0); // Action column
+const checkboxColumnWidth = 50;
+const actionColumnWidth = 80;
 
-  // Track window size for responsive adjustments
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    
-    window.addEventListener('resize', handleResize);
-    return () => {
-      window.removeEventListener('resize', handleResize);
-    };
-  }, []);
+const getColumnWidth = (column) => {
+  return Number(column.width || column.minWidth || 140);
+};
 
-  // Create a ref for scrollable container
-  const scrollContainerRef = React.useRef(null);
+const dataColumnsWidth = columns.reduce(
+  (acc, col) => acc + getColumnWidth(col),
+  0
+);
 
-  // Scroll to the right when table is first rendered to show action column
+const fixedColumnsWidth =
+  checkboxColumnWidth + (hasActions ? actionColumnWidth : 0);
+
+const totalMinWidth = fixedColumnsWidth + dataColumnsWidth;
+
+/*
+  Desktop: table must fit inside the card, no horizontal scrollbar.
+  Mobile: scrollbar is allowed if the table is too wide.
+*/
+const shouldScrollHorizontally =
+  isAppTable &&
+  isMobile &&
+  containerWidth > 0 &&
+  totalMinWidth > containerWidth;
+
+const tableWidth =
+  isAppTable && containerWidth > 0
+    ? shouldScrollHorizontally
+      ? totalMinWidth
+      : containerWidth
+    : totalMinWidth;
+
+const availableDataWidth =
+  isAppTable && containerWidth > 0 && !shouldScrollHorizontally
+    ? Math.max(containerWidth - fixedColumnsWidth, 0)
+    : dataColumnsWidth;
+
+const getEffectiveColumnWidth = (column) => {
+  const baseWidth = getColumnWidth(column);
+
+  if (
+    !isAppTable ||
+    shouldScrollHorizontally ||
+    containerWidth <= 0 ||
+    dataColumnsWidth <= 0
+  ) {
+    return baseWidth;
+  }
+
+  return (baseWidth / dataColumnsWidth) * availableDataWidth;
+};
+useEffect(() => {
+  const updateLayout = () => {
+    setIsMobile(window.innerWidth < 768);
+
+    if (scrollContainerRef.current) {
+      setContainerWidth(scrollContainerRef.current.clientWidth || 0);
+    }
+  };
+
+  updateLayout();
+
+  let observer;
+
+  if (typeof ResizeObserver !== "undefined" && scrollContainerRef.current) {
+    observer = new ResizeObserver(updateLayout);
+    observer.observe(scrollContainerRef.current);
+  }
+
+  window.addEventListener("resize", updateLayout);
+
+  return () => {
+    window.removeEventListener("resize", updateLayout);
+    if (observer) observer.disconnect();
+  };
+}, []);
   useEffect(() => {
     if (scrollContainerRef.current && isMobile) {
       const scrollContainer = scrollContainerRef.current;
-      // Small delay to ensure table is rendered
       setTimeout(() => {
         scrollContainer.scrollLeft = scrollContainer.scrollWidth - scrollContainer.clientWidth;
       }, 100);
     }
   }, [isMobile, displayData]);
 
+  const wrapperStyle = isAppTable
+    ? {
+        backgroundColor: 'white',
+        borderRadius: 0,
+        padding: 0,
+        margin: 0,
+        width: '100%',
+        maxWidth: '100%',
+        minWidth: 0,
+      }
+    : {
+        boxShadow: '0 0 15px rgba(0, 0, 0, 0.1)',
+        backgroundColor: 'white',
+        borderRadius: '8px',
+        padding: '15px',
+        margin: '10px 0',
+        width: '100%',
+      };
+
+  const tableClassName = isAppTable ? 'app-table' : undefined;
+  const stickyContainerClassName = isAppTable
+    ? 'sticky-table-container app-table-scroll'
+    : 'sticky-table-container';
+
   return (
-    <div className="expand-table-container" style={{ 
-      boxShadow: '0 0 15px rgba(0, 0, 0, 0.1)',
-      backgroundColor: 'white',
-      borderRadius: '8px',
-      padding: '15px',
-      margin: '10px 0',
-      width: '100%'
-    }}>
-      {/* Fixed CSS by properly wrapping in an object */}
+    <div className={`expand-table-container ${isAppTable ? 'app-expand-table' : ''}`} style={wrapperStyle}>
       <style dangerouslySetInnerHTML={{__html: `
         .sticky-table-container {
           -webkit-overflow-scrolling: touch !important;
@@ -80,19 +154,19 @@ const ExpandRTable = ({
         .sticky-left {
           position: sticky;
           left: 0;
-          z-index: 5;
+          z-index: 2;
           background-color: white;
         }
         .sticky-right {
           position: sticky;
           right: 0;
-          z-index: 5;
+          z-index: 2;
           background-color: white;
         }
         .sticky-header {
           position: sticky;
           top: 0;
-          z-index: 10;
+          z-index: 2;
           background-color: #00afaa;
           color: white;
         }
@@ -100,7 +174,7 @@ const ExpandRTable = ({
           position: sticky;
           left: 0;
           top: 0;
-          z-index: 15;
+          z-index: 3;
           background-color: #00afaa;
           color: white;
         }
@@ -108,12 +182,12 @@ const ExpandRTable = ({
           position: sticky;
           right: 0;
           top: 0;
-          z-index: 15;
+          z-index: 3;
           background-color: #00afaa;
           color: white;
         }
         .sticky-header-right.status-header {
-          right: 80px; /* Space for action column */
+          right: 80px;
         }
         .sticky-right.status-cell {
           right: 80px;
@@ -128,62 +202,101 @@ const ExpandRTable = ({
         }
       `}} />
 
-      {/* Scrollable table container with ref */}
-      <div 
+      <div
         ref={scrollContainerRef}
-        className="sticky-table-container" 
-        style={{ 
-          width: '100%', 
-          overflowX: 'auto',
-          position: 'relative'
-        }}
+        className={stickyContainerClassName}
+        style={{
+  width: "100%",
+  overflowX: isAppTable
+    ? shouldScrollHorizontally
+      ? "auto"
+      : "hidden"
+    : "auto",
+  position: "relative",
+}}
       >
-        <table style={{ 
-          width: '100%',
-          minWidth: isMobile ? `${totalMinWidth}px` : '100%',
-          borderCollapse: 'separate',
-          borderSpacing: 0
-        }}>
+        <table
+          className={tableClassName}
+          style={{
+  width: isAppTable && containerWidth > 0 ? `${tableWidth}px` : "100%",
+  minWidth:
+    isAppTable && containerWidth > 0
+      ? `${tableWidth}px`
+      : isMobile
+      ? `${totalMinWidth}px`
+      : "100%",
+  tableLayout: isAppTable ? "fixed" : "auto",
+  borderCollapse: isAppTable ? "collapse" : "separate",
+  borderSpacing: 0,
+}}
+        >
+          {isAppTable && (
+  <colgroup>
+    <col style={{ width: `${checkboxColumnWidth}px` }} />
+
+    {columns.map((column) => (
+      <col
+        key={`col-${column.key}`}
+        style={{ width: `${getEffectiveColumnWidth(column)}px` }}
+      />
+    ))}
+
+    {hasActions && <col style={{ width: `${actionColumnWidth}px` }} />}
+  </colgroup>
+)}
           <thead>
             <tr>
-              {/* Checkbox Column */}
-              <th className="sticky-header-left sticky-shadow-left" style={{ 
-                width: '50px',
-                minWidth: '50px',
-                padding: '10px'
-              }}>
-                <input 
-                  type="checkbox" 
-                  checked={selectAll} 
-                  onChange={handleSelectAllChange} 
+              <th
+                className="sticky-header-left sticky-shadow-left"
+                style={{
+                  width: `${checkboxColumnWidth}px`,
+minWidth: `${checkboxColumnWidth}px`,
+maxWidth: `${checkboxColumnWidth}px`,
+                  padding: isAppTable ? '8px' : '10px',
+                  textAlign: "center",
+                  borderColor: isAppTable ? "#00afaa" : undefined,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={selectAll}
+                  onChange={handleSelectAllChange}
                   aria-label="Select all rows"
                 />
               </th>
-              
-              {/* Data Columns */}
+
               {columns.map((column) => (
-                <th 
+                <th
                   key={column.key}
                   className="sticky-header"
-                  style={{ 
-                    minWidth: column.minWidth || '120px',
-                    padding: '10px',
-                    textAlign: 'left',
-                    fontWeight: 'bold'
+                  style={{
+width: isAppTable ? `${getEffectiveColumnWidth(column)}px` : undefined,
+minWidth: isAppTable
+  ? `${getEffectiveColumnWidth(column)}px`
+  : column.minWidth || "120px",
+maxWidth: isAppTable ? `${getEffectiveColumnWidth(column)}px` : undefined,
+padding: isAppTable ? "8px" : "10px",
+textAlign: isAppTable ? "center" : "left",
+fontWeight: "bold",
+overflow: "hidden",
+textOverflow: "ellipsis",
+whiteSpace: "nowrap",
+                    borderColor: isAppTable ? "#00afaa" : undefined,
                   }}
                 >
                   {column.label}
                 </th>
               ))}
-              {/* Actions Column */}
+
               {hasActions && (
-                <th 
-                  className="sticky-header-right sticky-shadow-right" 
-                  style={{ 
-                    width: '80px',
-                    minWidth: '80px',
-                    padding: '10px',
-                    textAlign: 'center'
+                <th
+                  className="sticky-header-right sticky-shadow-right"
+                  style={{
+                    width: `${actionColumnWidth}px`,
+minWidth: `${actionColumnWidth}px`,
+maxWidth: `${actionColumnWidth}px`,
+                    padding: isAppTable ? '8px' : '10px',
+                    textAlign: 'center',
                   }}
                 >
                   Action
@@ -191,18 +304,22 @@ const ExpandRTable = ({
               )}
             </tr>
           </thead>
-          
+
           <tbody>
             {displayData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((item) => (
               <React.Fragment key={item.id || `row-${Math.random()}`}>
                 <tr>
-                  {/* Checkbox Cell */}
-                  <td className="sticky-left sticky-shadow-left" style={{ 
-                    width: '50px',
-                    minWidth: '50px',
-                    padding: '8px',
-                    borderBottom: '1px solid #eee'
-                  }}>
+                  <td
+                    className="sticky-left sticky-shadow-left"
+                    style={{
+                      width: `${checkboxColumnWidth}px`,
+minWidth: `${checkboxColumnWidth}px`,
+maxWidth: `${checkboxColumnWidth}px`,
+                      padding: '8px',
+                      borderBottom: "1px solid #eee",
+                      textAlign: "center",
+                    }}
+                  >
                     <input
                       type="checkbox"
                       checked={selectedItems.includes(item.id)}
@@ -210,52 +327,51 @@ const ExpandRTable = ({
                       aria-label={`Select row ${item.id}`}
                     />
                   </td>
-                  
-                  {/* Data Cells */}
+
                   {columns.map((column) => (
-                    <td 
-                      key={`${item.id}-${column.key}`} 
-                      style={{ 
-                        backgroundColor: "white",
-                        padding: '8px',
-                        borderBottom: '1px solid #eee',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis'
+                    <td
+                      key={`${item.id}-${column.key}`}
+                      style={{
+                        width: isAppTable ? `${getEffectiveColumnWidth(column)}px` : undefined,
+minWidth: isAppTable ? `${getEffectiveColumnWidth(column)}px` : undefined,
+maxWidth: isAppTable ? `${getEffectiveColumnWidth(column)}px` : undefined,
+backgroundColor: "white",
+padding: "8px",
+borderBottom: "1px solid #eee",
+overflow: "hidden",
+textOverflow: "ellipsis",
+whiteSpace: "nowrap",
+textAlign: isAppTable ? "center" : "left",
                       }}
                     >
-                      {column.render 
-                        ? column.render(item, searchTerm, toggleRowExpansion) 
+                      {column.render
+                        ? column.render(item, searchTerm, toggleRowExpansion)
                         : (highlightText(item[column.key], searchTerm) || '')}
                     </td>
                   ))}
-                  
 
-                  
-                  {/* Actions Cell */}
                   {hasActions && (
-                    <td 
-                      className="sticky-right sticky-shadow-right" 
-                      style={{ 
-                        width: '80px',
-                        minWidth: '80px',
+                    <td
+                      className="sticky-right sticky-shadow-right"
+                      style={{
+                        width: `${actionColumnWidth}px`,
+minWidth: `${actionColumnWidth}px`,
+maxWidth: `${actionColumnWidth}px`,
                         padding: '8px',
                         borderBottom: '1px solid #eee',
-                        textAlign: 'center'
+                        textAlign: 'center',
                       }}
                     >
-                      <div style={{ 
-                        display: "flex", 
-                        justifyContent: "center",
-                        gap: "10px"
-                      }}>
+                      <div style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}>
                         {handleEdit && (
                           <FontAwesomeIcon
                             onClick={() => handleEdit(item)}
                             icon={faEdit}
-                            style={{ 
-                              color: "#007bff", 
-                              cursor: "pointer",
-                              fontSize: '16px'
+                            className={isAppTable ? 'app-table-action is-edit' : undefined}
+                            style={isAppTable ? undefined : {
+                              color: '#007bff',
+                              cursor: 'pointer',
+                              fontSize: '16px',
                             }}
                             aria-label="Edit"
                           />
@@ -264,10 +380,11 @@ const ExpandRTable = ({
                           <FontAwesomeIcon
                             onClick={() => handleDelete(item.id)}
                             icon={faTrash}
-                            style={{ 
-                              color: "#ff0000", 
-                              cursor: "pointer",
-                              fontSize: '16px'
+                            className={isAppTable ? 'app-table-action is-delete' : undefined}
+                            style={isAppTable ? undefined : {
+                              color: '#ff0000',
+                              cursor: 'pointer',
+                              fontSize: '16px',
                             }}
                             aria-label="Delete"
                           />
@@ -277,16 +394,15 @@ const ExpandRTable = ({
                     </td>
                   )}
                 </tr>
-                
-                {/* Expanded Row Content */}
+
                 {expandedRows[item.id] && (
                   <tr className="expanded-row">
-                    <td 
-                      colSpan={columns.length + (hasActions ? 3 : 2)} 
-                      style={{ 
-                        padding: "15px",
-                        backgroundColor: "#f9f9f9",
-                        borderBottom: '1px solid #eee'
+                    <td
+                      colSpan={columns.length + 1 + (hasActions ? 1 : 0)}
+                      style={{
+                        padding: '15px',
+                        backgroundColor: '#f9f9f9',
+                        borderBottom: '1px solid #eee',
                       }}
                     >
                       {renderExpandedRow(item)}
@@ -295,18 +411,17 @@ const ExpandRTable = ({
                 )}
               </React.Fragment>
             ))}
-            
-            {/* Empty State */}
+
             {displayData.length === 0 && (
               <tr>
-                <td 
-                  colSpan={columns.length + (hasActions ? 3 : 2)} 
-                  style={{ 
-                    textAlign: 'center', 
-                    padding: '20px' 
+                <td
+                  colSpan={columns.length + 1 + (hasActions ? 1 : 0)}
+                  style={{
+                    textAlign: 'center',
+                    padding: '20px',
                   }}
                 >
-                  Aucune donnée disponible
+                  Aucune donnee disponible
                 </td>
               </tr>
             )}
@@ -314,40 +429,44 @@ const ExpandRTable = ({
         </table>
       </div>
 
-      {/* Footer Section */}
-      <div style={{ 
-        display: 'flex', 
-        flexDirection: isMobile ? 'column' : 'row',
-        justifyContent: 'space-between', 
-        alignItems: isMobile ? 'flex-start' : 'center', 
-        marginTop: '20px',
-        gap: '15px'
-      }}>
-        {/* Delete Selected Button */}
+      <div
+        className={isAppTable ? 'app-table-footer' : undefined}
+        style={isAppTable ? undefined : {
+          display: 'flex',
+          flexDirection: isMobile ? 'column' : 'row',
+          justifyContent: 'space-between',
+          alignItems: isMobile ? 'flex-start' : 'center',
+          marginTop: '20px',
+          gap: '15px',
+        }}
+      >
         <Button
           variant="contained"
           color="error"
           onClick={handleDeleteSelected}
           disabled={!selectedItems || selectedItems.length === 0}
-          style={{ 
-            borderRadius: "8px", 
-            fontWeight: "bold", 
+          className={isAppTable ? 'app-danger-button' : undefined}
+          style={isAppTable ? undefined : {
+            borderRadius: '8px',
+            fontWeight: 'bold',
             padding: '8px 16px',
             backgroundColor: '#dc3545',
             fontSize: isMobile ? '12px' : '14px',
           }}
           startIcon={<FontAwesomeIcon icon={faTrash} />}
         >
-          SUPPRIMER SELECTION
+          Supprimer selection
         </Button>
 
-        {/* Pagination Control */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div
+          className={isAppTable ? 'app-table-pagination' : undefined}
+          style={isAppTable ? undefined : { display: 'flex', alignItems: 'center', gap: '10px' }}
+        >
           <span>Lignes par page:</span>
-          <select 
+          <select
             value={rowsPerPage}
             onChange={(e) => handleChangeRowsPerPage({ target: { value: e.target.value }})}
-            style={{ marginRight: '15px', padding: '5px' }}
+            style={isAppTable ? undefined : { marginRight: '15px', padding: '5px' }}
           >
             {[5, 10, 15, 20, 25].map(value => (
               <option key={value} value={value}>{value}</option>

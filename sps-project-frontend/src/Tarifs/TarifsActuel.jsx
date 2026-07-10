@@ -3,7 +3,6 @@ import axios from "axios";
 import Swal from "sweetalert2";
 import { Form, Button, Modal, Carousel } from "react-bootstrap";
 import Navigation from "../Acceuil/Navigation";
-import TablePagination from "@mui/material/TablePagination";
 import { DatePicker, Space } from 'antd';
 import { highlightText } from "../utils/textUtils";
 // import PrintList from "./PrintList";
@@ -32,7 +31,6 @@ import * as XLSX from "xlsx";
 import "../style.css";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import Box from "@mui/material/Box";
-import { Checkbox, Fab, Toolbar } from "@mui/material";
 import { useOpen } from "../Acceuil/OpenProvider"; // Importer le hook personnalisé
 import { FaArrowLeft, FaArrowRight } from "react-icons/fa6";
 
@@ -823,7 +821,11 @@ const handleCategoryFilterChange = (catId) => {
   return (
     <ThemeProvider theme={createTheme()}>
       <Box sx={{...dynamicStyles}}>
-        <Box component="main" sx={{ flexGrow: 1, p: 3, mt: 4 }}>
+        <Box
+          component="main"
+          className="app-page tarifs-actuel-page"
+          sx={{ flexGrow: 1, p: 3, mt: 0 }}
+        >
 
        
         <SearchWithExport
@@ -836,92 +838,43 @@ const handleCategoryFilterChange = (catId) => {
             Title="Liste des Tarifs Actuel"
           />
 
-
-          {
-          
-              <div className=" bgSecteur">
-              </div>
-
-          }
-
-          <div className="container-d-flex justify-content-start">
-            <div style={{ display: "flex", alignItems: "center" ,marginTop:'-12px' ,padding:'15px'}}>
+          <div className="app-controls-row">
              
               <button
+                type="button"
                 onClick={handleShowFormButtonClick}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  cursor: "pointer",
-                  backgroundColor: "#329982",
-                  color: "white",
-                  borderRadius: "10px",
-                  fontWeight: "bold"  , 
-                  marginLeft: "96%",
-                  padding: "6px 15px",
-                  height: "40px",
-                  border: "none",
-                }}
-                className="gap-2 AjouteBotton"
+                className="app-add-button"
               >
  <FontAwesomeIcon
                     icon={faPlus}
-                    className=" AjouteBotton"
-                    style={{ cursor: "pointer", color: "white" }} 
                   />
+                  Ajouter Tarif
               </button>
 
+            <div className="app-filter-controls tarifs-actuel-filters">
+              <Form.Label className="mb-0 fw-bold">Période :</Form.Label>
+              <RangePicker
+                onChange={(dates) => {
+                  if (dates) {
+                    setDateDebut(dates[0].format('YYYY-MM-DD'));
+                    setDateFin(dates[1].format('YYYY-MM-DD'));
+                  } else {
+                    setDateDebut(null);
+                    setDateFin(null);
+                  }
+                }}
+                className="tarifs-actuel-range-picker"
+              />
             </div>
-
-
-
-            <div className="filters">
-  <Form.Label style={{
-    position: 'absolute',
-    left: '64%',
-    top: '137px',
-    fontWeight: 'bold'
-  }}>Période :</Form.Label>
-  <RangePicker
-    onChange={(dates) => {
-      if (dates) {
-        setDateDebut(dates[0].format('YYYY-MM-DD'));
-        setDateFin(dates[1].format('YYYY-MM-DD'));
-      } else {
-        setDateDebut(null);
-        setDateFin(null);
-      }
-    }}
-    style={{
-      width: '24%',
-      height: "40px",
-      position: 'absolute',
-      left: '68%',
-      top: '129px',
-      cursor: "pointer",
-      borderRadius: "10px",
-      color: "black",
-      fontWeight: "bold"
-    }}
-  />
-</div>
+          </div>
 
                 
 
         <div style={{ marginTop:"0px",}}>
-        <div id="formContainer" className="" style={{...formContainerStyle,marginTop:'0px',maxHeight:'700px',overflow:'auto',padding:'0'}}>
+        <div id="formContainer" className="app-form-drawer" style={formContainerStyle}>
               <Form className="col row" onSubmit={handleSubmit}>
                 <Form.Label className="text-center ">
-                <h4
-                     style={{
-                      fontSize: "25px", 
-                      fontFamily: "Arial, sans-serif", 
-                      fontWeight: "bold", 
-                      color: "black",
-                      borderBottom: "2px solid black", 
-                      paddingBottom: "5px",
-                    }}
-                    >
+                <h4 className="app-form-drawer-title">
                       {editingTarifActuel ? "Modifier" : "Ajouter"} un Tarif</h4>
                 </Form.Label>
 
@@ -1035,36 +988,28 @@ const handleCategoryFilterChange = (catId) => {
 </Form.Group>
 
 
-  <Form.Group className="mt-5 d-flex justify-content-center">
-        <Fab
-    variant="extended"
-    className="btn-sm Fab mb-2 mx-2"
-    type="submit"
-  >
-    Valider
-  </Fab>
-  <Fab
-    variant="extended"
-    className="btn-sm FabAnnule mb-2 mx-2"
-    onClick={closeForm}
-  >
-    Annuler
-  </Fab>
-      </Form.Group>
+  <div className="app-form-actions">
+    <Button type="submit" className="app-primary-button">
+      Valider
+    </Button>
+    <Button type="button" className="app-secondary-button" onClick={closeForm}>
+      Annuler
+    </Button>
+  </div>
               </Form>
             </div>
         </div>
             <div className="">
               <div
                 id="tableContainer"
-                className="table-responsive"
-                style={{...tableContainerStyle, overflowX: 'auto', minWidth: '650px',
+                className="app-table-wrapper"
+                style={{...tableContainerStyle, overflowX: 'auto',
                   maxHeight: '700px', overflow: 'auto',
                   marginTop:'0px',
                   paddingTop:'0px'
                 }}
               >
-                 <table className="table table-bordered" id="tarifsActuelTable" style={{ marginTop: "-5px", }}>
+                 <table className="table table-bordered app-table" id="tarifsActuelTable" style={{ marginTop: "-5px", }}>
   <thead className="text-center table-secondary" style={{ position: 'sticky', top: -1, backgroundColor: '#ddd', zIndex: 1,padding:'10px'}}>
     <tr className="tableHead">
       <th className="tableHead">
@@ -1125,12 +1070,12 @@ const handleCategoryFilterChange = (catId) => {
     <FontAwesomeIcon
       onClick={() => handleEdit(tarifActuel)}
       icon={faEdit}
-      style={{ color: "#007bff", cursor: "pointer", marginRight: "10px" }}
+      className="app-table-action is-edit"
     />
     <FontAwesomeIcon
       onClick={() => handleDelete(tarifActuel.id)}
       icon={faTrash}
-      style={{ color: "#ff0000", cursor: "pointer", marginRight: "10px" }}
+      className="app-table-action is-delete"
     />
   </div>  
 </td>
@@ -1145,7 +1090,7 @@ const handleCategoryFilterChange = (catId) => {
           }}>
             <div>
                 <table
-                className="table table-responsive table-bordered"
+                className="table table-responsive table-bordered app-table"
                 style={{marginTop:'0px',marginBottom:'0px'}}>
                   <thead>
                       <tr>
@@ -1189,7 +1134,7 @@ const handleCategoryFilterChange = (catId) => {
           }}>
             <div>
                 <table
-                className="table table-responsive table-bordered"
+                className="table table-responsive table-bordered app-table"
                 style={{marginTop:'0px',marginBottom:'0px'}}>
                   <thead>
                       <tr>
@@ -1225,7 +1170,7 @@ const handleCategoryFilterChange = (catId) => {
           }}>
             <div>
                 <table
-                className="table table-responsive table-bordered"
+                className="table table-responsive table-bordered app-table"
                 style={{marginTop:'0px',marginBottom:'0px'}}>
                   <thead>
                       <tr>
@@ -1265,37 +1210,64 @@ const handleCategoryFilterChange = (catId) => {
 
                 {/* )} */}
                
-                <a href="#">
+                <div className="app-table-footer">
                   <Button
-                  className="btn btn-danger btn-sm"
-                  onClick={handleDeleteSelected}
-                  disabled={selectedItems?.length === 0}
-                  style={{
-                    borderRadius: "10px",
-                    fontWeight: "bold",
-                    fontSize: "17px",
-                    color: "white",
-                  }}
-                >
-                  <FontAwesomeIcon
-                    icon={faTrash}
-                    style={{ marginRight: "0.5rem" }}
-                  />
-                  Supprimer selection
-                </Button>
-                </a>
-                <TablePagination
-                  rowsPerPageOptions={[5, 10,15,20, 25]}
-                  component="div"
-                  count={filteredTarifsactuel?.length || 0}
-                  rowsPerPage={rowsPerPage}
-                  page={page}
-                  onPageChange={handleChangePage}
-                  onRowsPerPageChange={handleChangeRowsPerPage}
-                />
+                    type="button"
+                    className="app-danger-button"
+                    onClick={handleDeleteSelected}
+                    disabled={selectedItems?.length === 0}
+                  >
+                    <FontAwesomeIcon
+                      icon={faTrash}
+                      style={{ marginRight: "0.5rem" }}
+                    />
+                    Supprimer selection
+                  </Button>
+
+                  <div className="app-table-pagination">
+                    <span>Lignes par page:</span>
+                    <select
+                      value={rowsPerPage}
+                      onChange={(e) =>
+                        handleChangeRowsPerPage({
+                          target: { value: e.target.value },
+                        })
+                      }
+                    >
+                      {[5, 10, 15, 20, 25].map((value) => (
+                        <option key={value} value={value}>
+                          {value}
+                        </option>
+                      ))}
+                    </select>
+                    <span>
+                      {filteredTarifsActuel.length > 0
+                        ? `${page * rowsPerPage + 1}-${Math.min(
+                            (page + 1) * rowsPerPage,
+                            filteredTarifsActuel.length
+                          )} sur ${filteredTarifsActuel.length}`
+                        : "0-0 sur 0"}
+                    </span>
+                    <button
+                      type="button"
+                      className="app-pagination-arrow"
+                      disabled={page === 0}
+                      onClick={(e) => handleChangePage(e, page - 1)}
+                    >
+                      ‹
+                    </button>
+                    <button
+                      type="button"
+                      className="app-pagination-arrow"
+                      disabled={(page + 1) * rowsPerPage >= filteredTarifsActuel.length}
+                      onClick={(e) => handleChangePage(e, page + 1)}
+                    >
+                      ›
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
         </Box>
       </Box>
     </ThemeProvider>

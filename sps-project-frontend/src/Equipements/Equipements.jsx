@@ -3,7 +3,6 @@ import axios from "axios";
 import Swal from "sweetalert2";
 import { Form, Button, Modal } from "react-bootstrap";
 import { highlightText } from '../utils/textUtils';
-import TablePagination from "@mui/material/TablePagination";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
 import {
@@ -20,7 +19,6 @@ import 'jspdf-autotable';
 import SearchWithExport from "../components/SearchWithExport";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import Box from "@mui/material/Box";
-import { Fab, Checkbox } from "@mui/material";
 import { useOpen } from "../Acceuil/OpenProvider";
 import "../style.css";
 
@@ -64,7 +62,6 @@ const GestionEquipements = () => {
   
   // UI states
   const [formContainerStyle, setFormContainerStyle] = useState({ right: "-100%" });
-  const [tableContainerStyle, setTableContainerStyle] = useState({ marginRight: "0px" });
   
   const { dynamicStyles } = useOpen();
 
@@ -216,7 +213,6 @@ const GestionEquipements = () => {
       document: null
     });
     setFormContainerStyle({ right: "0" });
-    setTableContainerStyle({ marginRight: "650px" });
   };    
 
   const handleDelete = (equipement) => {
@@ -274,7 +270,6 @@ const GestionEquipements = () => {
 
   const closeForm = () => {
     setFormContainerStyle({ right: "-100%" });
-    setTableContainerStyle({ marginRight: "0" });
     setEditingEquipement(null);
     setSelectedItems([]); // Désélectionne toutes les cases
     setFormData({
@@ -296,32 +291,28 @@ const GestionEquipements = () => {
     setHasSubmitted(false);
   };
 
-  const handleShowForm = () => {
-    setEditingEquipement(null);
-    setFormData({
-      nom: "",
-      numero_serie: "",
-      modele: "",
-      marque: "",
-      date_acquisition: "",
-      date_fin_garantie: "",
-      fournisseur: "",
-      localisation: "",
-      statut: "disponible",
-      categorie_id: "",
-      prix_achat: "",
-      notes: "",
-      document: null
-    });
-    setErrors({});
-    setHasSubmitted(false);
-    
-    if (formContainerStyle.right === "-100%") {
-      setFormContainerStyle({ right: "0" });
-      setTableContainerStyle({ marginRight: "650px" });
-    }
-  };
-
+const handleShowForm = () => {
+  setEditingEquipement(null);
+  setSelectedItems([]);
+  setFormData({
+    nom: "",
+    numero_serie: "",
+    modele: "",
+    marque: "",
+    date_acquisition: "",
+    date_fin_garantie: "",
+    fournisseur: "",
+    localisation: "",
+    statut: "disponible",
+    categorie_id: "",
+    prix_achat: "",
+    notes: "",
+    document: null,
+  });
+  setErrors({});
+  setHasSubmitted(false);
+  setFormContainerStyle({ right: "0" });
+};
   // Selection handlers
   const handleSelectAllChange = () => {
     setSelectAll(!selectAll);
@@ -483,7 +474,7 @@ const GestionEquipements = () => {
   return (
     <ThemeProvider theme={createTheme()}>
       <Box sx={{...dynamicStyles}}>
-        <Box component="main" sx={{ flexGrow: 1, p: 3, mt: 4 }}>
+        <Box component="main" className="app-page equipements-page" sx={{ flexGrow: 1, p: 3, mt: 0 }}>
 
           <SearchWithExport
             onSearch={setSearchTerm}
@@ -496,566 +487,457 @@ const GestionEquipements = () => {
             Title="Gestion des Équipements"
           />
 
-{
-          
-          <div className=" bgSecteur">
-          </div>
-
-      }
-
           
 
           {/* Stats Cards */}
-<div style={{ 
-  display: 'flex', 
-  gap: '20px', 
-  marginBottom: '70px',
-  marginTop: '30px',
-  flexWrap: 'wrap',
-  justifyContent: 'center'
-}}>
+{/* Stats Cards */}
+<div className="app-section app-stats-grid">
   {[
-    { 
-      title: "Total Équipements", 
-      value: stats.total || 0, 
+    {
+      title: "Total Équipements",
+      value: stats.total || 0,
       color: "#00afaa",
-      icon: faTools 
+      icon: faTools,
     },
-    { 
-      title: "Disponibles", 
-      value: stats.disponible || 0, 
+    {
+      title: "Disponibles",
+      value: stats.disponible || 0,
       color: "#28a745",
-      icon: faCheckCircle 
+      icon: faCheckCircle,
     },
-    { 
-      title: "En maintenance", 
-      value: stats.en_maintenance || 0, 
+    {
+      title: "En maintenance",
+      value: stats.en_maintenance || 0,
       color: "#ffc107",
-      icon: faWrench 
+      icon: faWrench,
     },
-    { 
-      title: "Hors service", 
-      value: stats.hors_service || 0, 
+    {
+      title: "Hors service",
+      value: stats.hors_service || 0,
       color: "#dc3545",
-      icon: faTimesCircle 
-    }
+      icon: faTimesCircle,
+    },
   ].map((stat, index) => (
-    <div key={index} style={{ 
-      flex: 1,
-      minWidth: '200px',
-      backgroundColor: 'white',
-      padding: '20px',
-      borderRadius: '10px',
-      boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-      borderTop: `4px solid ${stat.color}`
-    }}>
-      <div style={{ 
-        display: 'flex',
-        alignItems: 'center',
-        gap: '15px'
-      }}>
-        <div style={{
-          width: '50px',
-          height: '50px',
-          borderRadius: '50%',
-          backgroundColor: `${stat.color}20`, // 20 = 0.2 opacity
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}>
-          <FontAwesomeIcon 
-            icon={stat.icon} 
-            style={{ 
-              color: stat.color, 
-              fontSize: '20px' 
-            }} 
-          />
-        </div>
-        <div>
-          <div style={{ 
-            color: '#6c757d', 
-            fontSize: '14px',
-            fontWeight: '500'
-          }}>
-            {stat.title}
-          </div>
-          <div style={{ 
-            fontSize: '24px', 
-            fontWeight: 'bold',
-            color: stat.color
-          }}>
-            {stat.value}
-          </div>
+    <div
+      key={index}
+      className="app-stat-card"
+      style={{ borderTopColor: stat.color }}
+    >
+      <div
+        className="app-stat-icon"
+        style={{ backgroundColor: `${stat.color}20` }}
+      >
+        <FontAwesomeIcon
+          icon={stat.icon}
+          style={{ color: stat.color, fontSize: "20px" }}
+        />
+      </div>
+
+      <div>
+        <div className="app-stat-title">{stat.title}</div>
+        <div className="app-stat-value" style={{ color: stat.color }}>
+          {stat.value}
         </div>
       </div>
     </div>
   ))}
 </div>
 
-<div style={{ display: "flex", alignItems: "center", marginTop: '-50px', padding: '15px' }}>
-            <button
-              onClick={handleShowForm}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                cursor: "pointer",
-                backgroundColor: "#329982",
-                color: "white",
-                borderRadius: "10px",
-                fontWeight: "bold",
-                marginLeft: "96%",
-                padding: "6px 15px",
-                border: "none",
-                height: "40px",
-              }}
-              className="gap-2 AjouteBotton sm:ml-0 md:ml-auto"
-            >
-              <FontAwesomeIcon
-                icon={faPlus}
-                className=" AjouteBotton"
-                style={{ cursor: "pointer", color: "white" }}
-              />
-            </button>
-          </div>
+<div className="app-controls-row">
+  <button
+    type="button"
+    onClick={handleShowForm}
+    className="app-add-button"
+  >
+    <FontAwesomeIcon icon={faPlus} />
+    Ajouter Équipement
+  </button>
 
-          <div className="filters" style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
-  {/* Filtre Catégorie (existant) */}
-            <Form.Select
-              aria-label="Filtrer par catégorie"
-              value={selectedCategory || ""}
-              onChange={(e) => setSelectedCategory(e.target.value || null)}
-              style={{
-                width: '12%',
-                height: "40px",
-                position: 'absolute',
-                marginTop: "20px",
-                left: '81%',
-                top: '260px',
-                cursor: "pointer",
-                borderRadius: "10px",
-                color: "black",
-                fontWeight: "bold",
-              }}
-              className="sm:w-3/4 md:w-1/2 lg:w-1/4"
-            >
-              <option value="">Toutes les catégories</option>
-              {categories.map((categorie) => (
-                <option key={categorie.id} value={categorie.id}>
-                  {categorie.nom}
-                </option>
-              ))}
-            </Form.Select>
+  <div className="app-filter-controls">
+    <Form.Select
+      aria-label="Filtrer par statut"
+      value={selectedStatus || ""}
+      onChange={(e) => setSelectedStatus(e.target.value || null)}
+      className="app-filter-select"
+    >
+      <option value="">Tous les statuts</option>
+      <option value="disponible">Disponible</option>
+      <option value="en_maintenance">En maintenance</option>
+      <option value="hors_service">Hors service</option>
+    </Form.Select>
 
-             {/* Nouveau filtre Statut */}
-              <Form.Select
-                aria-label="Filtrer par statut"
-                value={selectedStatus || ""}
-                onChange={(e) => setSelectedStatus(e.target.value || null)}
-                style={{
-                  width: '12%',
-                  height: "40px",
-                  position: 'absolute',
-                  marginTop: "20px",
-                  left: '68%',
-                  top: '260px',
-                  cursor: "pointer",
-                  borderRadius: "10px",
-                  color: "black",
-                  fontWeight: "bold",
-                }}
-              >
-                <option value="">Tous les statuts</option>
-                <option value="disponible">Disponible</option>
-                <option value="en_maintenance">En maintenance</option>
-                <option value="hors_service">Hors service</option>
-              </Form.Select>
-            
-              </div>
+    <Form.Select
+      aria-label="Filtrer par catégorie"
+      value={selectedCategory || ""}
+      onChange={(e) => setSelectedCategory(e.target.value || null)}
+      className="app-filter-select"
+    >
+      <option value="">Toutes les catégories</option>
+      {categories.map((categorie) => (
+        <option key={categorie.id} value={categorie.id}>
+          {categorie.nom}
+        </option>
+      ))}
+    </Form.Select>
+  </div>
+</div>
 
+{/* Form Container */}
+<div
+  id="formContainer"
+  className="app-form-drawer"
+  style={{
+    ...formContainerStyle,
+    width: "650px",
+    maxWidth: "100%",
+  }}
+>
+  <Form onSubmit={handleSubmit}>
+    <h4 className="app-form-drawer-title">
+      {editingEquipement ? "Modifier" : "Ajouter"} un Équipement
+    </h4>
 
-          {/* Form Container */}
-          <div id="formContainer" className="" style={{...formContainerStyle,marginTop:'0px',maxHeight:'700px',overflow:'auto',padding:'0'}}>
-            <Form className="d-flex flex-column align-items-start" onSubmit={handleSubmit}>
-              <Form.Label className="w-100 text-center">
-                <h4 style={{
-                  fontSize: "25px", 
-                  fontFamily: "Arial, sans-serif", 
-                  fontWeight: "bold", 
-                  color: "black",
-                  borderBottom: "2px solid black", 
-                  paddingBottom: "5px",
-                }}>
-                  {editingEquipement ? "Modifier" : "Ajouter"} un Équipement
-                </h4>
-              </Form.Label>
-
-              <div style={{ display: 'flex', gap: '20px', width: '100%', marginBottom: '20px' }}>
-                <Form.Group style={{ flex: 1 }}>
-                  <Form.Label style={{ fontWeight: "bold" }}>
-                    Nom *
-                  </Form.Label>
-                  <Form.Control
-                    type="text"
-                    name="nom"
-                    value={formData.nom}
-                    isInvalid={hasSubmitted && errors.nom}
-                    onChange={handleChange}
-                  />
-                  {hasSubmitted && errors.nom && (
-                    <Form.Control.Feedback type="invalid">
-                      Required
-                    </Form.Control.Feedback>
-                  )}
-                </Form.Group>
-
-                <Form.Group style={{ flex: 1 }}>
-                  <Form.Label style={{ fontWeight: "bold" }}>
-                    N° Série *
-                  </Form.Label>
-                  <Form.Control
-                    type="text"
-                    name="numero_serie"
-                    value={formData.numero_serie}
-                    isInvalid={hasSubmitted && errors.numero_serie}
-                    onChange={handleChange}
-                  />
-                  {hasSubmitted && errors.numero_serie && (
-                    <Form.Control.Feedback type="invalid">
-                      Required
-                    </Form.Control.Feedback>
-                  )}
-                </Form.Group>
-              </div>
-
-              <div style={{ display: 'flex', gap: '20px', width: '100%', marginBottom: '20px' }}>
-                <Form.Group style={{ flex: 1 }}>
-                  <Form.Label style={{ fontWeight: "bold" }}>Modèle *</Form.Label>
-                  <Form.Control
-                    type="text"
-                    name="modele"
-                    value={formData.modele}
-                    isInvalid={hasSubmitted && errors.modele}
-                    onChange={handleChange}
-                    style={{ minWidth: "100%", maxWidth: "400px" }}
-                  />
-                  {hasSubmitted && errors.modele && (
-                    <Form.Control.Feedback type="invalid">
-                      Required
-                    </Form.Control.Feedback>
-                  )}
-              </Form.Group>
-
-              <Form.Group style={{ flex: 1 }}>
-                <Form.Label style={{ fontWeight: "bold" }}>
-                  Marque *
-                </Form.Label>
-                  <Form.Control
-                    type="text"
-                    name="marque"
-                    value={formData.marque}
-                    isInvalid={hasSubmitted && errors.marque}
-                    onChange={handleChange}
-                    style={{ minWidth: "100%", maxWidth: "400px" }}
-                  />
-                  {hasSubmitted && errors.marque && (
-                    <Form.Control.Feedback type="invalid">
-                      Required
-                    </Form.Control.Feedback>
-                  )}
-              </Form.Group>
-              </div>
-
-
-              <div style={{ display: 'flex', gap: '20px', width: '100%', marginBottom: '20px' }}>
-                <Form.Group style={{ flex: 1 }}>
-                  <Form.Label style={{ fontWeight: "bold" }}>
-                  Catégorie *
-                </Form.Label>
-                  <Form.Select
-                    name="categorie_id"
-                    value={formData.categorie_id}
-                    onChange={handleChange}
-                    isInvalid={hasSubmitted && errors.categorie_id}
-                    style={{ minWidth: "100%", maxWidth: "400px" }}
-                  >
-                    <option value="">Sélectionner une catégorie</option>
-                    {categories.map(categorie => (
-                      <option key={categorie.id} value={categorie.id}>
-                        {categorie.nom}
-                      </option>
-                    ))}
-                  </Form.Select>
-                  {hasSubmitted && errors.categorie_id && (
-                    <Form.Control.Feedback type="invalid">
-                      Required
-                    </Form.Control.Feedback>
-                  )}
-              </Form.Group>
-
-              <Form.Group style={{ flex: 1 }}>
-              <Form.Label style={{ fontWeight: "bold" }}>
-                  Statut
-                </Form.Label>
-                  <Form.Select
-                    name="statut"
-                    value={formData.statut}
-                    onChange={handleChange}
-                    style={{ minWidth: "100%", maxWidth: "400px" }}
-                  >
-                    <option value="disponible">Disponible</option>
-                    <option value="en_maintenance">En maintenance</option>
-                    <option value="hors_service">Hors service</option>
-                  </Form.Select>
-              </Form.Group>
-              </div>
-
-              <div style={{ display: 'flex', gap: '20px', width: '100%', marginBottom: '20px' }}>
-                <Form.Group style={{ flex: 1 }}>
-                  <Form.Label style={{ fontWeight: "bold" }}>
-                  Localisation *
-                </Form.Label>
-                  <Form.Control
-                    type="text"
-                    name="localisation"
-                    value={formData.localisation}
-                    isInvalid={hasSubmitted && errors.localisation}
-                    onChange={handleChange}
-                    style={{ minWidth: "100%", maxWidth: "400px" }}
-                  />
-                  {hasSubmitted && errors.localisation && (
-                    <Form.Control.Feedback type="invalid">
-                      Required
-                    </Form.Control.Feedback>
-                  )}
-              </Form.Group>
-
-              <Form.Group style={{ flex: 1 }}>
-              <Form.Label style={{ fontWeight: "bold" }}>
-                  Date acquisition *
-                </Form.Label>
-                  <Form.Control
-                    type="date"
-                    name="date_acquisition"
-                    value={formData.date_acquisition}
-                    isInvalid={hasSubmitted && errors.date_acquisition}
-                    onChange={handleChange}
-                    style={{ minWidth: "100%", maxWidth: "400px" }}
-                  />
-                  {hasSubmitted && errors.date_acquisition && (
-                    <Form.Control.Feedback type="invalid">
-                      Required
-                    </Form.Control.Feedback>
-                  )}
-              </Form.Group>
-              </div>
-
-              <div style={{ display: 'flex', gap: '20px', width: '100%', marginBottom: '20px' }}>
-                <Form.Group style={{ flex: 1 }}>
-                  <Form.Label style={{ fontWeight: "bold" }}>
-                  Date fin garantie
-                </Form.Label>
-                  <Form.Control
-                    type="date"
-                    name="date_fin_garantie"
-                    value={formData.date_fin_garantie}
-                    onChange={handleChange}
-                    style={{ minWidth: "100%", maxWidth: "400px" }}
-                  />
-              </Form.Group>
-
-                <Form.Group style={{ flex: 1 }}>
-                  <Form.Label style={{ fontWeight: "bold" }}>
-                  Fournisseur
-                </Form.Label>
-                  <Form.Control
-                    type="text"
-                    name="fournisseur"
-                    value={formData.fournisseur}
-                    onChange={handleChange}
-                    style={{ minWidth: "100%", maxWidth: "400px" }}
-                  />
-              </Form.Group>
-              </div>
-
-              <div style={{ display: 'flex', gap: '20px', width: '100%', marginBottom: '20px' }}>
-                <Form.Group style={{ flex: 1 }}>
-                  <Form.Label style={{ fontWeight: "bold" }}>
-                  Prix d'achat
-                </Form.Label>
-                  <Form.Control
-                    type="number"
-                    name="prix_achat"
-                    value={formData.prix_achat}
-                    onChange={handleChange}
-                    min="0"
-                    step="0.01"
-                    style={{ minWidth: "100%", maxWidth: "400px" }}
-                  />
-              </Form.Group>
-
-              <Form.Group style={{ flex: 1 }}>
-                  <Form.Label style={{ fontWeight: "bold" }}>
-                  Document
-                </Form.Label>
-                  <Form.Control
-                    type="file"
-                    name="document"
-                    onChange={handleChange}
-                    accept=".pdf,.jpg,.png"
-                    style={{ minWidth: "100%", maxWidth: "400px" }}
-                  />
-              </Form.Group>
-              </div>
-
-
-              <Form.Group className="w-100" style={{ marginBottom: "20px" }}>
-                <Form.Label style={{ fontWeight: "bold" }}>
-                  Notes
-                </Form.Label>
-                <Form.Control
-                  as="textarea"
-                  name="notes"
-                  value={formData.notes}
-                  onChange={handleChange}
-                  rows={3}
-                />
-              </Form.Group>
-
-              <Form.Group className="mt-5 tarif-button-container">
-                <div className="button-container">
-                  <Fab
-                    variant="extended"
-                    className="btn-sm Fab mb-2 mx-2"
-                    type="submit"
-                  >
-                    Valider
-                  </Fab>
-                  <Fab
-                    variant="extended"
-                    className="btn-sm FabAnnule mb-2 mx-2"
-                    onClick={closeForm}
-                  >
-                    Annuler
-                  </Fab>
-                </div>
-              </Form.Group>
-            </Form>
-          </div>
-
-          {/* Table Container */}
-          <div id="tableContainer" className="table-responsive" style={{
-            ...tableContainerStyle, 
-            overflowX: 'auto', 
-            minWidth: '650px',
-            maxHeight: '700px', 
-            overflow: 'auto',
-            marginTop:'0px',
-            paddingTop:'0px'
-          }}>
-            <table className="table table-bordered" id="equipementsTable" style={{ marginTop: "-5px" }}>
-              <thead className="text-center table-secondary" style={{ 
-                position: 'sticky', 
-                top: -1, 
-                backgroundColor: '#ddd', 
-                zIndex: 1,
-                padding:'10px'
-              }}>
-                <tr className="tableHead">
-                  <th className="tableHead">
-                    <input type="checkbox" checked={selectAll} onChange={handleSelectAllChange} />
-                  </th>
-                  <th className="tableHead">Nom</th>
-                  <th className="tableHead">N° Série</th>
-                  <th className="tableHead">Modèle</th>
-                  <th className="tableHead">Localisation</th>
-                  <th className="tableHead">Catégorie</th>
-                  <th className="tableHead">Statut</th>
-                  <th className="tableHead">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="text-center" style={{ backgroundColor: '#007bff' }}>
-                {filteredEquipements
-                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                  .map((equipement) => (
-                    <tr key={equipement.id}>
-                      <td style={{ backgroundColor: "white" }}>
-                        <input
-                          type="checkbox"
-                          checked={selectedItems.includes(equipement.id)}
-                          onChange={() => handleCheckboxChange(equipement.id)}
-                        />
-                      </td>
-                      <td style={{ backgroundColor: "white" }}>{highlightText(equipement.nom, searchTerm)}</td>
-                      <td style={{ backgroundColor: "white" }}>{highlightText(equipement.numero_serie, searchTerm)}</td>
-                      <td style={{ backgroundColor: "white" }}>{highlightText(equipement.modele, searchTerm)}</td>
-                      <td style={{ backgroundColor: "white" }}>{highlightText(equipement.localisation, searchTerm)}</td>
-                      <td style={{ backgroundColor: "white" }}>{equipement.categorie?.nom}</td>
-                      <td style={{ backgroundColor: "white" }}>
-                        <span style={{
-                            display: 'inline-block',
-                            padding: '5px 12px',
-                            borderRadius: '20px',
-                            fontSize: '12px',
-                            fontWeight: '600',
-                            backgroundColor: 
-                              equipement.statut === 'disponible' ? 'rgba(40, 167, 69, 0.1)' :
-                              equipement.statut === 'en_maintenance' ? 'rgba(255, 193, 7, 0.1)' : 'rgba(220, 53, 69, 0.1)',
-                            color: 
-                              equipement.statut === 'disponible' ? '#28a745' :
-                              equipement.statut === 'en_maintenance' ? '#ffc107' : '#dc3545'
-                          }}>
-                            {equipement.statut === 'disponible' ? 'Disponible' :
-                            equipement.statut === 'en_maintenance' ? 'En maintenance' : 'Hors service'}
-                          </span>
-                      </td>
-                      <td style={{ backgroundColor: "white", whiteSpace: "nowrap" }}>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          <FontAwesomeIcon
-                            onClick={() => handleEdit(equipement)}
-                            icon={faEdit}
-                            style={{ color: "#007bff", cursor: "pointer", marginRight: "10px" }}
-                          />
-                          <FontAwesomeIcon
-                            onClick={() => handleDelete(equipement.id)}
-                            icon={faTrash}
-                            style={{ color: "#ff0000", cursor: "pointer", marginRight: "10px" }}
-                          />
-                        </div>  
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-
-            <Button
-              className="btn btn-danger btn-sm"
-              onClick={handleDeleteSelected}
-              disabled={selectedItems.length === 0}
-              style={{
-                borderRadius: "10px",
-                fontWeight: "bold",
-                fontSize: "17px",
-                color: "white",
-                marginBottom: "10px"
-              }}
-            >
-              <FontAwesomeIcon
-                icon={faTrash}
-                style={{ marginRight: "0.5rem" }}
-
-              />
-              Supprimer sélectionnés
-            </Button>
-            <TablePagination
-          rowsPerPageOptions={[5, 10, 15, 20, 25]}
-          component="div"
-          count={filteredEquipements.length}
-          rowsPerPage={rowsPerPage}
-          page={page}
-          onPageChange={handleChangePage}
-          onRowsPerPageChange={handleChangeRowsPerPage}
+    <div className="row g-3">
+      <Form.Group className="col-md-6">
+        <Form.Label>Nom *</Form.Label>
+        <Form.Control
+          type="text"
+          name="nom"
+          value={formData.nom}
+          isInvalid={hasSubmitted && errors.nom}
+          onChange={handleChange}
         />
-          </div>
+        {hasSubmitted && errors.nom && (
+          <Form.Control.Feedback type="invalid">
+            Required
+          </Form.Control.Feedback>
+        )}
+      </Form.Group>
+
+      <Form.Group className="col-md-6">
+        <Form.Label>N° Série *</Form.Label>
+        <Form.Control
+          type="text"
+          name="numero_serie"
+          value={formData.numero_serie}
+          isInvalid={hasSubmitted && errors.numero_serie}
+          onChange={handleChange}
+        />
+        {hasSubmitted && errors.numero_serie && (
+          <Form.Control.Feedback type="invalid">
+            Required
+          </Form.Control.Feedback>
+        )}
+      </Form.Group>
+
+      <Form.Group className="col-md-6">
+        <Form.Label>Modèle *</Form.Label>
+        <Form.Control
+          type="text"
+          name="modele"
+          value={formData.modele}
+          isInvalid={hasSubmitted && errors.modele}
+          onChange={handleChange}
+        />
+        {hasSubmitted && errors.modele && (
+          <Form.Control.Feedback type="invalid">
+            Required
+          </Form.Control.Feedback>
+        )}
+      </Form.Group>
+
+      <Form.Group className="col-md-6">
+        <Form.Label>Marque *</Form.Label>
+        <Form.Control
+          type="text"
+          name="marque"
+          value={formData.marque}
+          isInvalid={hasSubmitted && errors.marque}
+          onChange={handleChange}
+        />
+        {hasSubmitted && errors.marque && (
+          <Form.Control.Feedback type="invalid">
+            Required
+          </Form.Control.Feedback>
+        )}
+      </Form.Group>
+
+      <Form.Group className="col-md-6">
+        <Form.Label>Catégorie *</Form.Label>
+        <Form.Select
+          name="categorie_id"
+          value={formData.categorie_id}
+          onChange={handleChange}
+          isInvalid={hasSubmitted && errors.categorie_id}
+        >
+          <option value="">Sélectionner une catégorie</option>
+          {categories.map((categorie) => (
+            <option key={categorie.id} value={categorie.id}>
+              {categorie.nom}
+            </option>
+          ))}
+        </Form.Select>
+        {hasSubmitted && errors.categorie_id && (
+          <Form.Control.Feedback type="invalid">
+            Required
+          </Form.Control.Feedback>
+        )}
+      </Form.Group>
+
+      <Form.Group className="col-md-6">
+        <Form.Label>Statut</Form.Label>
+        <Form.Select
+          name="statut"
+          value={formData.statut}
+          onChange={handleChange}
+        >
+          <option value="disponible">Disponible</option>
+          <option value="en_maintenance">En maintenance</option>
+          <option value="hors_service">Hors service</option>
+        </Form.Select>
+      </Form.Group>
+
+      <Form.Group className="col-md-6">
+        <Form.Label>Localisation *</Form.Label>
+        <Form.Control
+          type="text"
+          name="localisation"
+          value={formData.localisation}
+          isInvalid={hasSubmitted && errors.localisation}
+          onChange={handleChange}
+        />
+        {hasSubmitted && errors.localisation && (
+          <Form.Control.Feedback type="invalid">
+            Required
+          </Form.Control.Feedback>
+        )}
+      </Form.Group>
+
+      <Form.Group className="col-md-6">
+        <Form.Label>Date acquisition *</Form.Label>
+        <Form.Control
+          type="date"
+          name="date_acquisition"
+          value={formData.date_acquisition}
+          isInvalid={hasSubmitted && errors.date_acquisition}
+          onChange={handleChange}
+        />
+        {hasSubmitted && errors.date_acquisition && (
+          <Form.Control.Feedback type="invalid">
+            Required
+          </Form.Control.Feedback>
+        )}
+      </Form.Group>
+
+      <Form.Group className="col-md-6">
+        <Form.Label>Date fin garantie</Form.Label>
+        <Form.Control
+          type="date"
+          name="date_fin_garantie"
+          value={formData.date_fin_garantie}
+          onChange={handleChange}
+        />
+      </Form.Group>
+
+      <Form.Group className="col-md-6">
+        <Form.Label>Fournisseur</Form.Label>
+        <Form.Control
+          type="text"
+          name="fournisseur"
+          value={formData.fournisseur}
+          onChange={handleChange}
+        />
+      </Form.Group>
+
+      <Form.Group className="col-md-6">
+        <Form.Label>Prix d'achat</Form.Label>
+        <Form.Control
+          type="number"
+          name="prix_achat"
+          value={formData.prix_achat}
+          onChange={handleChange}
+          min="0"
+          step="0.01"
+        />
+      </Form.Group>
+
+      <Form.Group className="col-md-6">
+        <Form.Label>Document</Form.Label>
+        <Form.Control
+          type="file"
+          name="document"
+          onChange={handleChange}
+          accept=".pdf,.jpg,.png"
+        />
+      </Form.Group>
+
+      <Form.Group className="col-12">
+        <Form.Label>Notes</Form.Label>
+        <Form.Control
+          as="textarea"
+          name="notes"
+          value={formData.notes}
+          onChange={handleChange}
+          rows={3}
+        />
+      </Form.Group>
+    </div>
+
+    <div className="app-form-actions">
+      <Button type="submit" className="app-primary-button">
+        Valider
+      </Button>
+
+      <Button
+        type="button"
+        className="app-secondary-button"
+        onClick={closeForm}
+      >
+        Annuler
+      </Button>
+    </div>
+  </Form>
+</div>
+          {/* Table Container */}
+{/* Table Container */}
+<div className="app-section">
+  <div id="tableContainer" className="app-table-wrapper">
+    <table id="equipementsTable" className="table table-bordered app-table mb-0">
+      <thead className="text-center">
+        <tr>
+          <th>
+            <input
+              type="checkbox"
+              checked={selectAll}
+              onChange={handleSelectAllChange}
+            />
+          </th>
+          <th>Nom</th>
+          <th>N° Série</th>
+          <th>Modèle</th>
+          <th>Localisation</th>
+          <th>Catégorie</th>
+          <th>Statut</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+
+      <tbody className="text-center">
+        {filteredEquipements
+          .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+          .map((equipement) => (
+            <tr key={equipement.id}>
+              <td>
+                <input
+                  type="checkbox"
+                  checked={selectedItems.includes(equipement.id)}
+                  onChange={() => handleCheckboxChange(equipement.id)}
+                />
+              </td>
+
+              <td>{highlightText(equipement.nom, searchTerm)}</td>
+              <td>{highlightText(equipement.numero_serie, searchTerm)}</td>
+              <td>{highlightText(equipement.modele, searchTerm)}</td>
+              <td>{highlightText(equipement.localisation, searchTerm)}</td>
+              <td>{equipement.categorie?.nom || ""}</td>
+
+              <td>
+                <span
+                  className={`app-status-badge ${
+  equipement.statut === "disponible"
+    ? "is-success"
+    : equipement.statut === "en_maintenance"
+    ? "is-warning"
+    : "is-danger"
+}`}
+                >
+                  {equipement.statut === "disponible"
+                    ? "Disponible"
+                    : equipement.statut === "en_maintenance"
+                    ? "En maintenance"
+                    : "Hors service"}
+                </span>
+              </td>
+
+              <td style={{ whiteSpace: "nowrap" }}>
+                <div className="d-flex align-items-center justify-content-center">
+                  <FontAwesomeIcon
+                    onClick={() => handleEdit(equipement)}
+                    icon={faEdit}
+                    className="app-table-action is-edit"
+                  />
+
+                  <FontAwesomeIcon
+                    onClick={() => handleDelete(equipement.id)}
+                    icon={faTrash}
+                    className="app-table-action is-delete"
+                  />
+                </div>
+              </td>
+            </tr>
+          ))}
+      </tbody>
+    </table>
+  </div>
+
+  <div className="app-table-footer">
+    <Button
+      type="button"
+      className="app-danger-button"
+      onClick={handleDeleteSelected}
+      disabled={selectedItems.length === 0}
+    >
+      <FontAwesomeIcon icon={faTrash} />
+      Supprimer sélectionnés
+    </Button>
+
+    <div className="app-table-pagination">
+      <span>Lignes par page:</span>
+
+      <select
+        value={rowsPerPage}
+        onChange={(e) =>
+          handleChangeRowsPerPage({
+            target: { value: e.target.value },
+          })
+        }
+      >
+        {[5, 10, 15, 20, 25].map((value) => (
+          <option key={value} value={value}>
+            {value}
+          </option>
+        ))}
+      </select>
+
+      <span>
+        {filteredEquipements.length > 0
+          ? `${page * rowsPerPage + 1}-${Math.min(
+              (page + 1) * rowsPerPage,
+              filteredEquipements.length
+            )} sur ${filteredEquipements.length}`
+          : "0-0 sur 0"}
+      </span>
+
+      <button
+        type="button"
+        className="app-pagination-arrow"
+        disabled={page === 0}
+        onClick={(e) => handleChangePage(e, page - 1)}
+      >
+        ‹
+      </button>
+
+      <button
+        type="button"
+        className="app-pagination-arrow"
+        disabled={(page + 1) * rowsPerPage >= filteredEquipements.length}
+        onClick={(e) => handleChangePage(e, page + 1)}
+      >
+        ›
+      </button>
+    </div>
+  </div>
+</div>
     </Box>
   </Box>
 </ThemeProvider>

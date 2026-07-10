@@ -3,7 +3,6 @@ import axios from "axios";
 import Swal from "sweetalert2";
 import { Form, Button, Modal, Carousel } from "react-bootstrap";
 import Navigation from "../Acceuil/Navigation";
-import TablePagination from "@mui/material/TablePagination";
 import { highlightText } from '../utils/textUtils';
 // import PrintList from "./PrintList";
 // import ExportPdfButton from "./exportToPdf";
@@ -35,7 +34,6 @@ import * as XLSX from "xlsx";
 import "../style.css";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import Box from "@mui/material/Box";
-import { Checkbox, Fab, Toolbar } from "@mui/material";
 import { useOpen } from "../Acceuil/OpenProvider"; // Importer le hook personnalisé
 import { FaArrowLeft, FaArrowRight } from "react-icons/fa6";
 
@@ -1162,7 +1160,8 @@ const handleShowTarifRepas = () => {
   return (
     <ThemeProvider theme={createTheme()}>
       <Box sx={{...dynamicStyles}}>
-        <Box component="main" sx={{ flexGrow: 1, p: 3, mt: 4 }}>
+        <Box component="main" className="app-page tarif-repas-page"
+  sx={{ flexGrow: 1, p: 3, mt: 0 }}>
 
 
 
@@ -1185,53 +1184,25 @@ const handleShowTarifRepas = () => {
     </div>
           
 
-        <div className="container-d-flex justify-start sm:justify-between">
-          <div style={{ display: "flex", alignItems: "center", marginTop: '-12px', padding: '15px' }}>
+        <div className="app-controls-row">
 
             <button
+              type="button"
               onClick={handleShowFormButtonClick}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                cursor: "pointer",
-                backgroundColor: "#329982",
-                color: "white",
-                borderRadius: "10px",
-                fontWeight: "bold",
-                marginLeft: "96%",  // Keep your marginLeft for large screens
-                padding: "6px 15px",
-                border: "none",
-                height: "40px",
-              }}
-              className="gap-2 AjouteBotton sm:ml-0 md:ml-auto" // Add responsive margin class
+              className="app-add-button"
             >
 
                 <FontAwesomeIcon
                     icon={faPlus}
-                    className=" AjouteBotton"
-                    style={{ cursor: "pointer" ,color: "white"}}
                   />
+                  Ajouter Tarif
               </button>
-            </div>
-            <div className="filters" 
-            >
+            <div className="app-filter-controls">
         <Form.Select
         aria-label="Default select example"
         value={typeRepas}
         onChange={handleRepasFilterChange}
-        style={{
-          width: '12%', // Keep your width for large screens
-          height: "40px",
-          position: 'absolute',
-          marginTop:"20px",
-          left: '81%', // Keep your left for large screens
-          top: '224px',
-          cursor: "pointer",
-          borderRadius: "10px",
-          color: "black",
-          fontWeight: "bold",
-        }}
-        className="sm:w-3/4 md:w-1/2 lg:w-1/4"  // Add responsive width here
+        className="app-filter-select"
       >
     <option value="" style={{ fontWeight: "bold"}}>Sélectionner Type Repas</option>
         {
@@ -1241,22 +1212,13 @@ const handleShowTarifRepas = () => {
         }
     </Form.Select>
 </div>
+</div>
 
         <div style={{ marginTop:"0px",}}>
-        <div id="formContainer" className="" style={{...formContainerStyle,marginTop:'0px',maxHeight:'700px',overflow:'auto',padding:'0'}}>
+        <div id="formContainer" className="app-form-drawer" style={formContainerStyle}>
               <Form className="d-flex flex-column align-items-start" onSubmit={handleSubmit}>
                 <Form.Label className="w-100 text-center">
-                <h4
-                     style={{
-                      fontSize: "25px", 
-                      fontFamily: "Arial, sans-serif", 
-                      fontWeight: "bold", 
-                      color: "black",
-                      borderBottom: "2px solid black", 
-                      paddingBottom: "5px",
-              
-                    }}
-                    >
+                <h4 className="app-form-drawer-title">
                       {editingTarifRepas ? "Modifier" : "Ajouter"} un Tarif</h4>
                 </Form.Label>
 
@@ -1331,21 +1293,21 @@ const handleShowTarifRepas = () => {
       </Form>
       </Modal.Body>
       
-      <Form.Group className=" d-flex justify-content-center">
-        <Fab
-    variant="extended"
-    className="btn-sm Fab mb-2 mx-2"
-    type="submit"
-    onClick={handleSaveDesignation}
-  >
-    Valider
-  </Fab>
-  <Fab
-    variant="extended"
-    className="btn-sm FabAnnule mb-2 mx-2"
-    onClick={handleCloseEditDesignation}  >
-    Annuler
-  </Fab>
+      <Form.Group className="app-form-actions">
+        <Button
+          type="button"
+          className="app-primary-button"
+          onClick={handleSaveDesignation}
+        >
+          Valider
+        </Button>
+        <Button
+          type="button"
+          className="app-secondary-button"
+          onClick={handleCloseEditDesignation}
+        >
+          Annuler
+        </Button>
       </Form.Group>
     </Modal>
       <Modal show={showAddDesignation} onHide={handleCloseTarifRepas}>
@@ -1385,7 +1347,7 @@ const handleShowTarifRepas = () => {
             
             <Form.Group className="mt-3">
             <div className="form-group mt-3" style={{maxHeight:'500px',overflowY:'auto'}}>
-            <table className="table">
+            <table className="table app-table">
               <thead>
                 <tr>
                   <th>Designation</th>
@@ -1432,24 +1394,22 @@ const handleShowTarifRepas = () => {
             </table>
           </div>
             </Form.Group>
-          <Form.Group className=" d-flex justify-content-center">
-        
-        <Fab
-    variant="extended"
-    className="btn-sm Fab mb-2 mx-2"
-    type="submit"
-    onClick={handleAddDesignation}
-  >
-    Valider
-  </Fab>
-  <Fab
-    variant="extended"
-    className="btn-sm FabAnnule mb-2 mx-2"
-    onClick={handleCloseTarifRepas}
-  >
-    Annuler
-  </Fab>
-  </Form.Group>
+          <Form.Group className="app-form-actions">
+            <Button
+              type="button"
+              className="app-primary-button"
+              onClick={handleAddDesignation}
+            >
+              Valider
+            </Button>
+            <Button
+              type="button"
+              className="app-secondary-button"
+              onClick={handleCloseTarifRepas}
+            >
+              Annuler
+            </Button>
+          </Form.Group>
       </Modal.Body>
       </Modal>
       <Form.Group className="form-group">
@@ -1524,22 +1484,21 @@ const handleShowTarifRepas = () => {
       </Form>
       </Modal.Body>
       
-      <Form.Group className=" d-flex justify-content-center">
-        
-        <Fab
-    variant="extended"
-    className="btn-sm Fab mb-2 mx-2"
-    type="submit"
-    onClick={handleSaveRepas}
-  >
-    Valider
-  </Fab>
-  <Fab
-    variant="extended"
-    className="btn-sm FabAnnule mb-2 mx-2"
-    onClick={handleCloseEditRepas}>
-    Annuler
-  </Fab>
+      <Form.Group className="app-form-actions">
+        <Button
+          type="button"
+          className="app-primary-button"
+          onClick={handleSaveRepas}
+        >
+          Valider
+        </Button>
+        <Button
+          type="button"
+          className="app-secondary-button"
+          onClick={handleCloseEditRepas}
+        >
+          Annuler
+        </Button>
       </Form.Group>
     </Modal>
                 <Modal show={showAddCategory} onHide={handleCloseAddTypeRepas}>
@@ -1582,7 +1541,7 @@ const handleShowTarifRepas = () => {
             
             <Form.Group className="mt-3">
             <div className="form-group mt-3" style={{maxHeight:'500px',overflowY:'auto'}}>
-            <table className="table">
+            <table className="table app-table">
               <thead>
                 <tr>
                 <th>Code Repas</th>
@@ -1621,24 +1580,22 @@ const handleShowTarifRepas = () => {
             </table>
           </div>
             </Form.Group>
-          <Form.Group className=" d-flex justify-content-center">
-        
-        <Fab
-    variant="extended"
-    className="btn-sm Fab mb-2 mx-2"
-    type="submit"
-    onClick={handleAddTypeRepas}
-  >
-    Valider
-  </Fab>
-  <Fab
-    variant="extended"
-    className="btn-sm FabAnnule mb-2 mx-2"
-    onClick={handleCloseAddTypeRepas}
-  >
-    Annuler
-  </Fab>
-  </Form.Group>
+          <Form.Group className="app-form-actions">
+            <Button
+              type="button"
+              className="app-primary-button"
+              onClick={handleAddTypeRepas}
+            >
+              Valider
+            </Button>
+            <Button
+              type="button"
+              className="app-secondary-button"
+              onClick={handleCloseAddTypeRepas}
+            >
+              Annuler
+            </Button>
+          </Form.Group>
       </Modal.Body>
       </Modal>
 
@@ -1671,24 +1628,21 @@ const handleShowTarifRepas = () => {
 
 
 
-<Form.Group className="mt-5 tarif-button-container">
-  <div className="button-container">
-    <Fab
-      variant="extended"
-      className="btn-sm Fab mb-2 mx-2"
-      type="submit"
-    >
-      Valider
-    </Fab>
-    <Fab
-      variant="extended"
-      className="btn-sm FabAnnule mb-2 mx-2"
-      onClick={closeForm}
-    >
-      Annuler
-    </Fab>
-  </div>
-</Form.Group>
+<div className="app-form-actions">
+  <Button
+    type="submit"
+    className="app-primary-button"
+  >
+    Valider
+  </Button>
+  <Button
+    type="button"
+    className="app-secondary-button"
+    onClick={closeForm}
+  >
+    Annuler
+  </Button>
+</div>
 
 
 
@@ -1708,15 +1662,15 @@ const handleShowTarifRepas = () => {
             <div className="">
               <div
                 id="tableContainer"
-                className="table-responsive"
-                style={{...tableContainerStyle, overflowX: 'auto', minWidth: '650px',
+                className="app-table-wrapper"
+                style={{...tableContainerStyle, overflowX: 'auto',
                   maxHeight: '700px', overflow: 'auto',
                   marginTop:'0px',
                   paddingTop:'0px'
                 }}
               >
                 
-  <table className="table table-bordered" id="tarifRepasTable" style={{ marginTop: "-5px", }}>
+  <table className="table table-bordered app-table" id="tarifRepasTable" style={{ marginTop: "-5px", }}>
   <thead className="text-center table-secondary" style={{ position: 'sticky', top: -1, backgroundColor: '#ddd', zIndex: 1,padding:'10px'}}>
     <tr className="tableHead">
       <th className="tableHead">
@@ -1751,12 +1705,12 @@ const handleShowTarifRepas = () => {
     <FontAwesomeIcon
       onClick={() => handleEdit(tarifRepas)}
       icon={faEdit}
-      style={{ color: "#007bff", cursor: "pointer", marginRight: "10px" }}
+      className="app-table-action is-edit"
     />
     <FontAwesomeIcon
       onClick={() => handleDelete(tarifRepas?.id)}
       icon={faTrash}
-      style={{ color: "#ff0000", cursor: "pointer", marginRight: "10px" }}
+      className="app-table-action is-delete"
     />
   </div>  
 </td>
@@ -1771,37 +1725,70 @@ const handleShowTarifRepas = () => {
 
                 {/* )} */}
                
-                <a href="#">
+                <div className="app-table-footer">
                   <Button
-                  className="btn btn-danger btn-sm"
-                  onClick={handleDeleteSelected}
-                  disabled={selectedItems?.length === 0}
-                  style={{
-                    borderRadius: "10px",
-                    fontWeight: "bold",
-                    fontSize: "17px",
-                    color: "white",
-                  }}
-                >
-                  <FontAwesomeIcon
-                    icon={faTrash}
-                    style={{ marginRight: "0.5rem" }}
-                  />
-                  Supprimer selection
-                </Button>
-                </a>
-                <TablePagination
-                  rowsPerPageOptions={[5, 10,15,20, 25]}
-                  component="div"
-                  count={filteredTarifrepas?.length || 0}
-                  rowsPerPage={rowsPerPage}
-                  page={page}
-                  onPageChange={handleChangePage}
-                  onRowsPerPageChange={handleChangeRowsPerPage}
-                />
+                    type="button"
+                    className="app-danger-button"
+                    onClick={handleDeleteSelected}
+                    disabled={selectedItems?.length === 0}
+                  >
+                    <FontAwesomeIcon
+                      icon={faTrash}
+                      style={{ marginRight: "0.5rem" }}
+                    />
+                    Supprimer selection
+                  </Button>
+
+                  <div className="app-table-pagination">
+                    <span>Lignes par page:</span>
+
+                    <select
+                      value={rowsPerPage}
+                      onChange={(e) =>
+                        handleChangeRowsPerPage({
+                          target: { value: e.target.value },
+                        })
+                      }
+                    >
+                      {[5, 10, 15, 20, 25].map((value) => (
+                        <option key={value} value={value}>
+                          {value}
+                        </option>
+                      ))}
+                    </select>
+
+                    <span>
+                      {filteredTarifrepas.length > 0
+                        ? `${page * rowsPerPage + 1}-${Math.min(
+                            (page + 1) * rowsPerPage,
+                            filteredTarifrepas.length
+                          )} sur ${filteredTarifrepas.length}`
+                        : "0-0 sur 0"}
+                    </span>
+
+                    <button
+                      type="button"
+                      className="app-pagination-arrow"
+                      disabled={page === 0}
+                      onClick={(e) => handleChangePage(e, page - 1)}
+                      aria-label="Page précédente"
+                    >
+                      ‹
+                    </button>
+
+                    <button
+                      type="button"
+                      className="app-pagination-arrow"
+                      disabled={(page + 1) * rowsPerPage >= filteredTarifrepas.length}
+                      onClick={(e) => handleChangePage(e, page + 1)}
+                      aria-label="Page suivante"
+                    >
+                      ›
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
         </Box>
       </Box>
     </ThemeProvider>

@@ -18,25 +18,45 @@
   background-color: #fff;
 }
 
+main,
+.container,
+.container-fluid,
+.row {
+  min-width: 0;
+  max-width: 100%;
+}
+
 #tableContainer {
-  margin-right: 350px; /* Espacement pour afficher le tableau à côté du formulaire */
+  width: 100%;
+  max-width: 100%;
+  min-width: 0 !important;
+  margin-right: 0; /* Les pages ouvrant un formulaire ajustent cette valeur inline. */
   position: relative;
   padding: 10px;
-  background: white; /* Fond blanc pour bien voir la bordure */
+  background: white;
   border-radius: 8px;
-  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); /* Ombre légère */
+  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+  box-sizing: border-box;
 }
 
 .table-responsive {
-  overflow-x: auto;  /* Activation du scroll horizontal */
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
   max-width: 100%;
-  /* border-bottom: 3px solid #007bff; Bordure visible sous le tableau */
+  min-width: 0 !important;
+  box-sizing: border-box;
+  -webkit-overflow-scrolling: touch;
 }
 
 .table-bordered {
   width: 100%;
   border-collapse: collapse;
-  min-width: 1200px; /* Forcer un scroll si le contenu dépasse */
+  min-width: 100%;
+}
+
+.table-responsive > .table-bordered {
+  min-width: 1200px;
 }
 
 /* Bordures et cellules */
@@ -57,6 +77,27 @@
 
 a {
   text-decoration: none;
+}
+
+.search-form,
+.search-input-wrapper {
+  width: 100%;
+  min-width: 0;
+}
+
+.search-control {
+  width: 100%;
+  min-width: 0;
+  padding-right: 2.25rem !important;
+}
+
+@media (max-width: 768px) {
+  main,
+  .container,
+  .container-fluid {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
 }
 .clientS {
   list-style-type: none;
@@ -300,4 +341,709 @@ a {
   background-color: #00afaa !important;
   color:white !important;
   height: 35px !important;
+}
+/* Compatibility layer for pages importing style.css directly. */
+#formContainer,
+#formContainer1SC,
+#formContainerCommande,
+.app-form-drawer {
+  position: fixed !important;
+  top: var(--appbar-height, 64px) !important;
+  height: calc(100vh - var(--appbar-height, 64px)) !important;
+  max-height: calc(100vh - var(--appbar-height, 64px)) !important;
+  z-index: var(--form-drawer-z-index, 1500) !important;
+  background: #fff !important;
+  overflow-y: auto !important;
+  overflow-x: hidden;
+  box-shadow: -8px 0 24px rgba(15, 23, 42, 0.18) !important;
+  box-sizing: border-box;
+}
+
+#tableContainer,
+.table-container,
+.stats-container,
+.bgSecteur,
+.bgCategories {
+  position: relative;
+  z-index: var(--page-content-z-index, 0);
+}
+
+.table-bordered thead,
+.tableHead,
+table thead th {
+  z-index: var(--table-sticky-z-index, 2) !important;
+}
+
+/* Reservation-based shared UI foundation. Scoped to app-* classes only. */
+.app-page {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding-top: 28px;
+}
+
+.app-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin: 0 0 30px !important;
+  flex-wrap: wrap;
+}
+
+.app-page-title {
+  color: #111827;
+  font-size: 1.8rem;
+  font-weight: 500 !important;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.app-section {
+  margin-top: 0 !important;
+  margin-bottom: 28px !important;
+}
+
+.app-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.app-search-box {
+  width: min(500px, 100%);
+  min-width: 240px;
+}
+
+.app-export-actions {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  min-height: 40px;
+}
+
+.app-action-icon {
+  cursor: pointer;
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.app-action-icon.is-muted {
+  color: #6b7280;
+}
+
+.app-action-icon.is-danger {
+  color: #dc2626;
+}
+
+.app-action-icon.is-success {
+  color: #15803d;
+}
+
+.app-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08);
+  padding: 16px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.app-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.app-filter-card {
+  padding: 14px 16px 16px;
+}
+
+.app-filter-title {
+  color: #08b3ad;
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 10px;
+}
+
+.app-add-row {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.app-controls-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.app-filter-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex: 1 1 420px;
+  flex-wrap: wrap;
+}
+
+.app-filter-select {
+  width: min(180px, 100%);
+  min-width: 150px;
+  height: 36px;
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+.app-add-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 6px 15px;
+  border: 0;
+  border-radius: 10px;
+  background: #00afaa;
+  color: #fff !important;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.app-add-button:hover {
+  background: #009690;
+  color: #fff !important;
+}
+
+.app-table-wrapper {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0 !important;
+  overflow-x: auto;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08);
+  box-sizing: border-box;
+}
+
+.app-form-drawer {
+  padding: 20px;
+  border-radius: 8px 0 0 8px;
+}
+
+.app-form-drawer-title {
+  color: #111827;
+  font-family: Arial, sans-serif;
+  font-size: 25px;
+  font-weight: 700;
+  border-bottom: 2px solid #111827;
+  padding-bottom: 8px;
+  margin-bottom: 20px;
+}
+
+.app-carousel-strip {
+  display: flex;
+  justify-content: flex-start;
+  align-items: stretch;
+  gap: 24px;
+  min-width: 0;
+}
+
+.app-carousel-strip > a {
+  margin-left: 0 !important;
+}
+
+.app-carousel-strip .mx-5 {
+  margin-left: 1rem !important;
+  margin-right: 1rem !important;
+}
+
+@media (max-width: 992px) {
+  .app-filter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .app-page-header,
+  .app-toolbar {
+    align-items: stretch;
+  }
+
+  .app-toolbar,
+  .app-search-box {
+    width: 100%;
+  }
+}
+
+.app-filter-carousel {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 0;
+  min-width: 0;
+  box-shadow: none;
+}
+
+.app-table-wrapper .expand-table-container {
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* Deep Reservation-based table and control system. */
+.app-table-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08);
+  padding: 10px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.app-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0 !important;
+  color: #111827;
+}
+
+
+
+.app-table thead th,
+.app-table .sticky-header,
+.app-table .sticky-header-left,
+.app-table .sticky-header-right {
+  background: #00afaa !important;
+  color: #fff !important;
+}
+
+.app-table th,
+.app-table td {
+  border: 1px solid #e5e7eb;
+  padding: 8px;
+  vertical-align: middle;
+}
+
+.app-table tbody td,
+.app-table tbody .sticky-left,
+.app-table tbody .sticky-right {
+  background: #fff !important;
+}
+
+.app-expand-table .app-table {
+  border-collapse: collapse !important;
+}
+
+.app-table tbody tr:hover td,
+.app-table tbody tr:hover .sticky-left,
+.app-table tbody tr:hover .sticky-right {
+  background: #f8fafc !important;
+}
+
+.app-table-action {
+  cursor: pointer;
+  font-size: 16px;
+  margin-right: 10px;
+}
+
+.app-table-action.is-edit {
+  color: #007bff;
+}
+
+.app-table-action.is-delete,
+.app-table-action.is-danger {
+  color: #ff0000;
+}
+
+.app-table-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 18px;
+  flex-wrap: wrap;
+}
+
+.app-table-pagination {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #374151;
+  margin-left: auto;
+  font-size: 14px;
+  color: #111827;
+}
+
+.app-table-pagination select {
+  height: 36px;
+  min-width: 64px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 4px 8px;
+  background: #fff;
+  color: #111827;
+}
+
+.app-pagination-arrow {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  color: #111827;
+  padding: 0 4px;
+}
+
+.app-pagination-arrow:disabled {
+  color: #c7c7c7;
+  cursor: not-allowed;
+}
+
+
+
+.app-danger-button,
+.app-primary-button,
+.app-secondary-button {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  border-radius: 10px !important;
+  border: 0 !important;
+  padding: 8px 16px !important;
+  font-weight: 700 !important;
+  text-transform: none !important;
+  box-shadow: none !important;
+  cursor: pointer;
+}
+
+.app-primary-button {
+  background: #00afaa !important;
+  color: #fff !important;
+}
+
+.app-primary-button:hover {
+  background: #009690 !important;
+}
+
+.app-secondary-button {
+  background: #6b7280 !important;
+  color: #fff !important;
+}
+
+.app-secondary-button:hover {
+  background: #4b5563 !important;
+}
+
+.app-danger-button {
+  background: #dc3545 !important;
+  color: #fff !important;
+}
+
+.app-danger-button:hover:not(:disabled) {
+  background: #bb2d3b !important;
+}
+
+.app-danger-button:disabled,
+.app-primary-button:disabled,
+.app-secondary-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.app-form-actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin-top: 32px;
+  flex-wrap: wrap;
+}
+
+.app-filter-carousel {
+  overflow: hidden;
+}
+
+.app-filter-carousel .carousel {
+  width: 100%;
+}
+
+.app-filter-carousel .carousel-inner {
+  min-width: 0;
+}
+
+.app-filter-carousel .category-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 82px;
+  padding: 8px;
+  border-radius: 8px;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.app-filter-carousel .category-item.active {
+  background: rgba(0, 175, 170, 0.1);
+}
+
+.app-filter-carousel .category-img {
+  width: 56px;
+  height: 56px;
+  border: 2px solid #d1d5db;
+  object-fit: cover;
+}
+
+.app-filter-carousel .category-item.active .category-img,
+.app-filter-carousel .category-img.selected {
+  border-color: #00afaa !important;
+  background: #e6fffd !important;
+}
+
+.app-filter-carousel .category-text {
+  color: #374151;
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.app-filter-carousel .carousel-control-prev,
+.app-filter-carousel .carousel-control-next {
+  width: 32px;
+  opacity: 1;
+}
+
+.app-carousel-arrow-icon {
+  background: #00afaa;
+  color: #fff;
+  border-radius: 50%;
+  padding: 6px;
+  width: 30px;
+  height: 30px;
+}
+
+/* Final app UI polish pass for Reservation/Chambre alignment. */
+.app-page-header {
+  flex-wrap: nowrap;
+}
+
+.app-toolbar {
+  flex: 1 1 auto;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+.app-search-box {
+  flex: 0 1 500px;
+}
+
+.app-export-actions {
+  flex: 0 0 auto;
+}
+
+.app-filter-card {
+  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.07);
+}
+
+.app-filter-carousel {
+  border-color: #eef2f7;
+  padding: 10px;
+}
+
+.app-table th {
+  height: 35px;
+  font-size: 14px;
+}
+
+.app-table td {
+  font-size: 14px;
+}
+
+.app-table-footer .app-danger-button {
+  font-size: 14px !important;
+}
+
+@media (max-width: 992px) {
+  .app-page-header,
+  .app-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .app-export-actions {
+    flex: 1 1 auto;
+  }
+}
+
+/* Modal layer must be above app drawers */
+body .modal-backdrop {
+  z-index: 1600 !important;
+}
+
+body .modal {
+  z-index: 1700 !important;
+}
+
+body .modal-dialog {
+  z-index: 1710 !important;
+}
+
+/* SweetAlert must stay above Bootstrap modals */
+body .swal2-container {
+  z-index: 2000 !important;
+}
+
+/* Protect shared app filters from old page-level/global CSS */
+.app-page .app-controls-row {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  flex-wrap: wrap !important;
+}
+
+.app-page .app-filter-controls {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 12px !important;
+  flex: 1 1 420px !important;
+  flex-wrap: wrap !important;
+}
+
+.app-page .app-filter-controls > .app-filter-select,
+.app-page .app-filter-controls > .form-select.app-filter-select,
+.app-page .app-filter-controls > .form-control.app-filter-select,
+.app-page .app-filter-controls > select.app-filter-select,
+.app-page .app-filter-controls > input.app-filter-select {
+  flex: 0 0 auto !important;
+  width: 180px !important;
+  min-width: 150px !important;
+  max-width: 220px !important;
+  height: 36px !important;
+}
+
+@media (max-width: 768px) {
+  .app-page .app-filter-controls {
+    justify-content: stretch !important;
+  }
+
+  .app-page .app-filter-controls > .app-filter-select,
+  .app-page .app-filter-controls > .form-select.app-filter-select,
+  .app-page .app-filter-controls > .form-control.app-filter-select,
+  .app-page .app-filter-controls > select.app-filter-select,
+  .app-page .app-filter-controls > input.app-filter-select {
+    flex: 1 1 100% !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+
+
+/* Reusable modern stats cards */
+.app-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(180px, 1fr));
+  gap: 20px;
+  margin-top: 4px !important;
+  margin-bottom: 28px !important;
+}
+
+.app-stat-card {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  min-width: 0;
+  background: #fff;
+  padding: 20px;
+  border: 1px solid #e5e7eb;
+  border-top: 4px solid #00afaa;
+  border-radius: 10px;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08);
+}
+
+.app-stat-icon {
+  width: 50px;
+  height: 50px;
+  flex: 0 0 50px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.app-stat-title {
+  color: #6c757d;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.app-stat-value {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+@media (max-width: 1200px) {
+  .app-stats-grid {
+    grid-template-columns: repeat(2, minmax(180px, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .app-stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Reusable soft status badges */
+.app-status-badge {
+  display: inline-block;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.app-status-badge.is-success {
+  background: rgba(40, 167, 69, 0.12);
+  color: #28a745;
+}
+
+.app-status-badge.is-warning {
+  background: rgba(255, 193, 7, 0.16);
+  color: #b77900;
+}
+
+.app-status-badge.is-danger {
+  background: rgba(220, 53, 69, 0.12);
+  color: #dc3545;
+}
+
+.app-status-badge.is-info {
+  background: rgba(0, 175, 170, 0.12);
+  color: #00afaa;
 }

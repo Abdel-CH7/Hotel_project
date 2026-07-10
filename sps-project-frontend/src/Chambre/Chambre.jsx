@@ -165,7 +165,6 @@ const [typeFilter, setTypeFilter] = useState('');
   //-------------------Pagination-----------------------/
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const [page, setPage] = useState(0);
-  const [filteredchambres, setFilteredChambres] = useState([]);
   // Pagination calculations
   const indexOfLastChambre = (page + 1) * rowsPerPage;
   const indexOfFirstChambre = indexOfLastChambre - rowsPerPage;
@@ -241,19 +240,6 @@ const [typeFilter, setTypeFilter] = useState('');
     );
   };
   //---------------------------------------------
-  useEffect(() => {
-    const filtered = chambres?.filter((chambre) =>
-      Object.values(chambre).some((value) => {
-        if (typeof value === "string") {
-          return value.toLowerCase().includes(searchTerm.toLowerCase());
-        } else if (typeof value === "number") {
-          return value.toString().includes(searchTerm.toLowerCase());
-        }
-        return false;
-      })
-    );
-    setFilteredChambres(filtered);
-  }, [chambres, searchTerm]);
 
   const handleSearch = (term) => {
     setSearchTerm(term);
@@ -936,24 +922,121 @@ const handleTypeFilterChange = (e) => {
 };
 
 
-const filteredChambres = chambres?.filter((chambre) => {
-  return (
-    ((typeFilter ? chambre.type_chambre?.type_chambre === typeFilter : true) &&
-    (selectedVue ? chambre.vue.id === selectedVue : true) &&
-    (selectedEtage ? chambre.etage.id === selectedEtage : true)) &&
-    (
-    (searchTerm ? chambre?.num_chambre.toLowerCase().includes(searchTerm.toLowerCase()) : true) ||
-    (searchTerm ? chambre?.type_chambre?.type_chambre?.toLowerCase().includes(searchTerm.toLowerCase()) : true) ||
-    (searchTerm ? chambre?.etage?.etage?.toLowerCase().includes(searchTerm.toLowerCase()) : true) ||
-    (searchTerm ? chambre?.vue?.vue?.toLowerCase().includes(searchTerm.toLowerCase()) : true) ||
-    (searchTerm ? chambre?.climat?.toLowerCase().includes(searchTerm.toLowerCase()) : true) ||
-    (searchTerm ? String(chambre?.wifi).includes(searchTerm.toLowerCase()) : true) ||
-    (searchTerm ? String(chambre?.nb_lit).includes(searchTerm.toLowerCase()) : true) ||
-    (searchTerm ? String(chambre?.nb_salle).includes(searchTerm.toLowerCase()) : true) 
-    )
-  )
-});
+const normalizeSearchValue = (value) =>
+  String(value ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
 
+const getRoomTypeName = (chambre) => {
+  if (chambre.type_chambre && typeof chambre.type_chambre === "object") {
+    return chambre.type_chambre.type_chambre || "";
+  }
+
+  if (chambre.type_chambres && typeof chambre.type_chambres === "object") {
+    return chambre.type_chambres.type_chambre || "";
+  }
+
+  const typeId = chambre.type_chambre_id || chambre.type_chambre;
+
+  return (
+    types.find((type) => String(type.id) === String(typeId))?.type_chambre || ""
+  );
+};
+
+const getRoomEtageName = (chambre) => {
+  if (chambre.etage && typeof chambre.etage === "object") {
+    return chambre.etage.etage || "";
+  }
+
+  const etageId = chambre.etage_id || chambre.etage;
+
+  return (
+    etages.find((etage) => String(etage.id) === String(etageId))?.etage || ""
+  );
+};
+
+const getRoomVueName = (chambre) => {
+  if (chambre.vue && typeof chambre.vue === "object") {
+    return chambre.vue.vue || "";
+  }
+
+  const vueId = chambre.vue_id || chambre.vue;
+
+  return vues.find((vue) => String(vue.id) === String(vueId))?.vue || "";
+};
+
+const formatOuiNon = (value) => {
+  const normalized = normalizeSearchValue(value);
+
+  if (
+    value === true ||
+    value === 1 ||
+    normalized === "1" ||
+    normalized === "oui" ||
+    normalized === "yes" ||
+    normalized === "true"
+  ) {
+    return "Oui";
+  }
+
+  if (
+    value === false ||
+    value === 0 ||
+    normalized === "0" ||
+    normalized === "non" ||
+    normalized === "no" ||
+    normalized === "false"
+  ) {
+    return "Non";
+  }
+
+  return String(value ?? "");
+};
+
+const normalizedSearchTerm = normalizeSearchValue(searchTerm);
+
+const filteredChambres = (Array.isArray(chambres) ? chambres : []).filter(
+  (chambre) => {
+    const roomTypeName = getRoomTypeName(chambre);
+    const roomEtageName = getRoomEtageName(chambre);
+    const roomVueName = getRoomVueName(chambre);
+    const roomClimat = formatOuiNon(chambre.climat);
+    const roomWifi = formatOuiNon(chambre.wifi);
+
+    const matchesType = typeFilter
+      ? normalizeSearchValue(roomTypeName) === normalizeSearchValue(typeFilter) ||
+        String(chambre.type_chambre?.id || chambre.type_chambre_id || chambre.type_chambre) ===
+          String(typeFilter)
+      : true;
+
+    const matchesVue = selectedVue
+      ? String(chambre.vue?.id || chambre.vue_id || chambre.vue) === String(selectedVue)
+      : true;
+
+    const matchesEtage = selectedEtage
+      ? String(chambre.etage?.id || chambre.etage_id || chambre.etage) === String(selectedEtage)
+      : true;
+
+    const matchesSearch =
+      !normalizedSearchTerm ||
+      [
+        chambre.num_chambre,
+        roomTypeName,
+        roomEtageName,
+        roomVueName,
+        chambre.nb_lit,
+        chambre.nb_salle,
+        roomClimat,
+        roomWifi,
+      ].some((value) =>
+        normalizeSearchValue(value).includes(normalizedSearchTerm)
+      );
+
+    return matchesType && matchesVue && matchesEtage && matchesSearch;
+  }
+);
 const handleDeleteType = async (categorieId) => {
   try {
     await axios.delete(`http://localhost:8000/api/types-chambre/${categorieId}`);
@@ -1439,59 +1522,77 @@ useEffect(() => {
 
 // Define table columns (customize render as needed)
 const columns = [
-  { key: "num_chambre", label: "Num Chambre" },
-  { key: "type_chambre", label: "Type", render: (item) => item.type_chambre?.type_chambre || item.type_chambres?.type_chambre || '' },
-  { key: "etage", label: "Etage", render: (item) => item.etage?.etage || '' },
-  { key: "vue", label: "Vue", render: (item) => item.vue?.vue || '' },
-  { key: "nb_lit", label: "Nombre de lit" },
-  { key: "nb_salle", label: "Nombre de Salle" },
-  { key: "climat", label: "Climat", render: (item) => item.climat ? "Oui" : "Non" },
-  { key: "wifi", label: "Wifi", render: (item) => item.wifi ? "Oui" : "Non" },
+  {
+    key: "num_chambre",
+    label: "Num Chambre",
+    width: 130,
+    render: (item) => highlightText(item.num_chambre, searchTerm),
+  },
+  {
+    key: "type_chambre",
+    label: "Type",
+    width: 170,
+    render: (item) => highlightText(getRoomTypeName(item), searchTerm),
+  },
+  {
+    key: "etage",
+    label: "Etage",
+    width: 130,
+    render: (item) => highlightText(getRoomEtageName(item), searchTerm),
+  },
+  {
+    key: "vue",
+    label: "Vue",
+    width: 150,
+    render: (item) => highlightText(getRoomVueName(item), searchTerm),
+  },
+  {
+    key: "nb_lit",
+    label: "Nombre de lit",
+    width: 140,
+    render: (item) => highlightText(item.nb_lit, searchTerm),
+  },
+  {
+    key: "nb_salle",
+    label: "Nombre de Salle",
+    width: 160,
+    render: (item) => highlightText(item.nb_salle, searchTerm),
+  },
+  {
+    key: "climat",
+    label: "Climat",
+    width: 120,
+    render: (item) => highlightText(formatOuiNon(item.climat), searchTerm),
+  },
+  {
+    key: "wifi",
+    label: "Wifi",
+    width: 120,
+    render: (item) => highlightText(formatOuiNon(item.wifi), searchTerm),
+  },
 ];
-
   return (
     <ThemeProvider theme={createTheme()}>
       <Box sx={{...dynamicStyles}}>
-        <Box component="main" sx={{ flexGrow: 1, p: 3, mt: 4 }}>
+        <Box component="main" className="app-page chambre-page" sx={{ flexGrow: 1, p: 3, mt: 0 }}>
 
        
-          <div
-            className="d-flex justify-content-between align-items-center"
-            style={{ marginTop: "15px" }}
-          >
-            <h3 className="titreColore" style={{
-              
-                color: "#333",
-                padding: "10px 20px",
-                
-              }}>
-              Liste des Chambres
-                
-            </h3>
-            <div className="d-flex">
-              <div style={{ width: "500px", marginRight: "20px" }}>
+          <div className="app-page-header">
+            <h1 className="app-page-title">Liste des Chambres</h1> 
+            <div className="app-toolbar">
+              <div className="app-search-box">
                 <Search onSearch={handleSearch} type="search" />
               </div>
 
 
-              <div>
+              <div className="app-export-actions">
               <FontAwesomeIcon
-    style={{
-      cursor: "pointer",
-      color: "grey",
-      fontSize: "2rem",
-    }}
-    onClick={printTable}  
+    className="app-action-icon is-muted me-2"
+    onClick={printTable}
     icon={faPrint}
-    className="me-2"
   />
                   <FontAwesomeIcon
-      style={{
-        cursor: "pointer",
-        color: "red",
-        fontSize: "2rem",
-        marginLeft: "15px",
-      }}
+      className="app-action-icon is-danger"
       onClick={exportToPDF}
             icon={faFilePdf}
     />
@@ -1499,32 +1600,27 @@ const columns = [
                 <FontAwesomeIcon
                   icon={faFileExcel}
                   onClick={exportToExcel}
-                  style={{
-                    cursor: "pointer",
-                    color: "green",
-                    fontSize: "2rem",
-                    marginLeft: "15px",
-                  }}
+                  className="app-action-icon is-success"
                 />
               </div>
             </div>
           </div>
 
           
-            <div className="d-flex">
-            <div style={{width:'50%',height:'50%',marginTop:'-15px', marginRight: '5px'}}>
-              <h5 className="container-d-flex justify-content-start AjouteBotton"style={{marginBottom:'-3px'}} >Vues du Chambre</h5>
-              <div className="bgSecteur d-flex justify-content-around">
+            <div className="app-filter-grid app-section">
+            <div className="app-card app-filter-card">
+              <h5 className="app-filter-title">Vues du Chambre</h5>
+              <div className="bgSecteur app-filter-carousel d-flex justify-content-around">
               <Carousel 
   activeIndex={activeVueIndex}
   onSelect={handleVueSelect}
   interval={null}
-  nextIcon={<FaArrowRight size="2x" color="white" style={{ backgroundColor: "black", borderRadius: '50%' }} />}
-  prevIcon={<FaArrowLeft size="2x" color="white" style={{ backgroundColor: "black", borderRadius: '50%' }} />}
+  nextIcon={<FaArrowRight className="app-carousel-arrow-icon" />}
+  prevIcon={<FaArrowLeft className="app-carousel-arrow-icon" />}
 >
                 {chunks?.map((chunk, chunkIndex) => (
     <Carousel.Item key={chunkIndex}>
-                    <div className="d-flex justify-content-start" >
+                    <div className="app-carousel-strip">
                       <a href="#" style={{marginLeft:'60px'}}>
                         <div
                           className={`category-item ${selectedVue === '' ? 'active' : ''}`} 
@@ -1561,19 +1657,19 @@ const columns = [
 </Carousel>
 </div>
 </div>
-<div style={{width:'50%',height:'50%',marginTop:'-15px', marginRight: '5px'}}>
-              <h5 className="container-d-flex justify-content-start AjouteBotton" style={{marginBottom:'-3px', zIndex: 9999}} >Etages du Chambre</h5>
-              <div className="bgSecteur d-flex justify-content-around">
+<div className="app-card app-filter-card">
+              <h5 className="app-filter-title">Etages du Chambre</h5>
+              <div className="bgSecteur app-filter-carousel d-flex justify-content-around">
               <Carousel 
   activeIndex={activeEtageIndex}
   onSelect={handleEtageSelect}
   interval={null}
-  nextIcon={<FaArrowRight size="2x" color="white" style={{ backgroundColor: "black", borderRadius: '50%' }} />}
-  prevIcon={<FaArrowLeft size="2x" color="white" style={{ backgroundColor: "black", borderRadius: '50%' }} />}
+  nextIcon={<FaArrowRight className="app-carousel-arrow-icon" />}
+  prevIcon={<FaArrowLeft className="app-carousel-arrow-icon" />}
 >
   {chunks1?.map((chunk, chunkIndex) => (
     <Carousel.Item key={chunkIndex}>
-                    <div className="d-flex justify-content-start">
+                    <div className="app-carousel-strip">
                       <a href="#" style={{marginLeft:'60px'}}>
                         <div
                           className={`category-item ${selectedEtage === '' ? 'active' : ''}`} 
@@ -1613,47 +1709,29 @@ const columns = [
 </div>
 
 
-<div className="container-d-flex justify-content-start">
-            <div style={{ display: "flex", alignItems: "center" ,marginTop:'-16px' ,padding:'15px'}}>
+<div className="container-fluid px-0">
+            <div className="app-add-row">
              
               <a
                 onClick={handleShowFormButtonClick}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  cursor: "pointer",
-                  marginTop: "5px",
-                  backgroundColor: "#00afaa",
-                  color: "white",
-                  borderRadius: "10px",
-                  fontWeight: "bold"  , 
-                  marginLeft: "98.5%",
-                  padding: "6px 15px",
-                  height: "40px",
-                }}
-                className="gap-2 AjouteBotton"
+                className="app-add-button"
+
               >
                 <FontAwesomeIcon
                   icon={faPlus}
                   style={{ cursor: "pointer" ,color: "white" }}
                 />
+                Ajouter Chambre
               </a>
 
             </div>
           
 
-        <div style={{ marginTop:"0px",}}>
-        <div id="formContainer" style={{...formContainerStyle, marginTop:'0px', maxHeight:'700px', overflow:'auto', padding:'20px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', background: "#fff"}}>
+        <div>
+        <div id="formContainer" className="app-form-drawer" style={{...formContainerStyle}}>
             <Form className="col row" onSubmit={handleSubmit}>
               <Form.Label className="text-center">
-                <h4 style={{ 
-                  fontSize: "25px", 
-                  fontFamily: "Arial, sans-serif", 
-                  fontWeight: "bold", 
-                  color: "black",
-                  borderBottom: "2px solid black", 
-                  paddingBottom: "5px",
-                }}>
+                <h4 className="app-form-drawer-title">
                   {editingChambre ? "Modifier" : "Ajouter"} une Chambre
                 </h4>
               </Form.Label>
@@ -2440,37 +2518,31 @@ const columns = [
                   {errors.wifi}
                 </Form.Control.Feedback>
               </Form.Group>
-              <Form.Group className="mt-5 d-flex justify-content-center">
-                <Fab
-                  variant="extended"
-                  className="btn-sm Fab mb-2 mx-2"
+              <Form.Group className="app-form-actions">
+                <Button
                   type="submit"
+                  className="app-primary-button"
                 >
                   Valider
-                </Fab>
-                <Fab
-                  variant="extended"
-                  className="btn-sm FabAnnule mb-2 mx-2"
+                </Button>
+                <Button
+                  type="button"
+                  className="app-secondary-button"
                   onClick={closeForm}
                 >
                   Annuler
-                </Fab>
+                </Button>
               </Form.Group>
             </Form>
           </div>
 
         </div>
             
-        <div className="">
+        <div>
           <div
             id="tableContainer"
-            className="table-responsive"
-            style={{...tableContainerStyle, overflowX: 'auto', minWidth: '650px', overflow: 'auto',
-              marginTop:'20px',
-              background: "#f9f9f9",
-              borderRadius: "8px",
-              boxShadow: "0px 2px 8px rgba(0,0,0,0.1)"
-            }}
+            className="app-table-wrapper"
+            style={{...tableContainerStyle, marginTop: "20px"}}
           >
             <ExpandRTable
             columns={columns}
@@ -2493,6 +2565,7 @@ const columns = [
             toggleRowExpansion={toggleRow}
             renderExpandedRow={(item) => <></>}
             renderCustomActions={null}
+            uiVariant="app"
           />
     </div>
  

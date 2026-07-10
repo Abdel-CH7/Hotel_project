@@ -1,4 +1,18 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+}
 body {
+  margin: 0;
   margin-bottom: 70px;
    /* Ajoutez une marge en bas pour éviter que le pied de page ne chevauche le contenu */
 background-color: #f5f5f5 !important;
@@ -382,3 +396,43 @@ table thead th{
 
 /* Styles pour le groupe de formulaire */
 
+
+/* Shared app layering hotfix: keep fixed drawers above page content but below the top app bar. */
+:root {
+  --appbar-height: 64px;
+  --appbar-z-index: 1600;
+  --form-drawer-z-index: 1500;
+  --page-content-z-index: 0;
+  --table-sticky-z-index: 2;
+}
+
+#formContainer,
+#formContainer1SC,
+#formContainerCommande,
+.app-form-drawer {
+  position: fixed !important;
+  top: var(--appbar-height) !important;
+  height: calc(100vh - var(--appbar-height)) !important;
+  max-height: calc(100vh - var(--appbar-height)) !important;
+  z-index: var(--form-drawer-z-index) !important;
+  background: #fff !important;
+  overflow-y: auto !important;
+  overflow-x: hidden;
+  box-shadow: -8px 0 24px rgba(15, 23, 42, 0.18) !important;
+  box-sizing: border-box;
+}
+
+#tableContainer,
+.table-container,
+.stats-container,
+.bgSecteur,
+.bgCategories {
+  position: relative;
+  z-index: var(--page-content-z-index);
+}
+
+.table-bordered thead,
+.tableHead,
+table thead th {
+  z-index: var(--table-sticky-z-index) !important;
+}

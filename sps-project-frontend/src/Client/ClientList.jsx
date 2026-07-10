@@ -3,7 +3,6 @@ import axios from "axios";
 import Swal from "sweetalert2";
 import { Form, Button, Modal, Carousel } from "react-bootstrap";
 import Navigation from "../Acceuil/Navigation";
-import TablePagination from "@mui/material/TablePagination";
 import PrintList from "./PrintList";
 import { highlightText } from '../utils/textUtils';
 import ExportPdfButton from "./exportToPdf";
@@ -29,7 +28,7 @@ import * as XLSX from "xlsx";
 import "../style.css";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import Box from "@mui/material/Box";
-import { Checkbox, Fab, Toolbar } from "@mui/material";
+import { Fab } from "@mui/material";
 import { useOpen } from "../Acceuil/OpenProvider"; // Importer le hook personnalisé
 import { FaArrowLeft, FaArrowRight } from "react-icons/fa6";
 
@@ -1872,54 +1871,33 @@ useEffect(() => {
   return (
     <ThemeProvider theme={createTheme()}>
       <Box sx={{...dynamicStyles}}>
-        <Box component="main" sx={{ flexGrow: 1, p: 3, mt: 4 }}>
+        <Box component="main" className="app-page clients-societe-page" sx={{ flexGrow: 1, p: 3, mt: 0 }}>
 
        
-          <div
-            className="d-flex justify-content-between align-items-center"
-            style={{ marginTop: "15px" }}
-          >
-            <h3 className="titreColore">
-              {/* <PeopleIcon style={{ fontSize: "24px", marginRight: "8px" }} /> */}
-              Liste des Clients Societe
-            </h3>
-            <div className="d-flex">
-              <div style={{ width: "500px", marginRight: "20px" }}>
+          <div className="app-page-header">
+            <h1 className="app-page-title">Liste des Clients Société</h1>
+            <div className="app-toolbar">
+              <div className="app-search-box">
                 <Search onSearch={handleSearch} type="search" />
               </div>
 
 
-              <div>
+              <div className="app-export-actions">
               <FontAwesomeIcon
-    style={{
-      cursor: "pointer",
-      color: "grey",
-      fontSize: "2rem",
-    }}
     onClick={printTable}  
     icon={faPrint}
-    className="me-2"
+    className="app-action-icon is-muted"
   />
                   <FontAwesomeIcon
-      style={{
-        cursor: "pointer",
-        color: "red",
-        fontSize: "2rem",
-        marginLeft: "15px",
-      }}
       onClick={exportToPDF}
             icon={faFilePdf}
+      className="app-action-icon is-danger"
     />
 
                 <FontAwesomeIcon
                   icon={faFileExcel}
                   onClick={exportToExcel}
-                  style={{
-                    cursor: "pointer",
-                    color: "green",
-                    fontSize: "2rem",
-                    marginLeft: "15px",
-                  }}
+                  className="app-action-icon is-success"
                 />
               </div>
             </div>
@@ -1927,18 +1905,19 @@ useEffect(() => {
 
           {
           
-            <div style={{height:'125px',marginTop:'-15px'}}>
-                                        <h5 className="container-d-flex justify-content-start AjouteBotton"style={{marginBottom:'-3px'}} >Secteur d'activité</h5>
-                                        <div className=" bgSecteur" >
+            <div className="app-section">
+              <div className="app-card app-filter-card">
+                                        <h5 className="app-filter-title">Secteur d'activité</h5>
+                                        <div className="bgSecteur app-filter-carousel d-flex justify-content-around" >
 
 <Carousel activeIndex={activeIndex} onSelect={handleSelect} interval={null}
- nextIcon={<FaArrowRight size="2x" color="@ffffff" style={{backgroundColor:"black" ,borderRadius:'50%' ,marginTop:'-50px',marginRight:"5px",marginLeft:"-5px"}} />}
- prevIcon={<FaArrowLeft size="2x" color="@ffffff" style={{backgroundColor:"black" ,borderRadius:'50%',marginTop:'-50px',marginRight:"-5px",marginLeft:"5px"}} />}>
+ nextIcon={<FaArrowRight className="app-carousel-arrow-icon" />}
+ prevIcon={<FaArrowLeft className="app-carousel-arrow-icon" />}>
 
   {chunks?.map((chunk, chunkIndex) => (
     <Carousel.Item key={chunkIndex}>
-      <div className="d-flex justify-content-start">
-        <a href="#" style={{marginLeft:'60px'}}>
+      <div className="app-carousel-strip">
+        <a href="#">
           <div
             className={`category-item ${selectedCategory === '' ? 'active' : ''}`} 
             onClick={() => handleCategoryFilterChange("")}
@@ -1974,42 +1953,28 @@ useEffect(() => {
   ))}
 </Carousel>
 </div>
-                                        </div>
+              </div>
+            </div>
 
           }
 
-          <div className="container-d-flex justify-content-start">
-            <div style={{ display: "flex", alignItems: "center" ,marginTop:'-16px' ,padding:'15px'}}>
+          <div className="container-fluid px-0">
+            <div className="app-controls-row">
              
               <a
                 onClick={handleShowFormButtonClick}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  cursor: "pointer",
-                  backgroundColor: "#00afaa",
-                  color: "white",
-                  borderRadius: "10px",
-                  fontWeight: "bold"  , 
-                  padding: "6px 15px",
-                  height: "40px",
-                }}
-                className="gap-2 AjouteBotton"
+                className="app-add-button"
               >
  <FontAwesomeIcon
                     icon={faPlus}
-                    className=" AjouteBotton"
-                    style={{ cursor: "pointer",color: "white" }}
+                    style={{ cursor: "pointer", color: "white" }}
                   />                Ajouter Client
               </a>
 
-            </div>
-
-            <div className="filters" 
-            >
+            <div className="app-filter-controls">
             <Form.Select aria-label="Default select example"
              value={regionFilter} onChange={handleRegionFilterChange}
-             style={{width:'10%',height:"35px",position:'absolute', left: '66%', top: '224px', fontWeight: "bold", borderRadius: "10px"}}>
+             className="app-filter-select">
             <option value="">Sélectionner Region</option>
     {
       regions?.map((region)=>(
@@ -2020,7 +1985,7 @@ useEffect(() => {
 
     <Form.Select aria-label="Default select example"
     value={zoneFilter} onChange={handleZoneFilterChange}
-    style={{width:'10%' ,height:"35px",position:'absolute', left: '77%',  top: '224px' ,fontWeight: "bold", borderRadius: "10px"}}>
+    className="app-filter-select">
     <option value="">Sélectionner Zone</option>
     {
       zones?.map((zone)=>(
@@ -2033,7 +1998,7 @@ useEffect(() => {
   aria-label="Default select example"
   value={villeFilter} 
   onChange={handleVilleFilterChange}
-  style={{ width: '10%', height: "35px", position:'absolute', left: '88%',  top: '224px' ,  fontWeight: "bold", borderRadius: "10px"}}
+  className="app-filter-select"
 >
   <option value="">Sélectionner Ville</option>
   {
@@ -2047,21 +2012,13 @@ useEffect(() => {
 
 
 </div>
+</div>
 
         <div style={{ marginTop:"0px",}}>
-        <div id="formContainer" className="" style={{...formContainerStyle,marginTop:'0px',maxHeight:'700px',overflow:'auto',padding:'0'}}>
+        <div id="formContainer" className="app-form-drawer" style={{...formContainerStyle,marginTop:'0px',maxHeight:'700px',overflow:'auto'}}>
               <Form className="col row" onSubmit={handleSubmit}>
                 <Form.Label className="text-center ">
-                <h4
-                     style={{
-                      fontSize: "25px", 
-                      fontFamily: "Arial, sans-serif", 
-                      fontWeight: "bold", 
-                      color: "black",
-                      borderBottom: "2px solid black", 
-                      paddingBottom: "5px",
-                    }}
-                    >
+                <h4 className="app-form-drawer-title">
                       {editingClient ? "Modifier" : "Ajouter"} un Client</h4>
                 </Form.Label>
                 <Form.Group className="col-sm-6 mt-2" style={{ display: 'flex', alignItems: 'center' }} controlId="calibre_id">
@@ -3038,43 +2995,32 @@ useEffect(() => {
 </div>
 
     </Form.Group> */}
-  <Form.Group className="mt-5 d-flex justify-content-center">
-        
-        <Fab
-    variant="extended"
-    className="btn-sm Fab mb-2 mx-2"
-    type="submit"
-  >
-    Valider
-  </Fab>
-  <Fab
-    variant="extended"
-    className="btn-sm FabAnnule mb-2 mx-2"
-    onClick={closeForm}
-  >
-    Annuler
-  </Fab>
-      </Form.Group>
+  <Form.Group className="app-form-actions">
+    <Button
+      type="submit"
+      className="app-primary-button"
+    >
+      Valider
+    </Button>
+    <Button
+      type="button"
+      className="app-secondary-button"
+      onClick={closeForm}
+    >
+      Annuler
+    </Button>
+  </Form.Group>
               </Form>
             </div>
         </div>
             <div
-              id="formContainer"
-              className=""
+              id="formContainer1SC"
+              className="app-form-drawer"
                 style={{...formContainerStyleSC,marginTop:'0px',maxHeight:'700px',overflow:'auto'}}
             >
               <Form className="col row" onSubmit={handleSubmitSC}>
                 <Form.Label className="text-center m-2">
-                <h4
-                     style={{
-                      fontSize: "25px", 
-                      fontFamily: "Arial, sans-serif", 
-                      fontWeight: "bold", 
-                      color: "black", 
-                      borderBottom: "2px solid black",
-                      paddingBottom: "5px",
-                    }}
-                    >
+                <h4 className="app-form-drawer-title">
                     {editingSiteClient ? "Modifier" : "Ajouter"} Site Client
                   </h4>
                 </Form.Label>
@@ -4194,37 +4140,35 @@ useEffect(() => {
 </div>
 
     </Form.Group> */}
-                <Form.Group className="mt-5 d-flex justify-content-center">
-                  
-  <Fab
-    variant="extended"
-    className="btn-sm Fab mb-2 mx-2"
-    type="submit"
-  >
-    Valider
-  </Fab>
-  <Fab
-    variant="extended"
-    className="btn-sm FabAnnule mb-2 mx-2"
-    onClick={closeFormSC}
-  >
-    Annuler
-  </Fab>
-</Form.Group>
+                <Form.Group className="app-form-actions">
+                  <Button
+                    type="submit"
+                    className="app-primary-button"
+                  >
+                    Valider
+                  </Button>
+                  <Button
+                    type="button"
+                    className="app-secondary-button"
+                    onClick={closeFormSC}
+                  >
+                    Annuler
+                  </Button>
+                </Form.Group>
 
               </Form>
             </div>
             <div className="">
               <div
                 id="tableContainer"
-                className="table-responsive"
-                style={{...tableContainerStyle, overflowX: 'auto', minWidth: '650px',
+                className="app-table-wrapper"
+                style={{...tableContainerStyle, overflowX: 'auto',
                   maxHeight: '700px', overflow: 'auto',
                   marginTop:'0px',
                   paddingTop:'0px'
                 }}
               >
-          <table className="table table-bordered" id="clientsTable" style={{ marginTop: "-5px", }}>
+          <table className="table table-bordered app-table" id="clientsTable" style={{ marginTop: "-5px", }}>
   <thead className="text-center table-secondary" style={{ position: 'sticky', top: -1, backgroundColor: '#ddd', zIndex: 1,padding:'10px'}}>
     <tr className="tableHead">
       <th className="tableHead widthDetails">
@@ -4487,34 +4431,68 @@ contact_site_clients
 </table>
 
 
-                <a href="#">
+                <div className="app-table-footer">
                   <Button
-                  className="btn btn-danger btn-sm"
-                  onClick={handleDeleteSelected}
-                  disabled={selectedItems?.length === 0}
-                  style={{
-                    borderRadius: "10px",
-                    fontWeight: "bold",
-                    fontSize: "17px",
-                    color: "white",
-                  }}
-                >
-                  <FontAwesomeIcon
-                    icon={faTrash}
-                    style={{ marginRight: "0.5rem" }}
-                  />
-                  Supprimer selection
-                </Button>
-                </a>
-                <TablePagination
-                  rowsPerPageOptions={[5, 10,15,20, 25]}
-                  component="div"
-                  count={filteredclients?.length}
-                  rowsPerPage={rowsPerPage}
-                  page={page}
-                  onPageChange={handleChangePage}
-                  onRowsPerPageChange={handleChangeRowsPerPage}
-                />
+                    type="button"
+                    className="app-danger-button"
+                    onClick={handleDeleteSelected}
+                    disabled={selectedItems?.length === 0}
+                  >
+                    <FontAwesomeIcon
+                      icon={faTrash}
+                      style={{ marginRight: "0.5rem" }}
+                    />
+                    Supprimer selection
+                  </Button>
+
+                  <div className="app-table-pagination">
+                    <span>Lignes par page:</span>
+
+                    <select
+                      value={rowsPerPage}
+                      onChange={(e) =>
+                        handleChangeRowsPerPage({
+                          target: { value: e.target.value },
+                        })
+                      }
+                    >
+                      {[5, 10, 15, 20, 25].map((value) => (
+                        <option key={value} value={value}>
+                          {value}
+                        </option>
+                      ))}
+                    </select>
+
+                    <span>
+                      {filteredClients.length > 0
+                        ? `${page * rowsPerPage + 1}-${Math.min(
+                            (page + 1) * rowsPerPage,
+                            filteredClients.length
+                          )} sur ${filteredClients.length}`
+                        : "0-0 sur 0"}
+                    </span>
+
+                    <button
+                      type="button"
+                      className="app-pagination-arrow"
+                      disabled={page === 0}
+                      onClick={(e) => handleChangePage(e, page - 1)}
+                      aria-label="Page précédente"
+                    >
+                      ‹
+                    </button>
+
+                    <button
+                      type="button"
+                      className="app-pagination-arrow"
+                      disabled={(page + 1) * rowsPerPage >= filteredClients.length}
+                      onClick={(e) => handleChangePage(e, page + 1)}
+                      aria-label="Page suivante"
+                    >
+                      ›
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

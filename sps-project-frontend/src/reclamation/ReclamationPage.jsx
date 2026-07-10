@@ -15,7 +15,6 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faChevronDown } from "@fortawesome/free-solid-svg-icons"; // If using dropdown icons
 import DynamicFilter from "../components/DynamicFilter";
 import { Form, Button, Modal, Carousel } from "react-bootstrap";
-import Fab from '@mui/material/Fab';
 import "../style.css";
 import {
   faTrash,
@@ -98,7 +97,7 @@ const ReclamationPage = () => {
   const [tableContainerStyle, setTableContainerStyle] = useState({ marginRight: "0" });
   const [showAddDepartmentModal, setShowAddDepartmentModal] = useState(false);
   // In your state declarations
-  const [newDepartment, setNewDepartment] = useState({ designation: '' }); // For adding
+  const [newDepartment, setNewDepartment] = useState({ name: "" });
   const [editingDepartment, setEditingDepartment] = useState({ id: null, designation: '' }); // For editing
   const [showEditDropdown, setShowEditDropdown] = useState(false); // Step 1: Declare state for the modal
   const [departmentErrors, setDepartmentErrors] = useState({ name: false });
@@ -217,36 +216,76 @@ const ReclamationPage = () => {
   // ✅ Pre-chunk departments before rendering to avoid delays
   const chunks = useMemo(() => chunkArray(departments, 9), [departments]);
 
+  const normalizeSearchValue = (value) =>
+  String(value ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+
+const formatReclamationDate = (date) => {
+  if (!date) return "";
+
+  const parsedDate = new Date(date);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return String(date);
+  }
+
+  return parsedDate.toLocaleDateString("fr-FR");
+};
+
+const getReclamationISODate = (date) => {
+  if (!date) return "";
+
+  return String(date).split("T")[0];
+};
+
   // ✅ Optimized filtering logic
-  useEffect(() => {
-    const lowerSearchTerm = searchTerm.toLowerCase();
-  
-    setFilteredReclamations(
-      reclamations.filter((rec) => {
-        const matchesSearch = [
+useEffect(() => {
+  const normalizedSearchTerm = normalizeSearchValue(searchTerm);
+
+  setFilteredReclamations(
+    (Array.isArray(reclamations) ? reclamations : []).filter((rec) => {
+      const formattedDate = formatReclamationDate(rec.date);
+      const isoDate = getReclamationISODate(rec.date);
+
+      const matchesSearch =
+        !normalizedSearchTerm ||
+        [
           rec.type_reclamation,
-          rec.suivi,
+          formattedDate,
+          isoDate,
           rec.reclamer_a_travers,
-          rec.reponse,
           rec.departement?.nom,
-        ].some((field) => field?.toLowerCase().includes(lowerSearchTerm));
-  
-        const matchesDepartment = selectedDepartment
-          ? rec.departement?.id === selectedDepartment.id
-          : true;
-  
-        const matchesStatus = selectedStatus ? rec.suivi === selectedStatus : true;
-  
-        const matchesDate = selectedDate
-          ? rec.date && rec.date.startsWith(selectedDate.toISOString().split("T")[0])
-          : true; // ✅ Apply date filter
-  
-        return matchesSearch && matchesDepartment && matchesStatus && matchesDate;
-      })
-    );
-  }, [reclamations, searchTerm, selectedDepartment, selectedStatus, selectedDate]);
-  
-  
+          rec.departement_affecte,
+          rec.suivi,
+          rec.reponse,
+        ].some((field) =>
+          normalizeSearchValue(field).includes(normalizedSearchTerm)
+        );
+
+      const matchesDepartment = selectedDepartment?.id
+        ? String(rec.departement?.id || rec.departement_id) ===
+          String(selectedDepartment.id)
+        : true;
+
+      const matchesStatus = selectedStatus
+        ? rec.suivi === selectedStatus
+        : true;
+
+      const selectedDateString = selectedDate
+        ? selectedDate.toISOString().split("T")[0]
+        : "";
+
+      const matchesDate = selectedDateString
+        ? isoDate === selectedDateString
+        : true;
+
+      return matchesSearch && matchesDepartment && matchesStatus && matchesDate;
+    })
+  );
+}, [reclamations, searchTerm, selectedDepartment, selectedStatus, selectedDate]);  
   
   
   
@@ -382,37 +421,65 @@ const ReclamationPage = () => {
   };
 
   // table parts
-  const columns = [
-    { key: "type_reclamation", label: "Type de Réclamation", render: (item) => highlightText(item.type_reclamation, searchTerm) },
-    {
-      key: "date", 
-      label: "Date", 
-      render: (item) => item.date ? new Date(item.date).toLocaleDateString("fr-FR") : "Date non disponible"
-    },
-    { key: "reclamer_a_travers", label: "Réclamé à Travers", render: (item) => highlightText(item.reclamer_a_travers, searchTerm) },
-    { 
-  key: "departement_nom", 
-  label: "Département Affecté", 
-  render: (item) => highlightText(item.departement?.nom || "Non spécifié", searchTerm) 
-},
-    {
-        key: "suivi",
-        label: "Status",
-        render: (item, searchTerm, toggleRowExpansion) => (
-          <>
-            <button 
-              onClick={() => toggleRowExpansion(item.id)} 
-              style={{ border: "none", backgroundColor: "white", cursor: "pointer" }}
-            >
-              <FontAwesomeIcon icon={faChevronDown} />
-            </button>
-            {highlightText(item.suivi, searchTerm) || ""}
-          </>
-        ),
-      },
-    { key: "reponse", label: "Réponse", render: (item) => highlightText(item.reponse, searchTerm) }
-  ];
-  
+const columns = [
+  {
+    key: "type_reclamation",
+    label: "Type de Réclamation",
+    width: 220,
+    render: (item) => highlightText(item.type_reclamation, searchTerm),
+  },
+  {
+    key: "date",
+    label: "Date",
+    width: 130,
+    render: (item) =>
+      item.date
+        ? highlightText(formatReclamationDate(item.date), searchTerm)
+        : "Date non disponible",
+  },
+  {
+    key: "reclamer_a_travers",
+    label: "Réclamé à Travers",
+    width: 220,
+    render: (item) => highlightText(item.reclamer_a_travers, searchTerm),
+  },
+  {
+    key: "departement_nom",
+    label: "Département Affecté",
+    width: 220,
+    render: (item) =>
+      highlightText(item.departement?.nom || "Non spécifié", searchTerm),
+  },
+  {
+    key: "suivi",
+    label: "Status",
+    width: 160,
+    render: (item, searchTerm, toggleRowExpansion) => (
+      <>
+        <button
+          type="button"
+          onClick={() => toggleRowExpansion(item.id)}
+          style={{
+            border: "none",
+            background: "transparent",
+            cursor: "pointer",
+            marginRight: "6px",
+          }}
+        >
+          <FontAwesomeIcon icon={faChevronDown} />
+        </button>
+
+        {highlightText(item.suivi, searchTerm) || ""}
+      </>
+    ),
+  },
+  {
+    key: "reponse",
+    label: "Réponse",
+    width: 260,
+    render: (item) => highlightText(item.reponse, searchTerm),
+  },
+];  
   
 
 /////////////////////////////////////////////////////// Table part //////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -568,9 +635,10 @@ const ReclamationPage = () => {
 // Correct if rec.departement_affecte is the department name
 const filterOptions = [
   {
-    label: "Department",
+    label: "Département",
     key: "departement_affecte",
-    options: departments.map(dept => ({
+    placeholder: "Tous les départements",
+    options: departments.map((dept) => ({
       value: dept.id.toString(),
       label: dept.designation,
     })),
@@ -578,6 +646,7 @@ const filterOptions = [
   {
     label: "Status",
     key: "suivi",
+    placeholder: "Tous les statuts",
     options: [
       { value: "En attente", label: "En attente" },
       { value: "En cours", label: "En cours" },
@@ -587,11 +656,10 @@ const filterOptions = [
   },
   {
     label: "Date",
-    key: "date",  // Add the 'date' filter option
-    options: [], // No options for date, we will use a calendar
+    key: "date",
+    type: "date",
   },
 ];
-
 
 
 
@@ -639,26 +707,8 @@ const handleFilterChange = (key, value) => {
 
 
 const handleDateFilterChange = (dateString) => {
-  // If cleared or no date, reset
-  if (!dateString) {
-    setSelectedDate(null);
-    setFilteredReclamations(reclamations);
-    return;
-  }
-
-  // Convert "YYYY-MM-DD" to a Date object
-  const dateObj = new Date(dateString);
-  setSelectedDate(dateObj);
-
-  // Filter your data
-  const formattedDate = dateObj.toISOString().split("T")[0];
-  setFilteredReclamations(
-    reclamations.filter(
-      (rec) => rec.date && rec.date.startsWith(formattedDate)
-    )
-  );
+  setSelectedDate(dateString ? new Date(`${dateString}T00:00:00`) : null);
 };
-
 
 
 
@@ -680,18 +730,20 @@ const closeForm = () => {
     departement_affecte: "",
     suivi: "",
     reponse: "",
+    date: "",
   });
+
   setErrors({});
   setHasSubmitted(false);
+  setEditingReclamation(null);
   setShowAddReclamationModal(false);
   setShowEditReclamationModal(false);
   setFormContainerStyle({ right: "-100%" });
-  setTableContainerStyle({ 
+
+  setTableContainerStyle({
     marginRight: "0",
-    transition: "margin 0.3s ease" 
   });
-};
-  
+};  
 
   const handleSelectAllChange = () => {
     if (selectAll) {
@@ -746,27 +798,35 @@ const closeForm = () => {
     }
   };
 
-  const handleShowFormButtonClick = (reclamation = null) => {
-    setEditingReclamation(reclamation);
-    setReclamationFormData(reclamation ? {
-      ...reclamation,
-      departement_affecte: reclamation.departement_id ? reclamation.departement_id.toString() : "", // ✅ Correct field
-    } : {
-      type_reclamation: "",
-      reclamer_a_travers: "",
-      departement_affecte: "",
-      suivi: "",
-      reponse: "",
-      date: "",
-    });
-  
-    setFormContainerStyle({ right: "0" });
-    setTableContainerStyle({ 
-      marginRight: "650px", // Match form width + gap
-      transition: "margin 0.3s ease" 
-    });
-  };
-  
+const handleShowFormButtonClick = (reclamation = null) => {
+  setEditingReclamation(reclamation);
+
+  setReclamationFormData(
+    reclamation
+      ? {
+          type_reclamation: reclamation.type_reclamation || "",
+          reclamer_a_travers: reclamation.reclamer_a_travers || "",
+          departement_affecte: reclamation.departement_id
+            ? String(reclamation.departement_id)
+            : "",
+          suivi: reclamation.suivi || "",
+          reponse: reclamation.reponse || "",
+          date: reclamation.date ? reclamation.date.split("T")[0] : "",
+        }
+      : {
+          type_reclamation: "",
+          reclamer_a_travers: "",
+          departement_affecte: "",
+          suivi: "",
+          reponse: "",
+          date: "",
+        }
+  );
+
+  setErrors({});
+  setHasSubmitted(false);
+  setFormContainerStyle({ right: "0" });
+};  
 
   const handleAddDepartment = async () => {
     try {
@@ -851,14 +911,14 @@ const handleChangeRowsPerPage = (event) => {
   return (
     <ThemeProvider theme={createTheme()}>
       <Box sx={{ ...dynamicStyles }}>
-        <Box component="main" sx={{ flexGrow: 1, p: 3, mt: 4 }}>
+        <Box component="main" className="app-page reclamation-page" sx={{ flexGrow: 1, p: 3, mt: 0 }}>
           <SearchWithExportCarousel
             onSearch={setSearchTerm}
             exportToExcel={exportToExcel}
             exportToPDF={exportToPDF}
             printTable={printTable}
             categories={departments}
-            selectedCategory={selectedDepartment?.name}  // Ensure we pass the name
+            selectedCategory={selectedDepartment?.id || ""}  // Ensure we pass the name
             handleCategoryFilterChange={handleCategoryFilterChange}  // Handle filtering by name
             activeIndex={activeIndex}
             handleSelect={setActiveIndex}
@@ -875,248 +935,209 @@ const handleChangeRowsPerPage = (event) => {
   onAddClick={() => handleShowFormButtonClick()}
   addButtonLabel="Ajouter Réclamation"
 />
-  <div className="form-table-container" style={{ position: 'relative', display: 'flex' }}>
-            <div id="formContainer" className="form-sidebar" style={{ ...formContainerStyle }}>
-            <Form onSubmit={handleSubmit} className="text-center">
-              <h4
-                style={{
-                  fontSize: "25px",
-                  fontFamily: "Arial, sans-serif",
-                  fontWeight: "bold",
-                  color: "black",
-                  borderBottom: "2px solid black",
-                  paddingBottom: "5px",
-                }}
-              >
-                {editingReclamation ? "Modifier" : "Ajouter"} Réclamation
-              </h4>
+  <div className="reclamation-content">
+            <div
+  id="formContainer"
+  className="app-form-drawer"
+  style={{
+    ...formContainerStyle,
+    width: "560px",
+    maxWidth: "100%",
+  }}
+>
+  <Form onSubmit={handleSubmit}>
+    <h4 className="app-form-drawer-title">
+      {editingReclamation ? "Modifier" : "Ajouter"} Réclamation
+    </h4>
 
-              {/* Type de Réclamation */}
-              <Form.Group className="form-group d-flex align-items-center" style={{ marginBottom: "20px", position: "relative" }}>
-                <FontAwesomeIcon
-                  icon={faPlus}
-                  style={{ visibility: "hidden", marginRight: "16px" }} // Empty space for alignment
-                />
-                <Form.Label className="form-label" style={{ minWidth: "195px", marginRight: "10px" }}>
-                  Type de Réclamation
-                </Form.Label>
-                <div style={{ flex: 1, position: "relative" }}>
-                  <Form.Control
-                    type="text"
-                    name="type_reclamation"
-                    value={reclamationFormData.type_reclamation}
-                    onChange={handleChange}
-                    isInvalid={hasSubmitted && !!errors.type_reclamation}
-                  />
-                  {hasSubmitted && errors.type_reclamation && (
-                    <div className="invalid-feedback" style={{ display: "block", position: "absolute", top: "100%", left: "0", textAlign: "left" }}>
-                      Required
-                    </div>
-                  )}
-                </div>
-              </Form.Group>
+    <div className="row g-3">
+      <Form.Group className="col-12">
+        <Form.Label>Type de Réclamation *</Form.Label>
+        <Form.Control
+          type="text"
+          name="type_reclamation"
+          value={reclamationFormData.type_reclamation}
+          onChange={handleChange}
+          isInvalid={hasSubmitted && !!errors.type_reclamation}
+        />
+        <Form.Control.Feedback type="invalid">
+          Required
+        </Form.Control.Feedback>
+      </Form.Group>
 
+      <Form.Group className="col-12">
+        <Form.Label>Réclamé à travers *</Form.Label>
+        <Form.Control
+          type="text"
+          name="reclamer_a_travers"
+          value={reclamationFormData.reclamer_a_travers}
+          onChange={handleChange}
+          isInvalid={hasSubmitted && !!errors.reclamer_a_travers}
+        />
+        <Form.Control.Feedback type="invalid">
+          Required
+        </Form.Control.Feedback>
+      </Form.Group>
 
-              {/* Réclamé à travers */}
-<Form.Group className="form-group d-flex align-items-center" style={{ marginBottom: "20px", position: "relative" }}>
-  <FontAwesomeIcon
-    icon={faPlus}
-    style={{ visibility: "hidden", marginRight: "16px" }} // Empty space for alignment
-  />
-  <Form.Label className="form-label" style={{ minWidth: "195px", marginRight: "10px" }}>
-    Réclamé à travers
-  </Form.Label>
-  <div style={{ flex: 1, position: "relative" }}>
-    <Form.Control
-      type="text"
-      name="reclamer_a_travers"
-      value={reclamationFormData.reclamer_a_travers}
-      onChange={handleChange}
-      isInvalid={hasSubmitted && !!errors.reclamer_a_travers}
-    />
-    {hasSubmitted && errors.reclamer_a_travers && (
-      <div className="invalid-feedback" style={{ display: "block", position: "absolute", top: "100%", left: "0", textAlign: "left" }}>
-        Required
-      </div>
-    )}
-  </div>
-</Form.Group>
+      <Form.Group className="col-md-6">
+        <Form.Label>Date *</Form.Label>
+        <Form.Control
+          type="date"
+          name="date"
+          value={reclamationFormData.date}
+          onChange={handleChange}
+          isInvalid={hasSubmitted && !!errors.date}
+        />
+        <Form.Control.Feedback type="invalid">
+          Required
+        </Form.Control.Feedback>
+      </Form.Group>
 
-{/* Date */}
-<Form.Group className="form-group d-flex align-items-center" style={{ marginBottom: "20px", position: "relative" }}>
-  <FontAwesomeIcon icon={faPlus} style={{ visibility: "hidden", marginRight: "16px" }} />
-  <Form.Label className="form-label" style={{ minWidth: "195px", marginRight: "10px" }}>
-    Date
-  </Form.Label>
-  <div style={{ flex: 1, position: "relative" }}>
-    <Form.Control
-      type="date"
-      name="date"
-      value={reclamationFormData.date}
-      onChange={handleChange}
-      isInvalid={hasSubmitted && !!errors.date}
-    />
-    {hasSubmitted && errors.date && (
-      <div className="invalid-feedback" style={{ display: "block", position: "absolute", top: "100%", left: "0", textAlign: "left" }}>
-        Required
-      </div>
-    )}
-  </div>
-</Form.Group>
+      <Form.Group className="col-md-6">
+        <div className="d-flex align-items-center justify-content-between">
+          <Form.Label className="mb-0">Département *</Form.Label>
 
-{/* Département */}
-<Form.Group className="form-group d-flex align-items-center" style={{ marginBottom: "20px", position: "relative" }}>
-  <FontAwesomeIcon
-    icon={faPlus}
-    className="text-primary ms-2"
-    style={{ cursor: "pointer", marginRight: "9px" }}
-    onClick={() => setShowAddDepartmentModal(true)}
-  />
-  <Form.Label className="form-label" style={{ minWidth: "195px", marginRight: "10px" }}>
-    Département
-  </Form.Label>
-  <div style={{ flex: 1, position: "relative" }}>
-    <Form.Select
-      name="departement_affecte"
-      value={reclamationFormData.departement_affecte}
-      onChange={(e) => {
-        const selectedDept = departments.find(
-          (dept) => dept.id === parseInt(e.target.value, 10)
-        );
-        setReclamationFormData((prev) => ({
-          ...prev,
-          departement_affecte: selectedDept?.id || "",
-        }));
-        setErrors((prev) => ({
-          ...prev,
-          departement_affecte: selectedDept ? "" : "Champ requis",
-        }));
-      }}
-      isInvalid={hasSubmitted && !!errors.departement_affecte}
-    >
-      <option value="">Sélectionner un département</option>
-      {departments.map((dept) => (
-        <option key={dept.id} value={dept.id}>
-          {dept.designation}
-        </option>
-      ))}
-    </Form.Select>
-    {hasSubmitted && errors.departement_affecte && (
-      <div className="invalid-feedback" style={{ display: "block", position: "absolute", top: "100%", left: "0", textAlign: "left" }}>
-        Required
-      </div>
-    )}
-  </div>
-</Form.Group>
+          <button
+            type="button"
+            onClick={() => setShowAddDepartmentModal(true)}
+            style={{
+              border: "none",
+              background: "transparent",
+              color: "#00afaa",
+              cursor: "pointer",
+              fontWeight: "700",
+            }}
+            title="Ajouter département"
+          >
+            <FontAwesomeIcon icon={faPlus} />
+          </button>
+        </div>
 
+        <Form.Select
+          name="departement_affecte"
+          value={reclamationFormData.departement_affecte}
+          onChange={(e) => {
+            const selectedDept = departments.find(
+              (dept) => dept.id === parseInt(e.target.value, 10)
+            );
 
-              {/* Status */}
-              <Form.Group className="form-group d-flex align-items-center" style={{ marginBottom: "20px", position: "relative" }}>
-                <FontAwesomeIcon
-                  icon={faPlus}
-                  style={{ visibility: "hidden", marginRight: "16px" }} // Empty space for alignment
-                />
-                <Form.Label className="form-label" style={{ minWidth: "195px", marginRight: "10px" }}>
-                  Status
-                </Form.Label>
-                <div style={{ flex: 1 }}>
-                  <Form.Select
-                    name="suivi"
-                    value={reclamationFormData.suivi}
-                    onChange={handleChange}
-                  >
-                    <option value="">Sélectionner un status</option>
-                    <option value="En attente">En attente</option>
-                    <option value="En cours">En cours</option>
-                    <option value="Traité">Traité</option>
-                    <option value="Résolu">Résolu</option>
-                  </Form.Select>
-                </div>
-              </Form.Group>
+            setReclamationFormData((prev) => ({
+              ...prev,
+              departement_affecte: selectedDept?.id || "",
+            }));
 
-              {/* Réponse */}
-              <Form.Group className="form-group d-flex align-items-center" style={{ marginBottom: "20px", position: "relative" }}>
-                <FontAwesomeIcon
-                  icon={faPlus}
-                  style={{ visibility: "hidden", marginRight: "16px" }} // Empty space for alignment
-                />
-                <Form.Label className="form-label" style={{ minWidth: "195px", marginRight: "10px" }}>
-                  Réponse
-                </Form.Label>
-                <div style={{ flex: 1 }}>
-                  <Form.Control
-                    as="textarea"
-                    name="reponse"
-                    value={reclamationFormData.reponse || ""}
-                    onChange={handleChange}
-                    rows={3}
-                  />
-                </div>
-              </Form.Group>
+            setErrors((prev) => ({
+              ...prev,
+              departement_affecte: selectedDept ? "" : "Champ requis",
+            }));
+          }}
+          isInvalid={hasSubmitted && !!errors.departement_affecte}
+        >
+          <option value="">Sélectionner un département</option>
+          {departments.map((dept) => (
+            <option key={dept.id} value={dept.id}>
+              {dept.designation}
+            </option>
+          ))}
+        </Form.Select>
 
-              {/* Buttons */}
-              <Form.Group className="d-flex justify-content-center mt-3">
-                <Fab variant="extended" className="btn-sm Fab mx-2" type="submit">
-                  VALIDER
-                </Fab>
-                <Fab variant="extended" className="btn-sm FabAnnule mx-2" onClick={closeForm}>
-                  ANNULER
-                </Fab>
-              </Form.Group>
-            </Form>
-          </div>
+        <Form.Control.Feedback type="invalid">
+          Required
+        </Form.Control.Feedback>
+      </Form.Group>
+
+      <Form.Group className="col-12">
+        <Form.Label>Status</Form.Label>
+        <Form.Select
+          name="suivi"
+          value={reclamationFormData.suivi}
+          onChange={handleChange}
+        >
+          <option value="">Sélectionner un status</option>
+          <option value="En attente">En attente</option>
+          <option value="En cours">En cours</option>
+          <option value="Traité">Traité</option>
+          <option value="Résolu">Résolu</option>
+        </Form.Select>
+      </Form.Group>
+
+      <Form.Group className="col-12">
+        <Form.Label>Réponse</Form.Label>
+        <Form.Control
+          as="textarea"
+          name="reponse"
+          value={reclamationFormData.reponse || ""}
+          onChange={handleChange}
+          rows={3}
+        />
+      </Form.Group>
+    </div>
+
+    <div className="app-form-actions">
+      <Button type="submit" className="app-primary-button">
+        Valider
+      </Button>
+
+      <Button
+        type="button"
+        className="app-secondary-button"
+        onClick={closeForm}
+      >
+        Annuler
+      </Button>
+    </div>
+  </Form>
+</div>
 
   
-          <div id="tableContainer" className="table-container" style={{ ...tableContainerStyle }}>
-            <ExpandRTable
-              columns={columns}
-              data={reclamations}
-              filteredData={filteredReclamations}
-              searchTerm={searchTerm}
-              highlightText={highlightText}
-              selectAll={selectAll}
-              selectedItems={selectedItems}
-              handleSelectAllChange={handleSelectAllChange}
-              handleCheckboxChange={handleCheckboxChange}
-              handleEdit={handleEdit}
-              handleDelete={handleDelete}
-              // renderCustomActions={(item) => (
-              //   // Add your custom action icons/buttons here
-              //   <FontAwesomeIcon
-              //     onClick={() => lfonction hna 
-              //     icon={faList}
-              //     style={{ color: "#00ff00", cursor: "pointer", marginRight: "10px" }}
-              //   />
-              // )}
-              handleDeleteSelected={handleDeleteSelected}
-              rowsPerPage={rowsPerPage} // Pass rows per page state
-              page={page} // Pass current page state
-              handleChangePage={handleChangePage} // Handle page change
-              handleChangeRowsPerPage={handleChangeRowsPerPage} // Handle change in rows per page            
-              expandedRows={expandedRows}
-              toggleRowExpansion={toggleRowExpansion}
-              renderExpandedRow={renderExpandedRow}
-            />
-          </div>
+<div className="app-section">
+  <div
+    id="tableContainer"
+    className="app-table-wrapper"
+    style={{ ...tableContainerStyle }}
+  >
+    <ExpandRTable
+      columns={columns}
+      data={reclamations}
+      filteredData={filteredReclamations}
+      searchTerm={searchTerm}
+      highlightText={highlightText}
+      selectAll={selectAll}
+      selectedItems={selectedItems}
+      handleSelectAllChange={handleSelectAllChange}
+      handleCheckboxChange={handleCheckboxChange}
+      handleEdit={handleEdit}
+      handleDelete={handleDelete}
+      handleDeleteSelected={handleDeleteSelected}
+      rowsPerPage={rowsPerPage}
+      page={page}
+      handleChangePage={handleChangePage}
+      handleChangeRowsPerPage={handleChangeRowsPerPage}
+      expandedRows={expandedRows}
+      toggleRowExpansion={toggleRowExpansion}
+      renderExpandedRow={renderExpandedRow}
+      uiVariant="app"
+    />
+  </div>
+</div>
           </div>
         </Box>
       </Box>
 
-      <Modal 
-  show={showAddDepartmentModal} 
-  onHide={() => setShowAddDepartmentModal(false)}
-  size="md"
+<Modal
+  show={showAddDepartmentModal}
+  onHide={() => {
+    setShowAddDepartmentModal(false);
+    setNewDepartment({ name: "" });
+    setDepartmentErrors({ name: false, designation: false });
+  }}
+  size="lg"
+  centered
 >
-  <Modal.Header closeButton style={{ borderBottom: '2px solid #dee2e6' }}>
-    <Modal.Title className="w-100 text-center">
-      <h4 style={{
-        fontSize: "25px",
-        fontFamily: "Arial, sans-serif", 
-        fontWeight: "bold",
-        color: "black",
-        paddingBottom: "5px",
-      }}>
-        Ajouter Département
+  <Modal.Header closeButton>
+    <Modal.Title className="w-100">
+      <h4 className="app-form-drawer-title" style={{ marginBottom: 0 }}>
+        Gestion des Départements
       </h4>
     </Modal.Title>
   </Modal.Header>
@@ -1126,98 +1147,112 @@ const handleChangeRowsPerPage = (event) => {
       <Form.Label>Nom du Département</Form.Label>
       <Form.Control
         type="text"
-        value={newDepartment.name}
+        value={newDepartment.name || ""}
         onChange={(e) => {
           setNewDepartment({ name: e.target.value });
-          setDepartmentErrors({ name: false });
+          setDepartmentErrors((prev) => ({ ...prev, name: false }));
         }}
         isInvalid={departmentErrors.name}
-        style={{ borderRadius: '4px', padding: '8px 12px' }}
       />
       <Form.Control.Feedback type="invalid">
         Veuillez entrer un nom valide
       </Form.Control.Feedback>
     </Form.Group>
 
-    <div className="mt-3" style={{ maxHeight: "300px", overflowY: "auto" }}>
-      <table className="table table-hover">
-        <thead style={{ backgroundColor: '#f8f9fa' }}>
+    <div className="app-table-wrapper" style={{ maxHeight: "300px" }}>
+      <table className="table table-bordered app-table mb-0">
+        <thead>
           <tr>
             <th>Nom</th>
             <th>Actions</th>
           </tr>
         </thead>
+
         <tbody>
           {departments.map((dept) => (
             <tr key={dept.id}>
               <td>{dept.designation}</td>
+
               <td>
-              <FontAwesomeIcon
-                icon={faEdit}
-                className="text-primary me-2"
-                style={{ cursor: "pointer", fontSize: '1.2rem' }}
-                onClick={() => {
-                  setEditingDepartment({ 
-                    id: dept.id, 
-                    designation: dept.designation 
-                  });
-                  setShowEditDropdown(true);
-                }}
-              />
-                <FontAwesomeIcon
-                  icon={faTrash}
-                  className="text-danger"
-                  style={{ cursor: "pointer", fontSize: '1.2rem' }}
-                  onClick={() => handleDeleteDepartment(dept.id)}
-                />
+                <div className="d-flex align-items-center justify-content-center">
+                  <FontAwesomeIcon
+                    icon={faEdit}
+                    className="app-table-action is-edit"
+                    onClick={() => {
+                      setEditingDepartment({
+                        id: dept.id,
+                        designation: dept.designation,
+                      });
+                      setDepartmentErrors((prev) => ({
+                        ...prev,
+                        designation: false,
+                      }));
+                      setShowEditDropdown(true);
+                    }}
+                  />
+
+                  <FontAwesomeIcon
+                    icon={faTrash}
+                    className="app-table-action is-delete"
+                    onClick={() => handleDeleteDepartment(dept.id)}
+                  />
+                </div>
               </td>
             </tr>
           ))}
+
+          {departments.length === 0 && (
+            <tr>
+              <td colSpan="2" className="text-center">
+                Aucun département disponible
+              </td>
+            </tr>
+          )}
         </tbody>
       </table>
     </div>
   </Modal.Body>
 
-  <Modal.Footer style={{ borderTop: '1px solid #dee2e6' }}>
-    <div className="d-flex justify-content-center w-100">
-      <Fab
-        variant="extended"
-        className="btn-sm Fab mx-2"
+  <Modal.Footer>
+    <div className="app-form-actions" style={{ marginTop: 0 }}>
+      <Button
+        type="button"
+        className="app-primary-button"
         onClick={handleAddDepartment}
-        style={{ minWidth: '120px' }}
       >
         Valider
-      </Fab>
-      <Fab
-        variant="extended"
-        className="btn-sm FabAnnule mx-2"
-        onClick={() => setShowAddDepartmentModal(false)}
-        style={{ minWidth: '120px' }}
+      </Button>
+
+      <Button
+        type="button"
+        className="app-secondary-button"
+        onClick={() => {
+          setShowAddDepartmentModal(false);
+          setNewDepartment({ name: "" });
+          setDepartmentErrors({ name: false, designation: false });
+        }}
       >
         Annuler
-      </Fab>
+      </Button>
     </div>
   </Modal.Footer>
 </Modal>
-
-{/* edit */}
-<Modal 
-  show={showEditDropdown} 
-  onHide={() => setShowEditDropdown(false)}
+{/* Edit Department Modal */}
+<Modal
+  show={showEditDropdown}
+  onHide={() => {
+    setShowEditDropdown(false);
+    setEditingDepartment({ id: null, designation: "" });
+    setDepartmentErrors((prev) => ({ ...prev, designation: false }));
+  }}
   size="md"
-  style={{ position: 'absolute', top: 0, zIndex: 9999 }}
+  centered
 >
-  {editingDepartment && ( // Add this conditional check
+  {editingDepartment && (
     <>
-      <Modal.Header closeButton style={{ borderBottom: '2px solid #dee2e6' }}>
-        <Modal.Title className="w-100 text-center">
-          <h4 style={{
-            fontSize: "25px",
-            fontFamily: "Arial, sans-serif", 
-            fontWeight: "bold",
-            color: "black",
-            paddingBottom: "5px",
-          }}>
+      <Modal.Header closeButton>
+        <Modal.Title className="w-100">
+          <h4 className="app-form-drawer-title" style={{ marginBottom: 0 }}>
             Modifier Département
           </h4>
         </Modal.Title>
@@ -1228,13 +1263,18 @@ const handleChangeRowsPerPage = (event) => {
           <Form.Label>Nom du Département</Form.Label>
           <Form.Control
             type="text"
-            value={editingDepartment.designation}
-            onChange={(e) => setEditingDepartment({
-              ...editingDepartment,
-              designation: e.target.value
-            })}
+            value={editingDepartment.designation || ""}
+            onChange={(e) => {
+              setEditingDepartment({
+                ...editingDepartment,
+                designation: e.target.value,
+              });
+              setDepartmentErrors((prev) => ({
+                ...prev,
+                designation: false,
+              }));
+            }}
             isInvalid={departmentErrors.designation}
-            style={{ borderRadius: '4px', padding: '8px 12px' }}
           />
           <Form.Control.Feedback type="invalid">
             Veuillez entrer un nom valide
@@ -1242,30 +1282,35 @@ const handleChangeRowsPerPage = (event) => {
         </Form.Group>
       </Modal.Body>
 
-      <Modal.Footer style={{ borderTop: '1px solid #dee2e6' }}>
-        <div className="d-flex justify-content-center w-100">
-          <Fab
-            variant="extended"
-            className="btn-sm Fab mx-2"
+      <Modal.Footer>
+        <div className="app-form-actions" style={{ marginTop: 0 }}>
+          <Button
+            type="button"
+            className="app-primary-button"
             onClick={handleEditDepartment}
-            style={{ minWidth: '120px' }}
           >
             Valider
-          </Fab>
-          <Fab
-            variant="extended"
-            className="btn-sm FabAnnule mx-2"
-            onClick={() => setShowEditDropdown(false)}
-            style={{ minWidth: '120px' }}
+          </Button>
+
+          <Button
+            type="button"
+            className="app-secondary-button"
+            onClick={() => {
+              setShowEditDropdown(false);
+              setEditingDepartment({ id: null, designation: "" });
+              setDepartmentErrors((prev) => ({
+                ...prev,
+                designation: false,
+              }));
+            }}
           >
             Annuler
-          </Fab>
+          </Button>
         </div>
       </Modal.Footer>
     </>
   )}
 </Modal>
-
 
 
     </ThemeProvider>

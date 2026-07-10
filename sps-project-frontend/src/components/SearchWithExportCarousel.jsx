@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPrint, faFilePdf, faFileExcel } from "@fortawesome/free-solid-svg-icons";
 import { Carousel } from "react-bootstrap";
@@ -30,71 +30,46 @@ const SearchWithExportCarousel = ({
 
   return (
     <div>
-      {/* Search and Export Section */}
-      <div
-        className="d-flex justify-content-between align-items-center"
-        style={{ marginTop: "15px" }}
-      >
-        <h3 className="titreColore">{Title}</h3>
-        <div className="d-flex">
-          <div style={{ width: "500px", marginRight: "20px" }}>
+      <div className="app-page-header">
+        <h1 className="app-page-title">{Title}</h1>
+
+        <div className="app-toolbar">
+          <div className="app-search-box">
             <Search onSearch={onSearch} type="search" />
           </div>
-          <div>
+
+          <div className="app-export-actions">
             <FontAwesomeIcon
-              style={{
-                cursor: "pointer",
-                color: "grey",
-                fontSize: "2rem",
-              }}
               onClick={printTable}
               icon={faPrint}
-              className="me-2"
+              className="app-action-icon is-muted"
             />
             <FontAwesomeIcon
-              style={{
-                cursor: "pointer",
-                color: "red",
-                fontSize: "2rem",
-                marginLeft: "15px",
-              }}
               onClick={exportToPDF}
               icon={faFilePdf}
+              className="app-action-icon is-danger"
             />
             <FontAwesomeIcon
               icon={faFileExcel}
               onClick={exportToExcel}
-              style={{
-                cursor: "pointer",
-                color: "green",
-                fontSize: "2rem",
-                marginLeft: "15px",
-              }}
+              className="app-action-icon is-success"
             />
           </div>
         </div>
       </div>
-      {
-          
-          <div className=" bgSecteur">
-          </div>
 
-      }
-
-      {/* Carousel and Categories Section */}
-      <div style={{ height: "125px", marginTop: "-10px" }}>
-        <h5 className="container-d-flex justify-content-start AjouteBotton" style={{ marginBottom: "-3px" }}>
-          {subtitle}  {/* Use the passed subtitle prop here */}
-        </h5>
-        <div className="bgSecteur">
+      <div className="app-section">
+        <div className="app-card app-filter-card">
+          <h5 className="app-filter-title">{subtitle}</h5>
+          <div className="bgSecteur app-filter-carousel">
           <Carousel activeIndex={activeIndex} onSelect={handleSelect} interval={null}
-            nextIcon={<FaArrowRight size="2x" style={{ backgroundColor: "black", borderRadius: '50%' }} />}
-            prevIcon={<FaArrowLeft size="2x" style={{ backgroundColor: "black", borderRadius: '50%' }} />}
+            nextIcon={<FaArrowRight className="app-carousel-arrow-icon" />}
+            prevIcon={<FaArrowLeft className="app-carousel-arrow-icon" />}
           >
             {validChunks.map((chunk, chunkIndex) => (
               <Carousel.Item key={chunkIndex}>
-                <div className="d-flex justify-content-start">
-                  <a href="#" style={{ marginLeft: '60px' }}>
+                <div className="app-carousel-strip">
+                  <a href="#">
                     <div
                       className={`category-item ${selectedCategory === '' ? 'active' : ''}`}
                       onClick={() => handleCategoryFilterChange("")}
@@ -129,6 +104,7 @@ const SearchWithExportCarousel = ({
               </Carousel.Item>
             ))}
           </Carousel>
+          </div>
         </div>
       </div>
     </div>

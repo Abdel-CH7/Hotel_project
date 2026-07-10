@@ -3,7 +3,6 @@ import axios from "axios";
 import Swal from "sweetalert2";
 import { Form, Button, Modal, Carousel } from "react-bootstrap";
 import { highlightText } from '../utils/textUtils';
-import TablePagination from "@mui/material/TablePagination";
 // import PrintList from "./PrintList";
 // import ExportPdfButton from "./exportToPdf";
 import "jspdf-autotable";
@@ -32,7 +31,6 @@ import * as XLSX from "xlsx";
 import "../style.css";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import Box from "@mui/material/Box";
-import { Checkbox, Fab, Toolbar } from "@mui/material";
 import { useOpen } from "../Acceuil/OpenProvider"; // Importer le hook personnalisé
 import { FaArrowLeft, FaArrowRight } from "react-icons/fa6";
 
@@ -1275,7 +1273,7 @@ const sanitizeInput = (val) => {
   return (
     <ThemeProvider theme={createTheme()}>
       <Box sx={{...dynamicStyles}}>
-        <Box component="main" sx={{ flexGrow: 1, p: 3, mt: 4 }}>
+        <Box component="main" className="app-page tarif-chambre-page" sx={{ flexGrow: 1, p: 3, mt: 0 }}>
 
        
         {/* <SearchWithExport
@@ -1318,48 +1316,31 @@ const sanitizeInput = (val) => {
                   activeIndex={activeIndex}
                   handleSelect={handleSelect}
                   chunks={chunks}
-                  subtitle="Tarifs de Chambres"
+                  subtitle="Tarifs de Chambre"
                   Title="Liste des Tarifs"
                 />
               </div>
 
-          <div className="container-d-flex justify-content-start">
-            <div style={{ display: "flex", alignItems: "center" ,marginTop:'-16px' ,padding:'15px'}}>
+          <div className="app-controls-row">
              
-              <a
+              <button
+                type="button"
                 onClick={handleShowFormButtonClick}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  cursor: "pointer",
-                  marginTop: "5px",
-                  backgroundColor: "#329982",
-                  color: "white",
-                  borderRadius: "10px",
-                  fontWeight: "bold"  , 
-                  marginLeft: "96%",
-                  padding: "6px 15px",
-                  height: "40px",
-                }}
-                className="gap-2 AjouteBotton"
+                className="app-add-button"
               >
  <FontAwesomeIcon
                     icon={faPlus}
-                    className="AjouteBotton"
-                    style={{ cursor: "pointer" ,color: "white" }}
                   />
-              </a>
+                  Ajouter Tarif
+              </button>
 
-            </div>
-
-            <div className="filters" >
+            <div className="app-filter-controls">
             
 
     <Form.Select aria-label="Default select example"
     value={typeChambre} onChange={handleChambreFilterChange}
-    style={{width:'12%' ,height:"40px",marginTop:"20px",position:'absolute', left: '81%',  top: '224px',cursor: "pointer",
-      borderRadius: "10px", color: "black", fontWeight: "bold"}}>
-    <option value=""  style={{ fontWeight: "bold"}}>Sélectionner Type de Chambre</option>
+    className="app-filter-select">
+    <option value=""  style={{ fontWeight: "bold"}}>Sélectionner Type Chambre</option>
     {tarifChambre?.map((type) => (
         <option value={type.type_chambre.type_chambre}>
           {type.type_chambre.type_chambre}
@@ -1367,21 +1348,13 @@ const sanitizeInput = (val) => {
     ))}
     </Form.Select>
 </div>
+</div>
 
         <div style={{ marginTop:"0px",}}>
-        <div id="formContainer" className="" style={{...formContainerStyle,marginTop:'0px',maxHeight:'700px',overflow:'auto',padding:'0'}}>
+        <div id="formContainer" className="app-form-drawer" style={formContainerStyle}>
               <Form className="col row" onSubmit={handleSubmit} style={{zIndex: 9999}}>
                 <Form.Label className="text-center ">
-                <h4
-                     style={{
-                      fontSize: "25px", 
-                      fontFamily: "Arial, sans-serif", 
-                      fontWeight: "bold", 
-                      color: "black",
-                      borderBottom: "2px solid black", 
-                      paddingBottom: "5px",
-                    }}
-                    >
+                <h4 className="app-form-drawer-title">
                       {editingTarifChambre ? "Modifier" : "Ajouter"} un Tarif</h4>
                 </Form.Label>
                 
@@ -1636,7 +1609,7 @@ const sanitizeInput = (val) => {
             
             <Form.Group className="mt-3">
             <div className="form-group mt-3" style={{maxHeight:'500px',overflowY:'auto'}}>
-            <table className="table">
+            <table className="table app-table">
               <thead>
                 <tr>
                 <th>Code Chambre</th>
@@ -1680,24 +1653,22 @@ const sanitizeInput = (val) => {
             </table>
           </div>
             </Form.Group>
-          <Form.Group className=" d-flex justify-content-center">
-        
-        <Fab
-    variant="extended"
-    className="btn-sm Fab mb-2 mx-2"
-    type="submit"
-    onClick={handleAddTypeChambre}
-  >
-    Valider
-  </Fab>
-  <Fab
-    variant="extended"
-    className="btn-sm FabAnnule mb-2 mx-2"
-    onClick={handleCloseAddTypeChambre}
-  >
-    Annuler
-  </Fab>
-  </Form.Group>
+          <Form.Group className="app-form-actions">
+            <Button
+              type="button"
+              className="app-primary-button"
+              onClick={handleAddTypeChambre}
+            >
+              Valider
+            </Button>
+            <Button
+              type="button"
+              className="app-secondary-button"
+              onClick={handleCloseAddTypeChambre}
+            >
+              Annuler
+            </Button>
+          </Form.Group>
       </Modal.Body>
       </Modal>
     
@@ -1737,22 +1708,21 @@ const sanitizeInput = (val) => {
       </Form>
       </Modal.Body>
       
-      <Form.Group className=" d-flex justify-content-center">
-        
-        <Fab
-    variant="extended"
-    className="btn-sm Fab mb-2 mx-2"
-    type="submit"
-    onClick={handleSaveDesignation}
-  >
-    Valider
-  </Fab>
-  <Fab
-    variant="extended"
-    className="btn-sm FabAnnule mb-2 mx-2"
-    onClick={handleCloseEditDesignation}>
-    Annuler
-  </Fab>
+      <Form.Group className="app-form-actions">
+        <Button
+          type="button"
+          className="app-primary-button"
+          onClick={handleSaveDesignation}
+        >
+          Valider
+        </Button>
+        <Button
+          type="button"
+          className="app-secondary-button"
+          onClick={handleCloseEditDesignation}
+        >
+          Annuler
+        </Button>
       </Form.Group>
     </Modal>
     <Modal show={showAddDesignation} onHide={handleCloseTarifChambre}>
@@ -1791,7 +1761,7 @@ const sanitizeInput = (val) => {
             
             <Form.Group className="mt-3">
             <div className="form-group mt-3" style={{maxHeight:'500px',overflowY:'auto'}}>
-            <table className="table">
+            <table className="table app-table">
               <thead>
                 <tr>
                   <th>Designation</th>
@@ -1836,24 +1806,22 @@ const sanitizeInput = (val) => {
             </table>
           </div>
             </Form.Group>
-          <Form.Group className=" d-flex justify-content-center">
-        
-        <Fab
-    variant="extended"
-    className="btn-sm Fab mb-2 mx-2"
-    type="submit"
-    onClick={handleAddDesignation}
-  >
-    Valider
-  </Fab>
-  <Fab
-    variant="extended"
-    className="btn-sm FabAnnule mb-2 mx-2"
-    onClick={handleCloseTarifChambre}
-  >
-    Annuler
-  </Fab>
-  </Form.Group>
+          <Form.Group className="app-form-actions">
+            <Button
+              type="button"
+              className="app-primary-button"
+              onClick={handleAddDesignation}
+            >
+              Valider
+            </Button>
+            <Button
+              type="button"
+              className="app-secondary-button"
+              onClick={handleCloseTarifChambre}
+            >
+              Annuler
+            </Button>
+          </Form.Group>
       </Modal.Body>
       </Modal>
       <Modal show={showEditModal} onHide={handleCloseEditChambre}>
@@ -1945,56 +1913,53 @@ const sanitizeInput = (val) => {
         </Form>
       </Modal.Body>
       
-      <Form.Group className=" d-flex justify-content-center">
-        
-        <Fab
-    variant="extended"
-    className="btn-sm Fab mb-2 mx-2"
-    type="submit"
-    onClick={handleSaveTypeChambre}
-  >
-    Valider
-  </Fab>
-  <Fab
-    variant="extended"
-    className="btn-sm FabAnnule mb-2 mx-2"
-    onClick={handleCloseEditChambre}  >
-    Annuler
-  </Fab>
+      <Form.Group className="app-form-actions">
+        <Button
+          type="button"
+          className="app-primary-button"
+          onClick={handleSaveTypeChambre}
+        >
+          Valider
+        </Button>
+        <Button
+          type="button"
+          className="app-secondary-button"
+          onClick={handleCloseEditChambre}
+        >
+          Annuler
+        </Button>
       </Form.Group>
     </Modal>
           
-  <Form.Group className="mt-5 d-flex justify-content-center">
-        
-        <Fab
-    variant="extended"
-    className="btn-sm Fab mb-2 mx-2"
-    type="submit"
-  >
-    Valider
-  </Fab>
-  <Fab
-    variant="extended"
-    className="btn-sm FabAnnule mb-2 mx-2"
-    onClick={closeForm}
-  >
-    Annuler
-  </Fab>
-      </Form.Group>
+  <div className="app-form-actions">
+    <Button
+      type="submit"
+      className="app-primary-button"
+    >
+      Valider
+    </Button>
+    <Button
+      type="button"
+      className="app-secondary-button"
+      onClick={closeForm}
+    >
+      Annuler
+    </Button>
+  </div>
               </Form>
             </div>
         </div>
             <div className="">
               <div
                 id="tableContainer"
-                className="table-responsive"
-                style={{...tableContainerStyle, overflowX: 'auto', minWidth: '650px',
+                className="app-table-wrapper"
+                style={{...tableContainerStyle, overflowX: 'auto',
                   maxHeight: '700px', overflow: 'auto',
                   marginTop:'0px',
                   paddingTop:'0px'
                 }}
               >
-    <table className="table table-bordered" id="tarifChambreTable" style={{ marginTop: "-5px", }}>
+    <table className="table table-bordered app-table" id="tarifChambreTable" style={{ marginTop: "-5px", }}>
   <thead className="text-center table-secondary" style={{ position: 'sticky', top: -1, backgroundColor: '#ddd', zIndex: 1,padding:'10px'}}>
     <tr className="tableHead">
       <th className="tableHead">
@@ -2037,12 +2002,12 @@ const sanitizeInput = (val) => {
     <FontAwesomeIcon
       onClick={() => handleEdit(tarifChambre)}
       icon={faEdit}
-      style={{ color: "#007bff", cursor: "pointer", marginRight: "10px" }}
+      className="app-table-action is-edit"
     />
     <FontAwesomeIcon
       onClick={() => handleDelete(tarifChambre?.id)}
       icon={faTrash}
-      style={{ color: "#ff0000", cursor: "pointer", marginRight: "10px" }}
+      className="app-table-action is-delete"
     />
   </div>  
 </td>
@@ -2058,37 +2023,70 @@ const sanitizeInput = (val) => {
 
                 {/* )} */}
                
-                <a href="#">
+                <div className="app-table-footer">
                   <Button
-                  className="btn btn-danger btn-sm"
-                  onClick={handleDeleteSelected}
-                  disabled={selectedItems?.length === 0}
-                  style={{
-                    borderRadius: "10px",
-                    fontWeight: "bold",
-                    fontSize: "17px",
-                    color: "white",
-                  }}
-                >
-                  <FontAwesomeIcon
-                    icon={faTrash}
-                    style={{ marginRight: "0.5rem" }}
-                  />
-                  Supprimer selection
-                </Button>
-                </a>
-                <TablePagination
-                  rowsPerPageOptions={[5, 10,15,20, 25]}
-                  component="div"
-                  count={filteredTarifchambre?.length || 0}
-                  rowsPerPage={rowsPerPage}
-                  page={page}
-                  onPageChange={handleChangePage}
-                  onRowsPerPageChange={handleChangeRowsPerPage}
-                />
+                    type="button"
+                    className="app-danger-button"
+                    onClick={handleDeleteSelected}
+                    disabled={selectedItems?.length === 0}
+                  >
+                    <FontAwesomeIcon
+                      icon={faTrash}
+                      style={{ marginRight: "0.5rem" }}
+                    />
+                    Supprimer selection
+                  </Button>
+
+                  <div className="app-table-pagination">
+                    <span>Lignes par page:</span>
+
+                    <select
+                      value={rowsPerPage}
+                      onChange={(e) =>
+                        handleChangeRowsPerPage({
+                          target: { value: e.target.value },
+                        })
+                      }
+                    >
+                      {[5, 10, 15, 20, 25].map((value) => (
+                        <option key={value} value={value}>
+                          {value}
+                        </option>
+                      ))}
+                    </select>
+
+                    <span>
+                      {filteredTarifchambre.length > 0
+                        ? `${page * rowsPerPage + 1}-${Math.min(
+                            (page + 1) * rowsPerPage,
+                            filteredTarifchambre.length
+                          )} sur ${filteredTarifchambre.length}`
+                        : "0-0 sur 0"}
+                    </span>
+
+                    <button
+                      type="button"
+                      className="app-pagination-arrow"
+                      disabled={page === 0}
+                      onClick={(e) => handleChangePage(e, page - 1)}
+                      aria-label="Page précédente"
+                    >
+                      ‹
+                    </button>
+
+                    <button
+                      type="button"
+                      className="app-pagination-arrow"
+                      disabled={(page + 1) * rowsPerPage >= filteredTarifchambre.length}
+                      onClick={(e) => handleChangePage(e, page + 1)}
+                      aria-label="Page suivante"
+                    >
+                      ›
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
         </Box>
       </Box>
     </ThemeProvider>

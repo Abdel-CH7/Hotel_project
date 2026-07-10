@@ -3,16 +3,24 @@ import { Spinner, Alert, Form, Button } from 'react-bootstrap';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+
 import '../style.css';
-import '../style1.css';
-import './EtatChambre.css';
+
 import ChambreTable from '../components/etatChambreTable';
 import { useOpen } from "../Acceuil/OpenProvider";
-import { Toolbar } from '@mui/material';
-import { FaSearch, FaPrint, FaFileExcel, FaFilePdf } from 'react-icons/fa';
+import Box from '@mui/material/Box';
+import Search from "../Acceuil/Search";
+
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faPrint,
+  faFilePdf,
+  faFileExcel,
+  faPlus,
+} from "@fortawesome/free-solid-svg-icons";
 
 const EtatChambre = () => {
-  const { open } = useOpen();
+  const { dynamicStyles } = useOpen();
   
   const [chambres, setChambres] = useState([]);
   const [formData, setFormData] = useState({
@@ -164,7 +172,7 @@ const EtatChambre = () => {
   }, []);
 
   const handleShowForm = () => {
-    setShowForm(!showForm);
+    setShowForm(true);
   };
 
   const handleEditClick = (chambre) => {
@@ -411,112 +419,114 @@ const EtatChambre = () => {
   });
 
   return (
-    <div className="etat-chambre-container">
-      <div className={`content-container ${!open ? 'collapsed' : ''}`}>
-        <Toolbar />
+    <Box sx={{ ...dynamicStyles }}>
+      <Box
+      component="main"
+      className="app-page etat-chambre-page"
+      sx={{ flexGrow: 1, p: 3, mt: 0 }}
+    >
         
-        <div className="header-container">
-          <div className="title-section">
-            <h2>État des Chambres</h2>
-          </div>
-          
-          <div className="actions-section">
-            <div className="search-wrapper">
-              <input
-                type="text"
-                placeholder="Chercher"
-                value={searchTerm}
-                onChange={(e) => handleSearch(e.target.value)}
-                className="search-input"
-              />
-              <button type="submit" className="search-button">
-                <FaSearch />
-              </button>
-            </div>
-            
-            <div className="export-buttons">
-              <button onClick={printTable} title="Imprimer" className="icon-button">
-                <FaPrint />
-              </button>
-              <button onClick={exportToPDF} title="Exporter en PDF" className="icon-button pdf-button">
-                <FaFilePdf />
-              </button>
-              <button onClick={exportToExcel} title="Exporter en Excel" className="icon-button excel-button">
-                <FaFileExcel />
-              </button>
-            </div>
-          </div>
-        </div>
+<div className="app-page-header">
+  <h1 className="app-page-title">État des Chambres</h1>
 
-        <div className="filter-bar">
-          <div className="filter-group">
-            <Form.Select
-              value={selectedStatus}
-              onChange={(e) => handleFilterChange("status", e.target.value)}
-              className="filter-select"
-            >
-              <option value="">Tous les statuts</option>
-              <option value="nettoyée">Nettoyée</option>
-              <option value="non nettoyée">Non nettoyée</option>
-            </Form.Select>
+  <div className="app-toolbar">
+    <div className="app-search-box">
+      <Search onSearch={handleSearch} type="search" />
+    </div>
 
-            <Form.Select
-              value={selectedMaintenance}
-              onChange={(e) => handleFilterChange("maintenance", e.target.value)}
-              className="filter-select"
-            >
-              <option value="">Maintenance</option>
-              <option value="oui">En maintenance</option>
-              <option value="non">Pas en maintenance</option>
-            </Form.Select>
+    <div className="app-export-actions">
+      <FontAwesomeIcon
+        icon={faPrint}
+        onClick={printTable}
+        className="app-action-icon is-muted"
+        title="Imprimer"
+      />
+      <FontAwesomeIcon
+        icon={faFilePdf}
+        onClick={exportToPDF}
+        className="app-action-icon is-danger"
+        title="Exporter en PDF"
+      />
+      <FontAwesomeIcon
+        icon={faFileExcel}
+        onClick={exportToExcel}
+        className="app-action-icon is-success"
+        title="Exporter en Excel"
+      />
+    </div>
+  </div>
+</div>
 
-            <input
-              type="date"
-              value={dateNettoyage}
-              onChange={(e) => handleFilterChange("date_nettoyage", e.target.value)}
-              className="filter-date"
-              placeholder="Date de nettoyage"
-            />
+<div className="app-controls-row">
+  <button
+    type="button"
+    onClick={() => {
+      setIsEdit(false);
+      setFormData({
+        num_chambre: '',
+        status: '',
+        date_nettoyage: '',
+        nettoyée_par: '',
+        maintenance: 'non',
+        maintenance_type_id: '',
+        date_debut_maintenance: '',
+        date_fin_maintenance: '',
+        commentaire: '',
+      });
+      handleShowForm();
+    }}
+    className="app-add-button"
+  >
+    <FontAwesomeIcon icon={faPlus} />
+    Ajouter un État de Chambre
+  </button>
 
-            <input
-              type="date"
-              value={dateDebutMaintenance}
-              onChange={(e) => handleFilterChange("date_debut_maintenance", e.target.value)}
-              className="filter-date"
-              placeholder="Début Maintenance"
-            />
+  <div className="app-filter-controls">
+    <Form.Select
+      value={selectedStatus}
+      onChange={(e) => handleFilterChange("status", e.target.value)}
+      className="app-filter-select"
+    >
+      <option value="">Tous les statuts</option>
+      <option value="nettoyée">Nettoyée</option>
+      <option value="non nettoyée">Non nettoyée</option>
+    </Form.Select>
 
-            <input
-              type="date"
-              value={dateFinMaintenance}
-              onChange={(e) => handleFilterChange("date_fin_maintenance", e.target.value)}
-              className="filter-date"
-              placeholder="Fin Maintenance"
-            />
-          </div>
+    <Form.Select
+      value={selectedMaintenance}
+      onChange={(e) => handleFilterChange("maintenance", e.target.value)}
+      className="app-filter-select"
+    >
+      <option value="">Maintenance</option>
+      <option value="oui">En maintenance</option>
+      <option value="non">Pas en maintenance</option>
+    </Form.Select>
 
-          <Button 
-            onClick={() => {
-              setIsEdit(false);
-              setFormData({
-                num_chambre: '',
-                status: '',
-                date_nettoyage: '',
-                nettoyée_par: '',
-                maintenance: 'non',
-                maintenance_type_id: '',
-                date_debut_maintenance: '',
-                date_fin_maintenance: '',
-                commentaire: '',
-              });
-              handleShowForm();
-            }}
-            className="add-button"
-          >
-            Ajouter un État de Chambre
-          </Button>
-        </div>
+    <Form.Control
+      type="date"
+      value={dateNettoyage}
+      onChange={(e) => handleFilterChange("date_nettoyage", e.target.value)}
+      className="app-filter-select"
+      title="Date de nettoyage"
+    />
 
+    <Form.Control
+      type="date"
+      value={dateDebutMaintenance}
+      onChange={(e) => handleFilterChange("date_debut_maintenance", e.target.value)}
+      className="app-filter-select"
+      title="Début Maintenance"
+    />
+
+    <Form.Control
+      type="date"
+      value={dateFinMaintenance}
+      onChange={(e) => handleFilterChange("date_fin_maintenance", e.target.value)}
+      className="app-filter-select"
+      title="Fin Maintenance"
+    />
+  </div>
+</div>
         {loading && (
           <div className="text-center my-4">
             <Spinner animation="border" style={{ color: '#00afaa' }} />
@@ -537,191 +547,172 @@ const EtatChambre = () => {
           </Alert>
         )}
 
-        <div className="row">
-          <div className={`${showForm ? 'col-md-8' : 'col-md-12'}`}>
-            <div className="table-container">
-              <ChambreTable 
-                filteredChambres={filteredChambres}
-                handleEditClick={handleEditClick}
-                handleMarkAsClean={handleMarkAsClean}
-              />
-            </div>
-          </div>
-          
-          {showForm && (
-            <div className="col-md-4">
-              <div className="form-container">
-                <Form onSubmit={handleSubmit}>
-                  <h4 className="text-center mb-4" style={{ color: '#2c3e50' }}>
-                    {isEdit ? "Modifier" : "Ajouter"} un État de Chambre
-                  </h4>
-                  
-                  <div className="form-row">
-                    <div className="form-group col-md-6">
-                      <Form.Label>Numéro de Chambre</Form.Label>
-                      <Form.Select
-                        name="num_chambre"
-                        value={formData.num_chambre || ''}
-                        onChange={handleChange}
-                      >
-                        <option value="">Sélectionner une chambre</option>
-                        {roomNumbers.map(ch => (
-                          <option key={ch.num_chambre} value={ch.num_chambre}>
-                            {ch.num_chambre}
-                          </option>
-                        ))}
-                      </Form.Select>
-                    </div>
+<div className="app-section">
+  <ChambreTable
+    filteredChambres={filteredChambres}
+    handleEditClick={handleEditClick}
+    handleMarkAsClean={handleMarkAsClean}
+  />
+</div>
 
-                    <div className="form-group col-md-6">
-                      <Form.Label>Statut</Form.Label>
-                      <Form.Select
-                        name="status"
-                        value={formData.status || ''}
-                        onChange={handleChange}
-                      >
-                        <option value="">Sélectionner le statut</option>
-                        <option value="nettoyée">Nettoyée</option>
-                        <option value="non nettoyée">Non nettoyée</option>
-                      </Form.Select>
-                    </div>
-                  </div>
+<div
+  id="formContainer"
+  className="app-form-drawer"
+  style={{
+    right: showForm ? "0" : "-100%",
+    width: "560px",
+    maxWidth: "100%",
+  }}
+>
+  <Form onSubmit={handleSubmit}>
+    <h4 className="app-form-drawer-title">
+      {isEdit ? "Modifier" : "Ajouter"} un État de Chambre
+    </h4>
 
-                  <div className="form-row">
-                    <div className="form-group col-md-6">
-                      <Form.Label>Date de Nettoyage</Form.Label>
-                      <Form.Control
-                        type="date"
-                        name="date_nettoyage"
-                        value={formData.date_nettoyage || ''}
-                        onChange={handleChange}
-                      />
-                    </div>
+    <div className="row g-3">
+      <Form.Group className="col-md-6">
+        <Form.Label>Numéro de Chambre</Form.Label>
+        <Form.Select
+          name="num_chambre"
+          value={formData.num_chambre || ""}
+          onChange={handleChange}
+        >
+          <option value="">Sélectionner une chambre</option>
+          {roomNumbers.map((ch) => (
+            <option key={ch.num_chambre} value={ch.num_chambre}>
+              {ch.num_chambre}
+            </option>
+          ))}
+        </Form.Select>
+      </Form.Group>
 
-                    <div className="form-group col-md-6">
-                      <Form.Label>Nettoyée Par</Form.Label>
-                      <Form.Control
-                        type="text"
-                        name="nettoyée_par"
-                        value={formData.nettoyée_par || ''}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
+      <Form.Group className="col-md-6">
+        <Form.Label>Statut</Form.Label>
+        <Form.Select
+          name="status"
+          value={formData.status || ""}
+          onChange={handleChange}
+        >
+          <option value="">Sélectionner le statut</option>
+          <option value="nettoyée">Nettoyée</option>
+          <option value="non nettoyée">Non nettoyée</option>
+        </Form.Select>
+      </Form.Group>
 
-                  <div className="form-row maintenance-section">
-                    <div className="form-group col-12">
-                      <Form.Label>Maintenance</Form.Label>
-                      <div className="radio-container">
-                        <div className="radio-option">
-                          <span>Oui</span>
-                          <div className="radio-button">
-                            <input
-                              type="radio"
-                              id="maintenance-oui"
-                              name="maintenance"
-                              value="oui"
-                              checked={formData.maintenance === 'oui'}
-                              onChange={handleChange}
-                            />
-                            <span className="radio-circle"></span>
-                          </div>
-                        </div>
-                        <div className="radio-option">
-                          <span>Non</span>
-                          <div className="radio-button">
-                            <input
-                              type="radio"
-                              id="maintenance-non"
-                              name="maintenance"
-                              value="non"
-                              checked={formData.maintenance === 'non'}
-                              onChange={handleChange}
-                            />
-                            <span className="radio-circle"></span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+      <Form.Group className="col-md-6">
+        <Form.Label>Date de Nettoyage</Form.Label>
+        <Form.Control
+          type="date"
+          name="date_nettoyage"
+          value={formData.date_nettoyage || ""}
+          onChange={handleChange}
+        />
+      </Form.Group>
 
-                  <div className={`maintenance-details ${formData.maintenance === 'oui' ? 'show' : ''}`}>
-                    <div className="form-row">
-                      <div className="form-group col-12">
-                        <Form.Label>Type de Maintenance</Form.Label>
-                        <Form.Select
-                          name="maintenance_type_id"
-                          value={formData.maintenance_type_id || ''}
-                          onChange={handleChange}
-                        >
-                          <option value="">Sélectionner le type</option>
-                          {maintenanceTypes.map((type) => (
-                            <option key={type.id} value={type.id}>
-                              {type.types_maintenance}
-                            </option>
-                          ))}
-                        </Form.Select>
-                      </div>
-                    </div>
+      <Form.Group className="col-md-6">
+        <Form.Label>Nettoyée Par</Form.Label>
+        <Form.Control
+          type="text"
+          name="nettoyée_par"
+          value={formData.nettoyée_par || ""}
+          onChange={handleChange}
+        />
+      </Form.Group>
 
-                    <div className="form-row">
-                      <div className="form-group col-md-6">
-                        <Form.Label>Date Début Maintenance</Form.Label>
-                        <Form.Control
-                          type="date"
-                          name="date_debut_maintenance"
-                          value={formData.date_debut_maintenance || ''}
-                          onChange={handleChange}
-                        />
-                      </div>
+      <Form.Group className="col-12">
+        <Form.Label>Maintenance</Form.Label>
 
-                      <div className="form-group col-md-6">
-                        <Form.Label>Date Fin Maintenance</Form.Label>
-                        <Form.Control
-                          type="date"
-                          name="date_fin_maintenance"
-                          value={formData.date_fin_maintenance || ''}
-                          onChange={handleChange}
-                        />
-                      </div>
-                    </div>
-                  </div>
+        <div className="d-flex gap-4">
+          <Form.Check
+            type="radio"
+            id="maintenance-oui"
+            name="maintenance"
+            value="oui"
+            label="Oui"
+            checked={formData.maintenance === "oui"}
+            onChange={handleChange}
+          />
 
-                  <div className="form-row">
-                    <div className="form-group col-12">
-                      <Form.Label>Commentaire</Form.Label>
-                      <Form.Control
-                        as="textarea"
-                        rows={2}
-                        name="commentaire"
-                        value={formData.commentaire || ''}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-buttons">
-                    <Button 
-                      type="submit" 
-                      className="submit-button"
-                    >
-                      {isEdit ? "Modifier" : "Ajouter"}
-                    </Button>
-                    <Button 
-                      variant="secondary" 
-                      onClick={resetAndCloseForm}
-                      className="cancel-button"
-                    >
-                      Annuler
-                    </Button>
-                  </div>
-                </Form>
-              </div>
-            </div>
-          )}
+          <Form.Check
+            type="radio"
+            id="maintenance-non"
+            name="maintenance"
+            value="non"
+            label="Non"
+            checked={formData.maintenance === "non"}
+            onChange={handleChange}
+          />
         </div>
-      </div>
+      </Form.Group>
+
+      {formData.maintenance === "oui" && (
+        <>
+          <Form.Group className="col-12">
+            <Form.Label>Type de Maintenance</Form.Label>
+            <Form.Select
+              name="maintenance_type_id"
+              value={formData.maintenance_type_id || ""}
+              onChange={handleChange}
+            >
+              <option value="">Sélectionner le type</option>
+              {maintenanceTypes.map((type) => (
+                <option key={type.id} value={type.id}>
+                  {type.types_maintenance}
+                </option>
+              ))}
+            </Form.Select>
+          </Form.Group>
+
+          <Form.Group className="col-md-6">
+            <Form.Label>Date Début Maintenance</Form.Label>
+            <Form.Control
+              type="date"
+              name="date_debut_maintenance"
+              value={formData.date_debut_maintenance || ""}
+              onChange={handleChange}
+            />
+          </Form.Group>
+
+          <Form.Group className="col-md-6">
+            <Form.Label>Date Fin Maintenance</Form.Label>
+            <Form.Control
+              type="date"
+              name="date_fin_maintenance"
+              value={formData.date_fin_maintenance || ""}
+              onChange={handleChange}
+            />
+          </Form.Group>
+        </>
+      )}
+
+      <Form.Group className="col-12">
+        <Form.Label>Commentaire</Form.Label>
+        <Form.Control
+          as="textarea"
+          rows={3}
+          name="commentaire"
+          value={formData.commentaire || ""}
+          onChange={handleChange}
+        />
+      </Form.Group>
     </div>
+
+    <div className="app-form-actions">
+      <Button type="submit" className="app-primary-button">
+        {isEdit ? "Modifier" : "Ajouter"}
+      </Button>
+
+      <Button
+        type="button"
+        className="app-secondary-button"
+        onClick={resetAndCloseForm}
+      >
+        Annuler
+      </Button>
+    </div>
+  </Form>
+</div>      </Box>
+    </Box>
   );
 };
 

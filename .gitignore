@@ -1,0 +1,36 @@
+# Laravel Backend
+/sps-project-backend/vendor
+/sps-project-backend/.env
+/sps-project-backend/node_modules
+/sps-project-backend/public/hot
+/sps-project-backend/public/storage
+/sps-project-backend/storage/*.key
+/sps-project-backend/.env.backup
+/sps-project-backend/.phpunit.result.cache
+/sps-project-backend/docker-compose.override.yml
+/sps-project-backend/Homestead.json
+/sps-project-backend/Homestead.yaml
+/sps-project-backend/npm-debug.log
+/sps-project-backend/yarn-error.log
+
+# React Frontend
+/sps-project-frontend/node_modules
+/sps-project-frontend/.pnp
+/sps-project-frontend/.pnp.js
+/sps-project-frontend/coverage
+/sps-project-frontend/build
+/sps-project-frontend/.DS_Store
+/sps-project-frontend/.env.local
+/sps-project-frontend/.env.development.local
+/sps-project-frontend/.env.test.local
+/sps-project-frontend/.env.production.local
+/sps-project-frontend/npm-debug.log*
+/sps-project-frontend/yarn-debug.log*
+/sps-project-frontend/yarn-error.log*
+
+# IDE and Editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store 

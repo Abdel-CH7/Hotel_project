@@ -1665,101 +1665,90 @@ useEffect(() => {
   return (
     <ThemeProvider theme={createTheme()}>
       <Box sx={{...dynamicStyles}}>
-        <Box component="main" sx={{ flexGrow: 1, p: 3, mt: 4 }}>
-          <div className="d-flex justify-content-between align-items-center"
-            style={{ marginTop: "15px" }}>
-            <h3 className="titreColore">
-              {/* <PeopleIcon style={{ fontSize: "24px", marginRight: "8px" }} /> */}
-              Liste des Réservations
-            </h3>
-            <div className="d-flex">
-              <div style={{ width: "500px", marginRight: "20px" }}>
-                <Search onSearch={handleSearch} type="search" />
-              </div>
+        <Box component="main" className="app-page reservation-page" sx={{ flexGrow: 1, p: 3, mt: 0 }}>
+<div className="app-page-header">
+  <h1 className="app-page-title">Liste des Réservations</h1>
 
-
-              <div>
-               <FontAwesomeIcon
-               style={{ cursor: "pointer", color: "grey", fontSize: "2rem"}} onClick={printTable} icon={faPrint} className="me-2"
-               />
-
-               <FontAwesomeIcon style={{ cursor: "pointer", color: "red", fontSize: "2rem", marginLeft: "15px"}}
-               icon={faFilePdf}
-               onClick={exportToPDF}
-               />
-
-               <FontAwesomeIcon style={{ cursor: "pointer", color: "green", fontSize: "2rem", marginLeft: "15px"}} 
-               icon={faFileExcel} 
-               onClick={exportToExcel}
-               />
-              </div>
-            </div>
-          </div>
-
-          <div className="stats-container mb-4">
-  <div className="row g-3">
-    <div className="col-md-3">
-      <div className="card shadow-sm" style={{ 
-        backgroundColor: '#e8f5e9',
-        borderLeft: '4px solid #2e7d32'
-      }}>
-        <div className="card-body d-flex justify-content-between align-items-center p-3">
-          <div>
-            <h6 className="card-subtitle mb-1" style={{ color: '#2e7d32' }}>Réservations Totales</h6>
-            <h3 className="card-title mb-0">{stats.totalReservations}</h3>
-          </div>
-          <FontAwesomeIcon icon={faClipboardCheck} size="2x" style={{ color: '#2e7d32', opacity: 0.8 }} />
-        </div>
-      </div>
+  <div className="app-toolbar">
+    <div className="app-search-box">
+      <Search onSearch={handleSearch} type="search" />
     </div>
 
-    <div className="col-md-3">
-      <div className="card shadow-sm" style={{ 
-        backgroundColor: '#e3f2fd',
-        borderLeft: '4px solid #1565c0'
-      }}>
-        <div className="card-body d-flex justify-content-between align-items-center p-3">
-          <div>
-            <h6 className="card-subtitle mb-1" style={{ color: '#1565c0' }}>Chambres Réservées</h6>
-            <h3 className="card-title mb-0">{stats.totalRooms}</h3>
-          </div>
-          <FontAwesomeIcon icon={faBed} size="2x" style={{ color: '#1565c0', opacity: 0.8 }} />
-        </div>
-      </div>
-    </div>
+    <div className="app-export-actions">
+      <FontAwesomeIcon
+        icon={faPrint}
+        onClick={printTable}
+        className="app-action-icon is-muted"
+      />
 
-    <div className="col-md-3">
-      <div className="card shadow-sm" style={{ 
-        backgroundColor: '#fff3e0',
-        borderLeft: '4px solid #e65100'
-      }}>
-        <div className="card-body d-flex justify-content-between align-items-center p-3">
-          <div>
-            <h6 className="card-subtitle mb-1" style={{ color: '#e65100' }}>Clients Totaux</h6>
-            <h3 className="card-title mb-0">{stats.totalClients}</h3>
-          </div>
-          <FontAwesomeIcon icon={faUsers} size="2x" style={{ color: '#e65100', opacity: 0.8 }} />
-        </div>
-      </div>
-    </div>
+      <FontAwesomeIcon
+        icon={faFilePdf}
+        onClick={exportToPDF}
+        className="app-action-icon is-danger"
+      />
 
-    <div className="col-md-3">
-      <div className="card shadow-sm" style={{ 
-        backgroundColor: '#f3e5f5',
-        borderLeft: '4px solid #6a1b9a'
-      }}>
-        <div className="card-body d-flex justify-content-between align-items-center p-3">
-          <div>
-            <h6 className="card-subtitle mb-1" style={{ color: '#6a1b9a' }}>Revenu Total</h6>
-            <h3 className="card-title mb-0">{stats.totalRevenue.toFixed(2)} DH</h3>
-          </div>
-          <FontAwesomeIcon icon={faMoneyBill} size="2x" style={{ color: '#6a1b9a', opacity: 0.8 }} />
-        </div>
-      </div>
+      <FontAwesomeIcon
+        icon={faFileExcel}
+        onClick={exportToExcel}
+        className="app-action-icon is-success"
+      />
     </div>
   </div>
 </div>
 
+
+
+<div className="app-section app-stats-grid">
+  {[
+    {
+      title: "Réservations Totales",
+      value: stats.totalReservations || 0,
+      color: "#00afaa",
+      icon: faClipboardCheck,
+    },
+    {
+      title: "Chambres Réservées",
+      value: stats.totalRooms || 0,
+      color: "#1565c0",
+      icon: faBed,
+    },
+    {
+      title: "Clients Totaux",
+      value: stats.totalClients || 0,
+      color: "#e65100",
+      icon: faUsers,
+    },
+    {
+      title: "Revenu Total",
+      value: `${Number(stats.totalRevenue || 0).toFixed(2)} DH`,
+      color: "#6a1b9a",
+      icon: faMoneyBill,
+    },
+  ].map((stat, index) => (
+    <div
+      key={index}
+      className="app-stat-card"
+      style={{ borderTopColor: stat.color }}
+    >
+      <div
+        className="app-stat-icon"
+        style={{ backgroundColor: `${stat.color}20` }}
+      >
+        <FontAwesomeIcon
+          icon={stat.icon}
+          style={{ color: stat.color, fontSize: "20px" }}
+        />
+      </div>
+
+      <div>
+        <div className="app-stat-title">{stat.title}</div>
+        <div className="app-stat-value" style={{ color: stat.color }}>
+          {stat.value}
+        </div>
+      </div>
+    </div>
+  ))}
+</div>
           <div className="container-fluid">
           <div className="d-flex justify-content-between align-items-center mb-4">
     {/* Add Button - Left side */}
@@ -2455,7 +2444,7 @@ useEffect(() => {
                   marginTop:'0px',
                 }}
               >
-                 <table className="table table-bordered" id="reservationsTable" style={{ marginTop: "-5px", }}>
+                 <table className="table table-bordered app-table" id="reservationsTable" style={{ marginTop: "-5px", }}>
 <thead className="text-center table-secondary" style={{ position: 'sticky', top: -1, backgroundColor: '#ddd', zIndex: 1, padding:'10px'}}>
   <tr className="tableHead">
     <th className="tableHead">
@@ -2517,12 +2506,12 @@ useEffect(() => {
     <FontAwesomeIcon
       onClick={() => handleEdit(reservation)}
       icon={faEdit}
-      style={{ color: "#007bff", cursor: "pointer", marginRight: "10px" }}
+      className="app-table-action is-edit"
     />
     <FontAwesomeIcon
       onClick={() => handleDelete(reservation.reservation_num)}
       icon={faTrash}
-      style={{ color: "#ff0000", cursor: "pointer", marginRight: "10px" }}
+      className="app-table-action is-delete"
     />
   </div>
 </td>
@@ -2539,35 +2528,68 @@ useEffect(() => {
 
                 {/* )} */}
                
-                <a href="#">
-                  <Button
-                  className="btn btn-danger btn-sm"
-                  onClick={handleDeleteSelected}
-                  disabled={selectedItems?.length === 0}
-                  style={{
-                    borderRadius: "10px",
-                    fontWeight: "bold",
-                    fontSize: "17px",
-                    color: "white",
-                  }}
-                >
-                  <FontAwesomeIcon
-                    icon={faTrash}
-                    style={{ marginRight: "0.5rem" }}
-                  />
-                  Supprimer selection
-                </Button>
-                </a>
-                <TablePagination
-                  rowsPerPageOptions={[5, 10,15,20, 25]}
-                  component="div"
-                  count={filteredReservations?.length || 0}
-                  rowsPerPage={rowsPerPage}
-                  page={page}
-                  onPageChange={handleChangePage}
-                  onRowsPerPageChange={handleChangeRowsPerPage}
-                />
-              </div>
+<div className="app-table-footer">
+  <Button
+    type="button"
+    className="app-danger-button"
+    onClick={handleDeleteSelected}
+    disabled={selectedItems?.length === 0}
+  >
+    <FontAwesomeIcon
+      icon={faTrash}
+      style={{ marginRight: "0.5rem" }}
+    />
+    Supprimer selection
+  </Button>
+
+  <div className="app-table-pagination">
+    <span>Lignes par page:</span>
+
+    <select
+      value={rowsPerPage}
+      onChange={(e) =>
+        handleChangeRowsPerPage({
+          target: { value: e.target.value },
+        })
+      }
+    >
+      {[5, 10, 15, 20, 25].map((value) => (
+        <option key={value} value={value}>
+          {value}
+        </option>
+      ))}
+    </select>
+
+    <span>
+      {filteredReservations.length > 0
+        ? `${page * rowsPerPage + 1}-${Math.min(
+            (page + 1) * rowsPerPage,
+            filteredReservations.length
+          )} sur ${filteredReservations.length}`
+        : "0-0 sur 0"}
+    </span>
+
+    <button
+      type="button"
+      className="app-pagination-arrow"
+      disabled={page === 0}
+      onClick={(e) => handleChangePage(e, page - 1)}
+      aria-label="Page précédente"
+    >
+      ‹
+    </button>
+
+    <button
+      type="button"
+      className="app-pagination-arrow"
+      disabled={(page + 1) * rowsPerPage >= filteredReservations.length}
+      onClick={(e) => handleChangePage(e, page + 1)}
+      aria-label="Page suivante"
+    >
+      ›
+    </button>
+  </div>
+</div>              </div>
             </div>
           </div>
         </Box>

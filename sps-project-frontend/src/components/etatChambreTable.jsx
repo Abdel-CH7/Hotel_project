@@ -1,11 +1,11 @@
 import React from 'react';
-import { Table, Button } from 'react-bootstrap';
+import { Table } from 'react-bootstrap';
 import { FaEdit, FaBroom } from 'react-icons/fa';
 
 const ChambreTable = ({ filteredChambres, handleEditClick, handleMarkAsClean }) => {
   return (
-    <div className="table-responsive">
-      <Table striped bordered hover id="exportTable">
+    <div className="app-table-wrapper">
+      <Table bordered hover id="exportTable" className="app-table mb-0">
         <thead>
           <tr>
             <th>N° Chambre</th>
@@ -20,49 +20,55 @@ const ChambreTable = ({ filteredChambres, handleEditClick, handleMarkAsClean }) 
             <th>Actions</th>
           </tr>
         </thead>
+
         <tbody>
           {filteredChambres.map((chambre, index) => (
-            <tr key={index}>
+            <tr key={chambre.num_chambre || index}>
               <td>{chambre.num_chambre}</td>
+
               <td>
-                <span className={`badge ${
-                  chambre.status === 'nettoyée' ? 'bg-success' : 'bg-warning'
-                }`}>
+                <span
+                  className={`badge ${
+                    chambre.status === 'nettoyée' ? 'bg-success' : 'bg-warning'
+                  }`}
+                >
                   {chambre.status}
                 </span>
               </td>
+
               <td>{chambre.date_nettoyage || '-'}</td>
               <td>{chambre.nettoyée_par || '-'}</td>
+
               <td>
-                <span className={`badge ${
-                  chambre.maintenance === 'oui' ? 'bg-danger' : 'bg-success'
-                }`}>
+                <span
+                  className={`badge ${
+                    chambre.maintenance === 'oui' ? 'bg-danger' : 'bg-success'
+                  }`}
+                >
                   {chambre.maintenance}
                 </span>
               </td>
+
               <td>{chambre.type_maintenance_label || '-'}</td>
               <td>{chambre.date_debut_maintenance || '-'}</td>
               <td>{chambre.date_fin_maintenance || '-'}</td>
               <td>{chambre.commentaire || '-'}</td>
+
               <td>
-                <div className="d-flex gap-2">
-                  <Button
-                    variant="outline-primary"
-                    size="sm"
+                <div className="d-flex justify-content-center gap-2">
+                  <FaEdit
                     onClick={() => handleEditClick(chambre)}
                     title="Modifier"
-                  >
-                    <FaEdit />
-                  </Button>
+                    className="app-table-action is-edit"
+                  />
+
                   {chambre.status !== 'nettoyée' && (
-                    <Button
-                      variant="outline-success"
-                      size="sm"
+                    <FaBroom
                       onClick={() => handleMarkAsClean(chambre)}
                       title="Marquer comme nettoyée"
-                    >
-                      <FaBroom />
-                    </Button>
+                      className="app-table-action"
+                      style={{ color: '#15803d' }}
+                    />
                   )}
                 </div>
               </td>

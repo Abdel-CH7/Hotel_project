@@ -1,14 +1,27 @@
-export const highlightText = (text = "", searchTerm) => {
-    if (!searchTerm) return text;
-  
-    const regex = new RegExp(`(${searchTerm})`, 'gi');
-    const parts = text.split(regex) || parts;
-    // const parts = text ? text.split(regex) : [text];
+export const highlightText = (text = "", searchTerm = "") => {
+  const safeText = text === null || text === undefined ? "" : String(text);
+  const safeSearchTerm =
+    searchTerm === null || searchTerm === undefined ? "" : String(searchTerm);
 
-    return parts.map((part, index) => 
-      part.toLowerCase() === searchTerm.toLowerCase() ? 
-      <span key={index} style={{ backgroundColor: 'yellow' }}>{part}</span> : 
+  if (!safeSearchTerm.trim()) {
+    return safeText;
+  }
+
+  const escapedSearchTerm = safeSearchTerm.replace(
+    /[.*+?^${}()|[\]\\]/g,
+    "\\$&"
+  );
+
+  const regex = new RegExp(`(${escapedSearchTerm})`, "gi");
+  const parts = safeText.split(regex);
+
+  return parts.map((part, index) =>
+    part.toLowerCase() === safeSearchTerm.toLowerCase() ? (
+      <span key={index} style={{ backgroundColor: "yellow" }}>
+        {part}
+      </span>
+    ) : (
       part
-    );
-  };
-  
+    )
+  );
+};

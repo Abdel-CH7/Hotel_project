@@ -5,7 +5,6 @@ import { Form, Button, Modal, Carousel } from "react-bootstrap";
 import Navigation from "../Acceuil/Navigation";
 import { highlightText } from '../utils/textUtils';
 import { sanitizeInput } from "../utils/sanitizeInput";
-import TablePagination from "@mui/material/TablePagination";
 // import PrintList from "./PrintList";
 // import ExportPdfButton from "./exportToPdf";
 import "jspdf-autotable";
@@ -33,7 +32,6 @@ import * as XLSX from "xlsx";
 import "../style.css";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import Box from "@mui/material/Box";
-import { Checkbox, Fab, Toolbar } from "@mui/material";
 import { useOpen } from "../Acceuil/OpenProvider"; // Importer le hook personnalisé
 import { FaArrowLeft, FaArrowRight } from "react-icons/fa6";
 import TarifChambre from "./TarifChambre";
@@ -1394,7 +1392,7 @@ const handleShowTarifReduction = () => {
   return (
     <ThemeProvider theme={createTheme()}>
       <Box sx={{...dynamicStyles}}>
-        <Box component="main" sx={{ flexGrow: 1, p: 3, mt: 4 }}>
+        <Box component="main" className="app-page tarif-reduction-page" sx={{ flexGrow: 1, p: 3, mt: 0 }}>
 
        
          
@@ -1439,46 +1437,31 @@ const handleShowTarifReduction = () => {
                   activeIndex={activeIndex}
                   handleSelect={handleSelect}
                   chunks={chunks}
-                  subtitle="Tarifs de Reductions"
+                  subtitle="Tarifs de Réduction"
                   Title="Liste des Tarifs"
                 />
               </div>
 
-          <div className="container-d-flex justify-content-start">
-            <div style={{ display: "flex", alignItems: "center" ,marginTop:'-12px' ,padding:'15px'}}>
+          <div className="app-controls-row">
              
-              <a
+              <button
+                type="button"
                 onClick={handleShowFormButtonClick}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  cursor: "pointer",
-                  backgroundColor: "#329982",
-                  color: "white",
-                  borderRadius: "10px",
-                  fontWeight: "bold"  , 
-                  marginLeft: "96%",
-                  padding: "6.5px 15px",
-                  height: "40px",
-                }}
-                className="gap-2 AjouteBotton"
+                className="app-add-button"
               >
  <FontAwesomeIcon
                     icon={faPlus}
-                    className=" AjouteBotton"
-                    style={{ cursor: "pointer", color: "white"  }}
                   />
-              </a>
-            </div>
+                  Ajouter Tarif
+              </button>
 
-            <div className="filters">
+            <div className="app-filter-controls">
             
 
     <Form.Select aria-label="Default select example"
     value={typeReduction} onChange={handleReductionFilterChange}
-    style={{width:'12%' ,height:"40px",marginTop:"20px", position:'absolute', left: '81%',  top: '224px',cursor: "pointer",
-      borderRadius: "10px", color: "black", fontWeight: "bold"}}>
-    <option value=""  style={{ fontWeight: "bold"}}>Sélectionner Type Reduction</option>
+    className="app-filter-select">
+    <option value=""  style={{ fontWeight: "bold"}}>Sélectionner Type Réduction</option>
     {typesReduction?.map((type) => (
         <option value={type.type_reduction}>
           {type.type_reduction}
@@ -1486,21 +1469,13 @@ const handleShowTarifReduction = () => {
     ))}
     </Form.Select>
 </div>
+</div>
 
         <div style={{ marginTop:"0px",}}>
-        <div id="formContainer" className="" style={{...formContainerStyle,marginTop:'0px',maxHeight:'700px',overflow:'auto',padding:'0'}}>
+        <div id="formContainer" className="app-form-drawer" style={formContainerStyle}>
               <Form className="col row" onSubmit={handleSubmit}>
                 <Form.Label className="text-center ">
-                <h4
-                     style={{
-                      fontSize: "25px", 
-                      fontFamily: "Arial, sans-serif", 
-                      fontWeight: "bold", 
-                      color: "black",
-                      borderBottom: "2px solid black", 
-                      paddingBottom: "5px",
-                    }}
-                    >
+                <h4 className="app-form-drawer-title">
                       {editingTarifReduction ? "Modifier" : "Ajouter"} un Tarif</h4>
                 </Form.Label>
 
@@ -1572,22 +1547,21 @@ const handleShowTarifReduction = () => {
       </Form>
       </Modal.Body>
       
-      <Form.Group className=" d-flex justify-content-center">
-        
-        <Fab
-    variant="extended"
-    className="btn-sm Fab mb-2 mx-2"
-    type="submit"
-    onClick={handleSaveDesignation}
-  >
-    Valider
-  </Fab>
-  <Fab
-    variant="extended"
-    className="btn-sm FabAnnule mb-2 mx-2"
-    onClick={handleCloseEditDesignation}  >
-    Annuler
-  </Fab>
+      <Form.Group className="app-form-actions">
+        <Button
+          type="button"
+          className="app-primary-button"
+          onClick={handleSaveDesignation}
+        >
+          Valider
+        </Button>
+        <Button
+          type="button"
+          className="app-secondary-button"
+          onClick={handleCloseEditDesignation}
+        >
+          Annuler
+        </Button>
       </Form.Group>
     </Modal>
                 <Modal show={showAddDesignation} onHide={handleCloseTarifReduction}>
@@ -1626,7 +1600,7 @@ const handleShowTarifReduction = () => {
             
             <Form.Group className="mt-3">
             <div className="form-group mt-3" style={{maxHeight:'500px',overflowY:'auto'}}>
-            <table className="table">
+            <table className="table app-table">
               <thead>
                 <tr>
                   <th>Designation</th>
@@ -1671,24 +1645,22 @@ const handleShowTarifReduction = () => {
             </table>
           </div>
             </Form.Group>
-          <Form.Group className=" d-flex justify-content-center">
-        
-        <Fab
-    variant="extended"
-    className="btn-sm Fab mb-2 mx-2"
-    type="submit"
-    onClick={handleAddDesignation}
-  >
-    Valider
-  </Fab>
-  <Fab
-    variant="extended"
-    className="btn-sm FabAnnule mb-2 mx-2"
-    onClick={handleCloseTarifReduction}
-  >
-    Annuler
-  </Fab>
-  </Form.Group>
+          <Form.Group className="app-form-actions">
+            <Button
+              type="button"
+              className="app-primary-button"
+              onClick={handleAddDesignation}
+            >
+              Valider
+            </Button>
+            <Button
+              type="button"
+              className="app-secondary-button"
+              onClick={handleCloseTarifReduction}
+            >
+              Annuler
+            </Button>
+          </Form.Group>
       </Modal.Body>
       </Modal>
 
@@ -1763,22 +1735,21 @@ const handleShowTarifReduction = () => {
       </Form>
       </Modal.Body>
       
-      <Form.Group className=" d-flex justify-content-center">
-        
-        <Fab
-    variant="extended"
-    className="btn-sm Fab mb-2 mx-2"
-    type="submit"
-    onClick={handleSaveReduction}
-  >
-    Valider
-  </Fab>
-  <Fab
-    variant="extended"
-    className="btn-sm FabAnnule mb-2 mx-2"
-    onClick={handleCloseEditReduction}  >
-    Annuler
-  </Fab>
+      <Form.Group className="app-form-actions">
+        <Button
+          type="button"
+          className="app-primary-button"
+          onClick={handleSaveReduction}
+        >
+          Valider
+        </Button>
+        <Button
+          type="button"
+          className="app-secondary-button"
+          onClick={handleCloseEditReduction}
+        >
+          Annuler
+        </Button>
       </Form.Group>
     </Modal>
                 <Modal show={showAddCategory} onHide={handleCloseAddTypeReduction}>
@@ -1821,7 +1792,7 @@ const handleShowTarifReduction = () => {
             
             <Form.Group className="mt-3">
             <div className="form-group mt-3" style={{maxHeight:'500px',overflowY:'auto'}}>
-            <table className="table">
+            <table className="table app-table">
               <thead>
                 <tr>
                 <th>Code Reduction</th>
@@ -1860,24 +1831,22 @@ const handleShowTarifReduction = () => {
             </table>
           </div>
             </Form.Group>
-          <Form.Group className=" d-flex justify-content-center">
-        
-        <Fab
-    variant="extended"
-    className="btn-sm Fab mb-2 mx-2"
-    type="submit"
-    onClick={handleAddTypeReduction}
-  >
-    Valider
-  </Fab>
-  <Fab
-    variant="extended"
-    className="btn-sm FabAnnule mb-2 mx-2"
-    onClick={handleCloseAddTypeReduction}
-  >
-    Annuler
-  </Fab>
-  </Form.Group>
+          <Form.Group className="app-form-actions">
+            <Button
+              type="button"
+              className="app-primary-button"
+              onClick={handleAddTypeReduction}
+            >
+              Valider
+            </Button>
+            <Button
+              type="button"
+              className="app-secondary-button"
+              onClick={handleCloseAddTypeReduction}
+            >
+              Annuler
+            </Button>
+          </Form.Group>
       </Modal.Body>
       </Modal>
 
@@ -1927,38 +1896,36 @@ const handleShowTarifReduction = () => {
         </div>
       </Form.Group>
 
-  <Form.Group className="mt-5 d-flex justify-content-center">
-        
-        <Fab
-    variant="extended"
-    className="btn-sm Fab mb-2 mx-2"
-    type="submit"
-  >
-    Valider
-  </Fab>
-  <Fab
-    variant="extended"
-    className="btn-sm FabAnnule mb-2 mx-2"
-    onClick={closeForm}
-  >
-    Annuler
-  </Fab>
-      </Form.Group>
+  <div className="app-form-actions">
+    <Button
+      type="submit"
+      className="app-primary-button"
+    >
+      Valider
+    </Button>
+    <Button
+      type="button"
+      className="app-secondary-button"
+      onClick={closeForm}
+    >
+      Annuler
+    </Button>
+  </div>
               </Form>
             </div>
         </div>
             <div className="">
               <div
                 id="tableContainer"
-                className="table-responsive"
-                style={{...tableContainerStyle, overflowX: 'auto', minWidth: '650px',
+                className="app-table-wrapper"
+                style={{...tableContainerStyle, overflowX: 'auto',
                   maxHeight: '700px', overflow: 'auto',
                   marginTop:'0px',
                   paddingTop:'0px'
 
                 }}
               >
-                 <table className="table table-bordered" id="tarifReductionTable" style={{ marginTop: "-5px", }}>
+                 <table className="table table-bordered app-table" id="tarifReductionTable" style={{ marginTop: "-5px", }}>
   <thead className="text-center table-secondary" style={{ position: 'sticky', top: -1, backgroundColor: '#ddd', zIndex: 1,padding:'10px'}}>
     <tr className="tableHead">
       <th className="tableHead">
@@ -1995,12 +1962,12 @@ const handleShowTarifReduction = () => {
     <FontAwesomeIcon
       onClick={() => handleEdit(tarifReduction)}
       icon={faEdit}
-      style={{ color: "#007bff", cursor: "pointer", marginRight: "10px" }}
+      className="app-table-action is-edit"
     />
     <FontAwesomeIcon
       onClick={() => handleDelete(tarifReduction?.id)}
       icon={faTrash}
-      style={{ color: "#ff0000", cursor: "pointer", marginRight: "10px" }}
+      className="app-table-action is-delete"
     />
   </div>  
 </td>
@@ -2015,37 +1982,70 @@ const handleShowTarifReduction = () => {
 
                 {/* )} */}
                
-                <a href="#">
+                <div className="app-table-footer">
                   <Button
-                  className="btn btn-danger btn-sm"
-                  onClick={handleDeleteSelected}
-                  disabled={selectedItems?.length === 0}
-                  style={{
-                    borderRadius: "10px",
-                    fontWeight: "bold",
-                    fontSize: "17px",
-                    color: "white",
-                  }}
-                >
-                  <FontAwesomeIcon
-                    icon={faTrash}
-                    style={{ marginRight: "0.5rem" }}
-                  />
-                  Supprimer selection
-                </Button>
-                </a>
-                <TablePagination
-                  rowsPerPageOptions={[5, 10,15,20, 25]}
-                  component="div"
-                  count={filteredTarifreduction?.length || 0}
-                  rowsPerPage={rowsPerPage}
-                  page={page}
-                  onPageChange={handleChangePage}
-                  onRowsPerPageChange={handleChangeRowsPerPage}
-                />
+                    type="button"
+                    className="app-danger-button"
+                    onClick={handleDeleteSelected}
+                    disabled={selectedItems?.length === 0}
+                  >
+                    <FontAwesomeIcon
+                      icon={faTrash}
+                      style={{ marginRight: "0.5rem" }}
+                    />
+                    Supprimer selection
+                  </Button>
+
+                  <div className="app-table-pagination">
+                    <span>Lignes par page:</span>
+
+                    <select
+                      value={rowsPerPage}
+                      onChange={(e) =>
+                        handleChangeRowsPerPage({
+                          target: { value: e.target.value },
+                        })
+                      }
+                    >
+                      {[5, 10, 15, 20, 25].map((value) => (
+                        <option key={value} value={value}>
+                          {value}
+                        </option>
+                      ))}
+                    </select>
+
+                    <span>
+                      {filteredTarifreduction.length > 0
+                        ? `${page * rowsPerPage + 1}-${Math.min(
+                            (page + 1) * rowsPerPage,
+                            filteredTarifreduction.length
+                          )} sur ${filteredTarifreduction.length}`
+                        : "0-0 sur 0"}
+                    </span>
+
+                    <button
+                      type="button"
+                      className="app-pagination-arrow"
+                      disabled={page === 0}
+                      onClick={(e) => handleChangePage(e, page - 1)}
+                      aria-label="Page précédente"
+                    >
+                      ‹
+                    </button>
+
+                    <button
+                      type="button"
+                      className="app-pagination-arrow"
+                      disabled={(page + 1) * rowsPerPage >= filteredTarifreduction.length}
+                      onClick={(e) => handleChangePage(e, page + 1)}
+                      aria-label="Page suivante"
+                    >
+                      ›
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
         </Box>
       </Box>
     </ThemeProvider>

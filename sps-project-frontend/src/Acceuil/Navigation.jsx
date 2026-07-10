@@ -50,12 +50,13 @@ const drawerWidth = 290;
 const AppBar = styled(MuiAppBar, {
   shouldForwardProp: (prop) => prop !== "open",
 })(({ theme, open }) => ({
-  zIndex: theme.zIndex.drawer + 1,
+  zIndex: 1600,
   transition: theme.transitions.create(["width", "margin"], {
     easing: theme.transitions.easing.sharp,
     duration: theme.transitions.duration.leavingScreen,
   }),
   backgroundColor: "#0b4d54",
+  boxShadow: "0 2px 8px rgba(0, 0, 0, 0.18)",
   ...(open && {
     marginLeft: drawerWidth,
     width: `calc(100% - ${drawerWidth}px)`,
@@ -77,6 +78,7 @@ const Drawer = styled(MuiDrawer, {
       duration: theme.transitions.duration.enteringScreen,
     }),
     boxSizing: "border-box",
+    zIndex: 1400,
     backgroundColor:'#2c767c',
     ...(!open && {
       overflowX: "hidden",
@@ -293,6 +295,7 @@ const Navigation = () => {
   return (
     <ThemeProvider theme={defaultTheme}>
       <Box sx={{
+        zIndex: 1400,
         marginLeft:'-9px',
         marginTop:'-20px',
   position: 'fixed',
