@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\DB; // <-- Ajoutez cette ligne
 
 class ClientParticulierController extends Controller
@@ -119,62 +120,70 @@ public function statsBySecteur()
 
     }
     public function store(Request $request)
-    {
-                $validatedData = $request->validate([
-                    'CodeClient' => 'string|unique:clients_particulier,CodeClient',
-                    'name' => 'required|string',
-                    'prenom' => 'required|string',
-                    'cin' => 'required|string|unique:clients_particulier,cin',
-                    'civilite' => 'required|string',
-                    'nationalite' => 'required|string',
-                    'adresse' => 'string',
-                    'tele' => 'nullable',
-                    'ville' => 'nullable',
-                    'abreviation' => 'nullable',
-                    'type_client' => 'nullable',
-                    'categorie' => 'nullable',
-                    'code_postal' => 'nullable',
-                    'zone_id' => 'nullable',
-                    'region_id' => 'nullable',
-                    'secteur_id' => 'nullable',
-                    'logoC' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-                    'mod_id' => 'nullable',
-                    'seince' => 'nullable',
-                    'montant_plafond' => 'nullable',
-                ]);
-                $validatedData['user_id'] = $request['user_id'] = Auth::id();
-                // Storing Photo
-                $photo = $request->file('logoC');
-                // Deleting Old Photo and Inserting The New Photo
-                if ($request->hasFile('logoC')) {
-                    // Storage::disk('public')->delete($tarifRepas->photo);
-                    $photoPath = $photo->storeAs('logos-particulier', time() . '_' . $photo->getClientOriginalName(), 'public');
-                    $validatedData['logoC'] = $photoPath;
-                }
-                $client = ClientParticulier::create($validatedData);
-
-                $validatedDataEnfant = $request->validate([
-                    'enfantPrenom' => 'nullable|string',
-                    'enfantAge' => 'integer|nullable'
-                ]);
-
-                if ($validatedDataEnfant["enfantPrenom"] || $validatedDataEnfant["enfantAge"])
-                    Enfant::create([
-                        'idClient' => $client->id,
-                        'name' => $client->name,
-                        'prenom' => $validatedDataEnfant["enfantPrenom"],
-                        'age' => $validatedDataEnfant["enfantAge"],
-                    ]);
-
-                return response()->json([
-                    'message' => 'Client ajouté avec succès',
-                    'client' => $client,
-                    'request' => $request,
-                ], 200);
-        // } else {
-        //     abort(403, 'You are not authorized to add clients.');
-        // }
+{
+    $validatedData = $request->validate([
+        'CodeClient' => 'required|string|unique:clients_particulier,CodeClient',
+        'name' => 'required|string',
+        'prenom' => 'required|string',
+        'cin' => 'required|string|unique:clients_particulier,cin',
+        'civilite' => 'required|string',
+        'nationalite' => 'required|string',
+        'adresse' => 'required|string',
+        'tele' => 'nullable',
+        'ville' => 'nullable',
+        'abreviation' => 'nullable',
+        'type_client' => 'nullable',
+        'categorie' => 'nullable',
+        'code_postal' => 'nullable',
+        'zone_id' => 'nullable',
+        'region_id' => 'nullable',
+        'secteur_id' => 'nullable',
+        'logoC' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+        'mod_id' => 'nullable',
+        'seince' => 'nullable',
+        'montant_plafond' => 'nullable',
+    ]);
+    foreach (['zone_id', 'region_id', 'secteur_id', 'mod_id'] as $field) {
+    if (array_key_exists($field, $validatedData) && $validatedData[$field] === '') {
+        $validatedData[$field] = null;
     }
+}
+
+    return DB::transaction(function () use ($request, $validatedData) {
+        $validatedData['user_id'] = Auth::id();
+
+        if ($request->hasFile('logoC')) {
+            $file = $request->file('logoC');
+            $fileName = time() . '_' . preg_replace('/\s+/', '_', $file->getClientOriginalName());
+
+            $validatedData['logoC'] = $file->storeAs(
+                'logos-particulier',
+                $fileName,
+                'public'
+            );
+        }
+
+        $client = ClientParticulier::create($validatedData);
+
+        $enfantPrenom = $request->input('enfantPrenom');
+        $enfantAge = $request->input('enfantAge');
+
+        if (!empty($enfantPrenom) || !empty($enfantAge)) {
+            Enfant::create([
+                'idClient' => $client->id,
+                'name' => $client->name,
+                'prenom' => $enfantPrenom,
+                'age' => $enfantAge,
+                'type' => 'C',
+            ]);
+        }
+
+        return response()->json([
+            'message' => 'Client ajouté avec succès',
+            'client' => $client,
+        ], 201);
+    });
+}
 
     /**
      * Display the specified resource.
@@ -187,60 +196,82 @@ public function statsBySecteur()
     }
 
     public function update(Request $request, $id)
-    {
-        // if (Gate::allows('update_clients')) {
-                $client = ClientParticulier::findOrFail($id);
-                $validatedData = $request->validate([
-                    'name' => 'required|string',
-                    'prenom' => 'required|string',
-                    'cin' => 'required|string',
-                    'civilite' => 'required|string',
-                    'nationalite' => 'required|string',
-                    'adresse' => 'string',
-                    'tele' => 'nullable',
-                    'ville' => 'nullable',
-                    'abreviation' => 'nullable',
-                    'type_client' => 'nullable',
-                    'categorie' => 'nullable',
-                    'code_postal' => 'nullable',
-                    'zone_id' => 'nullable',
-                    'region_id' => 'nullable',
-                    'secteur_id' => 'nullable',
-                    'logoC' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-                    'mod_id' => 'nullable',
-                    'seince' => 'nullable',
-                    'montant_plafond' => 'nullable',
-                ]);
-                $validatedDataEnfant = $request->validate([
-                    'enfantPrenom' => 'nullable|string',
-                    'enfantAge' => 'integer|nullable'
-                ]);
+{
+    $client = ClientParticulier::findOrFail($id);
 
-
-                $photo = $request->file('logoC');
-                // Deleting Old Photo and Inserting The New Photo
-                if ($request->hasFile('logoC')) {
-                    Storage::disk('public')->delete($validatedData['logoC']);
-                    $photoPath = $photo->storeAs('logos-particulier', time() . '_' . $photo->getClientOriginalName(), 'public');
-                    $validatedData['logoC'] = $photoPath;
-                }
-
-                // Update the client with the request data
-                $client->update($validatedData);
-
-                if ($validatedDataEnfant["enfantPrenom"] || $validatedDataEnfant["enfantAge"])
-                    Enfant::create([
-                        'idClient' => $client->id,
-                        'name' => $client->name,
-                        'prenom' => $validatedDataEnfant["enfantPrenom"],
-                        'age' => $validatedDataEnfant["enfantAge"],
-                    ]);
-
-                return response()->json(['message' => 'Client modified successfully', 'client' => $client], 200);
-        // } else {
-        //     abort(403, 'You are not authorized to modify clients.');
-        // }
+    $validatedData = $request->validate([
+        'CodeClient' => [
+            'required',
+            'string',
+            Rule::unique('clients_particulier', 'CodeClient')->ignore($client->id),
+        ],
+        'name' => 'required|string',
+        'prenom' => 'required|string',
+        'cin' => [
+            'required',
+            'string',
+            Rule::unique('clients_particulier', 'cin')->ignore($client->id),
+        ],
+        'civilite' => 'required|string',
+        'nationalite' => 'required|string',
+        'adresse' => 'required|string',
+        'tele' => 'nullable',
+        'ville' => 'nullable',
+        'abreviation' => 'nullable',
+        'type_client' => 'nullable',
+        'categorie' => 'nullable',
+        'code_postal' => 'nullable',
+        'zone_id' => 'nullable',
+        'region_id' => 'nullable',
+        'secteur_id' => 'nullable',
+        'logoC' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+        'mod_id' => 'nullable',
+        'seince' => 'nullable',
+        'montant_plafond' => 'nullable',
+    ]);
+    foreach (['zone_id', 'region_id', 'secteur_id', 'mod_id'] as $field) {
+    if (array_key_exists($field, $validatedData) && $validatedData[$field] === '') {
+        $validatedData[$field] = null;
     }
+}
+
+    return DB::transaction(function () use ($request, $client, $validatedData) {
+        if ($request->hasFile('logoC')) {
+            if ($client->logoC && Storage::disk('public')->exists($client->logoC)) {
+                Storage::disk('public')->delete($client->logoC);
+            }
+
+            $file = $request->file('logoC');
+            $fileName = time() . '_' . preg_replace('/\s+/', '_', $file->getClientOriginalName());
+
+            $validatedData['logoC'] = $file->storeAs(
+                'logos-particulier',
+                $fileName,
+                'public'
+            );
+        }
+
+        $client->update($validatedData);
+
+        $enfantPrenom = $request->input('enfantPrenom');
+        $enfantAge = $request->input('enfantAge');
+
+        if (!empty($enfantPrenom) || !empty($enfantAge)) {
+            Enfant::create([
+                'idClient' => $client->id,
+                'name' => $client->name,
+                'prenom' => $enfantPrenom,
+                'age' => $enfantAge,
+                'type' => 'C',
+            ]);
+        }
+
+        return response()->json([
+            'message' => 'Client modifié avec succès',
+            'client' => $client->fresh(),
+        ], 200);
+    });
+}
 
 
     /**

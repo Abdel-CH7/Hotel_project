@@ -6,6 +6,8 @@ use App\Models\Reclamation;
 use App\Models\Historique;
 use App\Models\Departement;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 
 class ReclamationController extends Controller
 {
@@ -78,34 +80,133 @@ class ReclamationController extends Controller
 
     // Ajouter un département
     public function addDepartment(Request $request)
-    {
-        $request->validate([
-            'nom' => 'required|string|unique:departements,nom|max:255',
-        ]);
+{
+    $validatedData = $request->validate([
+        'nom' => [
+            'required',
+            'string',
+            'max:255',
+            Rule::unique('departements', 'nom'),
+        ],
 
-        $departement = Departement::create(['nom' => $request->nom]);
-        return response()->json($departement, 201);
+        'photo' => [
+            'nullable',
+            'image',
+            'mimes:jpeg,png,jpg,gif,webp',
+            'max:2048',
+        ],
+    ]);
+
+    $newPhotoPath = null;
+
+    if ($request->hasFile('photo')) {
+        $newPhotoPath = $request
+            ->file('photo')
+            ->store('departement-photos', 'public');
+
+        $validatedData['photo'] = $newPhotoPath;
     }
+
+    try {
+        $departement = Departement::create($validatedData);
+    } catch (\Throwable $exception) {
+        if (
+            $newPhotoPath &&
+            Storage::disk('public')->exists($newPhotoPath)
+        ) {
+            Storage::disk('public')->delete($newPhotoPath);
+        }
+
+        throw $exception;
+    }
+
+    return response()->json([
+        'message' => 'Département ajouté avec succès.',
+        'departement' => $departement,
+    ], 201);
+}
 
     // Mettre à jour un département
-    public function updateDepartment(Request $request, $id)
-    {
-        $request->validate([
-            'nom' => 'required|string|unique:departements,nom|max:255',
-        ]);
+    public function updateDepartment(
+    Request $request,
+    $id
+) {
+    $departement = Departement::findOrFail($id);
 
-        $departement = Departement::findOrFail($id);
-        $departement->update(['nom' => $request->nom]);
+    $validatedData = $request->validate([
+        'nom' => [
+            'required',
+            'string',
+            'max:255',
+            Rule::unique('departements', 'nom')
+                ->ignore($departement->id),
+        ],
 
-        return response()->json($departement);
+        'photo' => [
+            'nullable',
+            'image',
+            'mimes:jpeg,png,jpg,gif,webp',
+            'max:2048',
+        ],
+    ]);
+
+    $oldPhotoPath = $departement->photo;
+    $newPhotoPath = null;
+
+    if ($request->hasFile('photo')) {
+        $newPhotoPath = $request
+            ->file('photo')
+            ->store('departement-photos', 'public');
+
+        $validatedData['photo'] = $newPhotoPath;
     }
+
+    try {
+        $departement->update($validatedData);
+    } catch (\Throwable $exception) {
+        if (
+            $newPhotoPath &&
+            Storage::disk('public')->exists($newPhotoPath)
+        ) {
+            Storage::disk('public')->delete($newPhotoPath);
+        }
+
+        throw $exception;
+    }
+
+    if (
+        $newPhotoPath &&
+        $oldPhotoPath &&
+        $oldPhotoPath !== $newPhotoPath &&
+        Storage::disk('public')->exists($oldPhotoPath)
+    ) {
+        Storage::disk('public')->delete($oldPhotoPath);
+    }
+
+    return response()->json([
+        'message' => 'Département modifié avec succès.',
+        'departement' => $departement->fresh(),
+    ], 200);
+}
 
     // Supprimer un département
     public function deleteDepartment($id)
-    {
-        $departement = Departement::findOrFail($id);
-        $departement->delete();
+{
+    $departement = Departement::findOrFail($id);
 
-        return response()->json(null, 204);
+    $photoPath = $departement->photo;
+
+    $departement->delete();
+
+    if (
+        $photoPath &&
+        Storage::disk('public')->exists($photoPath)
+    ) {
+        Storage::disk('public')->delete($photoPath);
     }
+
+    return response()->json([
+        'message' => 'Département supprimé avec succès.',
+    ], 200);
+}
 } 

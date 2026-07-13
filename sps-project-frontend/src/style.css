@@ -1047,3 +1047,223 @@ body .swal2-container {
   background: rgba(0, 175, 170, 0.12);
   color: #00afaa;
 }
+
+/* Clients Particulier - Enfants table inside drawer */
+.clients-enfants-table-wrapper {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden !important;
+  margin-top: 10px;
+}
+
+.clients-enfants-table {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  table-layout: fixed !important;
+  margin-top: 2px;
+}
+
+.clients-enfants-table th,
+.clients-enfants-table td {
+  padding: 4px !important;
+  font-size: 12px !important;
+  vertical-align: middle !important;
+  white-space: normal !important;
+  overflow: hidden !important;
+}
+
+.clients-enfants-table input,
+.clients-enfants-table .form-control {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  font-size: 12px !important;
+  padding: 4px 6px !important;
+  height: 32px !important;
+}
+
+.clients-enfants-table .clients-enfant-name {
+  width: 38%;
+}
+
+.clients-enfants-table .clients-enfant-prenom {
+  width: 38%;
+}
+
+.clients-enfants-table .clients-enfant-age {
+  width: 14%;
+}
+
+.clients-enfants-table .clients-enfant-action {
+  width: 10%;
+  text-align: center;
+}
+
+/* Clients Particulier - Enfants column */
+.client-enfants-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 46px;
+  height: 30px;
+  padding: 4px 9px;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  background: #f8fafc;
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.client-enfants-count.has-enfants {
+  border-color: rgba(0, 175, 170, 0.3);
+  background: rgba(0, 175, 170, 0.1);
+  color: #00afaa;
+  cursor: pointer;
+}
+
+.client-enfants-count.has-enfants:hover {
+  background: rgba(0, 175, 170, 0.18);
+}
+
+.client-enfants-count:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.client-enfants-details {
+  padding: 12px !important;
+  background: #f8fafc !important;
+}
+
+.client-enfants-details-header {
+  margin-bottom: 10px;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: left;
+}
+
+.client-enfants-details-table {
+  width: 100% !important;
+  margin: 0 !important;
+  table-layout: fixed;
+  background: white;
+}
+
+.client-enfants-details-table th,
+.client-enfants-details-table td {
+  padding: 8px !important;
+  text-align: center;
+  vertical-align: middle;
+}
+
+/* Clients Société - Contacts table inside drawer */
+.clients-contacts-table-wrapper {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden !important;
+  margin-top: 10px;
+  box-sizing: border-box;
+}
+
+.clients-contacts-table {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  table-layout: fixed !important;
+  margin-top: 2px;
+}
+
+.clients-contacts-table th,
+.clients-contacts-table td {
+  padding: 4px !important;
+  font-size: 12px !important;
+  vertical-align: middle !important;
+  white-space: normal !important;
+  overflow: hidden !important;
+}
+
+.clients-contacts-table input,
+.clients-contacts-table .form-control {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  height: 32px !important;
+  padding: 4px 6px !important;
+  font-size: 12px !important;
+  box-sizing: border-box !important;
+}
+
+.clients-contacts-table td:nth-child(4),
+.clients-contacts-table th:nth-child(4) {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Clients Société - Contacts column */
+.client-contacts-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 46px;
+  height: 30px;
+  padding: 4px 9px;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  background: #f8fafc;
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.client-contacts-count.has-contacts {
+  border-color: rgba(0, 175, 170, 0.3);
+  background: rgba(0, 175, 170, 0.1);
+  color: #00afaa;
+  cursor: pointer;
+}
+
+.client-contacts-count.has-contacts:hover {
+  background: rgba(0, 175, 170, 0.18);
+}
+
+.client-contacts-count:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.client-contacts-details {
+  padding: 12px !important;
+  background: #f8fafc !important;
+}
+
+.client-contacts-details-header {
+  margin-bottom: 10px;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: left;
+}
+
+.client-contacts-details-table {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  table-layout: fixed !important;
+  background: white;
+}
+
+.client-contacts-details-table th,
+.client-contacts-details-table td {
+  padding: 8px !important;
+  text-align: center;
+  vertical-align: middle;
+  white-space: normal !important;
+  overflow-wrap: anywhere;
+}

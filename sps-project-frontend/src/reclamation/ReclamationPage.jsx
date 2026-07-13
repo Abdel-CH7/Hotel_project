@@ -29,6 +29,7 @@ import {
   faFilePdf,
 } from "@fortawesome/free-solid-svg-icons";
 
+import departmentFallbackImage from "../assets/departments/default.png";
 
 
 
@@ -61,7 +62,34 @@ const chunkArray = (array, size) => {
   );
 };
 
+const STORAGE_URL =
+  "http://127.0.0.1:8000/storage";
 
+const getDepartmentImageUrl = (
+  photo,
+  fallbackImage = departmentFallbackImage
+) => {
+  if (!photo) {
+    return fallbackImage;
+  }
+
+  const photoPath = String(photo);
+
+  if (
+    photoPath.startsWith("http://") ||
+    photoPath.startsWith("https://") ||
+    photoPath.startsWith("data:") ||
+    photoPath.startsWith("blob:")
+  ) {
+    return photoPath;
+  }
+
+  const cleanPath = photoPath
+    .replace(/^\/+/, "")
+    .replace(/^storage\//, "");
+
+  return `${STORAGE_URL}/${cleanPath}`;
+};
 
 
 
@@ -73,7 +101,7 @@ const ReclamationPage = () => {
   const [filteredReclamations, setFilteredReclamations] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [departments, setDepartments] = useState([]);
-  const [selectedDepartment, setSelectedDepartment] = useState("");
+  const [selectedDepartment, setSelectedDepartment] = useState(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [expandedRows, setExpandedRows] = useState({});
   const [selectedItems, setSelectedItems] = useState([]);
@@ -97,10 +125,25 @@ const ReclamationPage = () => {
   const [tableContainerStyle, setTableContainerStyle] = useState({ marginRight: "0" });
   const [showAddDepartmentModal, setShowAddDepartmentModal] = useState(false);
   // In your state declarations
-  const [newDepartment, setNewDepartment] = useState({ name: "" });
-  const [editingDepartment, setEditingDepartment] = useState({ id: null, designation: '' }); // For editing
+  const [newDepartment, setNewDepartment] = useState({
+  name: "",
+  photo: null,
+});
+  const [editingDepartment, setEditingDepartment] =
+  useState({
+    id: null,
+    designation: "",
+    photo: null,
+    existingPhoto: null,
+  });
+ // For editing
   const [showEditDropdown, setShowEditDropdown] = useState(false); // Step 1: Declare state for the modal
-  const [departmentErrors, setDepartmentErrors] = useState({ name: false });
+  const [departmentErrors, setDepartmentErrors] =
+  useState({
+    name: "",
+    designation: "",
+    photo: "",
+  });
   const [rowsPerPage, setRowsPerPage] = useState(5);  // Default to 5 rows per page
   const [page, setPage] = useState(0);  // Start at page 0
   const [selectedStatus, setSelectedStatus] = useState("");
@@ -157,10 +200,12 @@ const ReclamationPage = () => {
       const db = await initDB(); // ✅ Open updated database
   
       // ✅ Store Departments
-      const formattedDepartments = deptResponse.data.map((dept) => ({
-        id: dept.id,
-        designation: dept.nom,
-      }));
+      const formattedDepartments =
+  deptResponse.data.map((dept) => ({
+    id: dept.id,
+    designation: dept.nom,
+    photo: dept.photo || null,
+  }));
       setDepartments(formattedDepartments);
       await db.clear("departments");
       formattedDepartments.forEach((dept) => db.put("departments", dept));
@@ -293,26 +338,77 @@ useEffect(() => {
   
   
   
-  const handleEditDepartment = async () => {
-    try {
-      if (!editingDepartment.designation.trim()) {
-        setDepartmentErrors({ designation: true });
-        return;
-      }
-  
-      await axios.put(
-        `http://localhost:8000/api/reclamations/departements/${editingDepartment.id}`,
-        { nom: editingDepartment.designation }
+const handleEditDepartment = async () => {
+  const departmentName = String(
+    editingDepartment.designation || ""
+  ).trim();
+
+  if (!departmentName) {
+    setDepartmentErrors((previousErrors) => ({
+      ...previousErrors,
+      designation: "Le nom est obligatoire.",
+    }));
+
+    return;
+  }
+
+  try {
+    const requestData = new FormData();
+
+    requestData.append("_method", "PUT");
+    requestData.append("nom", departmentName);
+
+    if (editingDepartment.photo instanceof File) {
+      requestData.append(
+        "photo",
+        editingDepartment.photo
       );
-  
-      Swal.fire("Succès!", "Département modifié", "success");
-      fetchData();
-      setShowEditDropdown(false);
-      setEditingDepartment({ id: null, designation: '' });
-    } catch (error) {
-      Swal.fire("Erreur!", error.response?.data?.message || "Échec de la modification", "error");
     }
-  };
+
+    await axios.post(
+      `http://localhost:8000/api/reclamations/departements/${editingDepartment.id}`,
+      requestData
+    );
+
+    await fetchData();
+    closeEditDepartmentModal();
+
+    Swal.fire(
+      "Succès!",
+      "Département modifié avec succès.",
+      "success"
+    );
+  } catch (error) {
+    console.error(
+      "Erreur modification département:",
+      error.response?.data || error
+    );
+
+    const backendErrors =
+      error.response?.data?.errors || {};
+
+    const nameError =
+      backendErrors.nom?.[0] || "";
+
+    const photoError =
+      backendErrors.photo?.[0] || "";
+
+    setDepartmentErrors((previousErrors) => ({
+      ...previousErrors,
+      designation: nameError,
+      photo: photoError,
+    }));
+
+    Swal.fire(
+      "Erreur!",
+      nameError ||
+        photoError ||
+        error.response?.data?.message ||
+        `Erreur serveur ${error.response?.status || ""}`,
+      "error"
+    );
+  }
+};
 
 
 
@@ -664,28 +760,27 @@ const filterOptions = [
 
 
 
-const handleCategoryFilterChange = (departmentId, index) => {
-  if (!departmentId) {
-    // When "Tout" is selected, reset the selectedDepartment to null
+const handleCategoryFilterChange = (
+  departmentId
+) => {
+  if (
+    departmentId === "" ||
+    departmentId === null ||
+    departmentId === undefined
+  ) {
     setSelectedDepartment(null);
-    setActiveIndex(null);  // Reset active index when no department is selected
-  } else {
-    // Find the department by ID
-    const selectedDept = departments.find((dept) => dept.id === parseInt(departmentId, 10));
-
-    if (selectedDept) {
-      setSelectedDepartment({
-        id: selectedDept.id,
-        name: selectedDept.designation,
-      });
-      setActiveIndex(index); // Set the active index
-    } else {
-      setSelectedDepartment(null);
-      setActiveIndex(null);  // Reset active index if no department is found
-    }
+    setPage(0);
+    return;
   }
-};
 
+  const selectedDept = departments.find(
+    (dept) =>
+      String(dept.id) === String(departmentId)
+  );
+
+  setSelectedDepartment(selectedDept || null);
+  setPage(0);
+};
 
 
 
@@ -695,11 +790,15 @@ const handleCategoryFilterChange = (departmentId, index) => {
 
 // Handler for filter changes – adjust as needed for other filters
 const handleFilterChange = (key, value) => {
-  if (key === "departement_affecte") {
-    const selectedDept = departments.find(dept => dept.id === parseInt(value, 10));
-    setSelectedDepartment(selectedDept || null);
-  }
+if (key === "departement_affecte") {
+  const selectedDept = departments.find(
+    (dept) =>
+      String(dept.id) === String(value)
+  );
 
+  setSelectedDepartment(selectedDept || null);
+  setPage(0);
+}
   if (key === "suivi") {
     setSelectedStatus(value); // ✅ Track the selected status
   }
@@ -828,43 +927,108 @@ const handleShowFormButtonClick = (reclamation = null) => {
   setFormContainerStyle({ right: "0" });
 };  
 
-  const handleAddDepartment = async () => {
-    try {
-      // Validate input
-      if (!newDepartment.name?.trim()) {
-        setDepartmentErrors({ name: true });
-        return;
-      }
-  
-      // Prepare the payload
-      const payload = { nom: newDepartment.name.trim() };
-  
-      // Make the API request to add a department
-      const response = await axios.post(
-        "http://localhost:8000/api/reclamations/departements",
-        payload
+const handleAddDepartment = async () => {
+  const departmentName = String(
+    newDepartment.name || ""
+  ).trim();
+
+  if (!departmentName) {
+    setDepartmentErrors((previousErrors) => ({
+      ...previousErrors,
+      name: "Le nom est obligatoire.",
+    }));
+
+    return;
+  }
+
+  try {
+    const requestData = new FormData();
+
+    requestData.append("nom", departmentName);
+
+    if (newDepartment.photo instanceof File) {
+      requestData.append(
+        "photo",
+        newDepartment.photo
       );
-  
-      // Handle success
-      if (response.status === 201) {
-        Swal.fire("Succès!", "Département ajouté", "success");
-        fetchData(); // Refresh the departments list
-        setShowAddDepartmentModal(false);
-        setNewDepartment({ name: "" }); // Reset the form
-      }
-    } catch (error) {
-      console.error("API Error:", error);
-      Swal.fire(
-        "Erreur!",
-        error.response?.data?.message || "Échec de l'ajout du département",
-        "error"
-      );
-    } finally {
-      // Reset errors and clear the input field
-      setDepartmentErrors({ name: false });
-      setNewDepartment({ name: "" });
     }
-  };
+
+    await axios.post(
+      "http://localhost:8000/api/reclamations/departements",
+      requestData
+    );
+
+    await fetchData();
+    closeAddDepartmentModal();
+
+    Swal.fire(
+      "Succès!",
+      "Département ajouté avec succès.",
+      "success"
+    );
+  } catch (error) {
+    console.error(
+      "Erreur ajout département:",
+      error.response?.data || error
+    );
+
+    const backendErrors =
+      error.response?.data?.errors || {};
+
+    const nameError =
+      backendErrors.nom?.[0] || "";
+
+    const photoError =
+      backendErrors.photo?.[0] || "";
+
+    setDepartmentErrors((previousErrors) => ({
+      ...previousErrors,
+      name: nameError,
+      photo: photoError,
+    }));
+
+    Swal.fire(
+      "Erreur!",
+      nameError ||
+        photoError ||
+        error.response?.data?.message ||
+        "Impossible d'ajouter le département.",
+      "error"
+    );
+  }
+};
+
+const closeAddDepartmentModal = () => {
+  setShowAddDepartmentModal(false);
+
+  setNewDepartment({
+    name: "",
+    photo: null,
+  });
+
+  setDepartmentErrors({
+    name: "",
+    designation: "",
+    photo: "",
+  });
+};
+
+const closeEditDepartmentModal = () => {
+  setShowEditDropdown(false);
+
+  setEditingDepartment({
+    id: null,
+    designation: "",
+    photo: null,
+    existingPhoto: null,
+  });
+
+  setDepartmentErrors({
+    name: "",
+    designation: "",
+    photo: "",
+  });
+};
 
 
   
@@ -912,21 +1076,23 @@ const handleChangeRowsPerPage = (event) => {
     <ThemeProvider theme={createTheme()}>
       <Box sx={{ ...dynamicStyles }}>
         <Box component="main" className="app-page reclamation-page" sx={{ flexGrow: 1, p: 3, mt: 0 }}>
-          <SearchWithExportCarousel
-            onSearch={setSearchTerm}
-            exportToExcel={exportToExcel}
-            exportToPDF={exportToPDF}
-            printTable={printTable}
-            categories={departments}
-            selectedCategory={selectedDepartment?.id || ""}  // Ensure we pass the name
-            handleCategoryFilterChange={handleCategoryFilterChange}  // Handle filtering by name
-            activeIndex={activeIndex}
-            handleSelect={setActiveIndex}
-            chunks={chunks}
-            subtitle="Réclamations"
-            Title="Liste des Réclamations"
-          />
-  
+<SearchWithExportCarousel
+  onSearch={setSearchTerm}
+  exportToExcel={exportToExcel}
+  exportToPDF={exportToPDF}
+  printTable={printTable}
+  categories={departments}
+  selectedCategory={selectedDepartment?.id ?? ""}
+  handleCategoryFilterChange={
+    handleCategoryFilterChange
+  }
+  activeIndex={activeIndex}
+  handleSelect={setActiveIndex}
+  chunks={chunks}
+  subtitle="Départements"
+  Title="Liste des Réclamations"
+  fallbackImage={departmentFallbackImage}
+/>
   <DynamicFilter
   filters={filterOptions}
   onFilterChange={handleFilterChange}
@@ -1126,11 +1292,7 @@ const handleChangeRowsPerPage = (event) => {
 
 <Modal
   show={showAddDepartmentModal}
-  onHide={() => {
-    setShowAddDepartmentModal(false);
-    setNewDepartment({ name: "" });
-    setDepartmentErrors({ name: false, designation: false });
-  }}
+  onHide={closeAddDepartmentModal}
   size="lg"
   centered
 >
@@ -1143,35 +1305,72 @@ const handleChangeRowsPerPage = (event) => {
   </Modal.Header>
 
   <Modal.Body>
-    <Form.Group className="mb-4">
-      <Form.Label>Nom du Département</Form.Label>
-      <Form.Control
-        type="text"
-        value={newDepartment.name || ""}
-        onChange={(e) => {
-          setNewDepartment({ name: e.target.value });
-          setDepartmentErrors((prev) => ({ ...prev, name: false }));
-        }}
-        isInvalid={departmentErrors.name}
-      />
-      <Form.Control.Feedback type="invalid">
-        Veuillez entrer un nom valide
-      </Form.Control.Feedback>
-    </Form.Group>
+<Form.Group className="mb-3">
+  <Form.Label>Nom du Département</Form.Label>
 
+  <Form.Control
+    type="text"
+    value={newDepartment.name}
+    onChange={(e) => {
+      setNewDepartment((previousData) => ({
+        ...previousData,
+        name: e.target.value,
+      }));
+
+      setDepartmentErrors((previousErrors) => ({
+        ...previousErrors,
+        name: "",
+      }));
+    }}
+    isInvalid={!!departmentErrors.name}
+  />
+
+  <Form.Control.Feedback type="invalid">
+    {departmentErrors.name}
+  </Form.Control.Feedback>
+</Form.Group>
+
+<Form.Group className="mb-4">
+  <Form.Label>Photo</Form.Label>
+
+  <Form.Control
+    type="file"
+    accept="image/jpeg,image/png,image/jpg,image/gif,image/webp"
+    isInvalid={!!departmentErrors.photo}
+    onChange={(e) =>
+      setNewDepartment((previousData) => ({
+        ...previousData,
+        photo: e.target.files?.[0] || null,
+      }))
+    }
+  />
+
+  <Form.Control.Feedback type="invalid">
+    {departmentErrors.photo}
+  </Form.Control.Feedback>
+</Form.Group>
     <div className="app-table-wrapper" style={{ maxHeight: "300px" }}>
       <table className="table table-bordered app-table mb-0">
         <thead>
           <tr>
-            <th>Nom</th>
-            <th>Actions</th>
-          </tr>
+  <th>Nom</th>
+  <th>Photo</th>
+  <th>Actions</th>
+</tr>
         </thead>
 
         <tbody>
           {departments.map((dept) => (
             <tr key={dept.id}>
               <td>{dept.designation}</td>
+              <td>
+  <img
+    src={getDepartmentImageUrl(dept.photo)}
+    alt={dept.designation}
+    loading="lazy"
+    className="rounded-circle category-img"
+  />
+</td>
 
               <td>
                 <div className="d-flex align-items-center justify-content-center">
@@ -1179,16 +1378,21 @@ const handleChangeRowsPerPage = (event) => {
                     icon={faEdit}
                     className="app-table-action is-edit"
                     onClick={() => {
-                      setEditingDepartment({
-                        id: dept.id,
-                        designation: dept.designation,
-                      });
-                      setDepartmentErrors((prev) => ({
-                        ...prev,
-                        designation: false,
-                      }));
-                      setShowEditDropdown(true);
-                    }}
+  setEditingDepartment({
+    id: dept.id,
+    designation: dept.designation || "",
+    photo: null,
+    existingPhoto: dept.photo || null,
+  });
+
+  setDepartmentErrors({
+    name: "",
+    designation: "",
+    photo: "",
+  });
+
+  setShowEditDropdown(true);
+}}
                   />
 
                   <FontAwesomeIcon
@@ -1203,7 +1407,7 @@ const handleChangeRowsPerPage = (event) => {
 
           {departments.length === 0 && (
             <tr>
-              <td colSpan="2" className="text-center">
+              <td colSpan="3" className="text-center">
                 Aucun département disponible
               </td>
             </tr>
@@ -1226,11 +1430,7 @@ const handleChangeRowsPerPage = (event) => {
       <Button
         type="button"
         className="app-secondary-button"
-        onClick={() => {
-          setShowAddDepartmentModal(false);
-          setNewDepartment({ name: "" });
-          setDepartmentErrors({ name: false, designation: false });
-        }}
+        onClick={closeAddDepartmentModal}
       >
         Annuler
       </Button>
@@ -1240,11 +1440,7 @@ const handleChangeRowsPerPage = (event) => {
 {/* Edit Department Modal */}
 <Modal
   show={showEditDropdown}
-  onHide={() => {
-    setShowEditDropdown(false);
-    setEditingDepartment({ id: null, designation: "" });
-    setDepartmentErrors((prev) => ({ ...prev, designation: false }));
-  }}
+  onHide={closeEditDepartmentModal}
   size="md"
   centered
 >
@@ -1259,28 +1455,71 @@ const handleChangeRowsPerPage = (event) => {
       </Modal.Header>
 
       <Modal.Body>
-        <Form.Group className="mb-4">
-          <Form.Label>Nom du Département</Form.Label>
-          <Form.Control
-            type="text"
-            value={editingDepartment.designation || ""}
-            onChange={(e) => {
-              setEditingDepartment({
-                ...editingDepartment,
-                designation: e.target.value,
-              });
-              setDepartmentErrors((prev) => ({
-                ...prev,
-                designation: false,
-              }));
-            }}
-            isInvalid={departmentErrors.designation}
-          />
-          <Form.Control.Feedback type="invalid">
-            Veuillez entrer un nom valide
-          </Form.Control.Feedback>
-        </Form.Group>
-      </Modal.Body>
+        <Form.Group className="mb-3">
+  <Form.Label>Photo actuelle</Form.Label>
+
+  <div className="mb-2">
+    <img
+      src={getDepartmentImageUrl(
+        editingDepartment.existingPhoto
+      )}
+      alt={
+        editingDepartment.designation ||
+        "Département"
+      }
+      style={{
+        width: "70px",
+        height: "70px",
+        objectFit: "cover",
+        borderRadius: "50%",
+        border: "1px solid #e2e8f0",
+      }}
+    />
+  </div>
+
+  <Form.Label>Nouvelle photo</Form.Label>
+
+  <Form.Control
+    type="file"
+    accept="image/jpeg,image/png,image/jpg,image/gif,image/webp"
+    isInvalid={!!departmentErrors.photo}
+    onChange={(e) =>
+      setEditingDepartment((previousData) => ({
+        ...previousData,
+        photo: e.target.files?.[0] || null,
+      }))
+    }
+  />
+
+  <Form.Control.Feedback type="invalid">
+    {departmentErrors.photo}
+  </Form.Control.Feedback>
+</Form.Group>
+
+<Form.Group className="mb-4">
+  <Form.Label>Nom du Département</Form.Label>
+
+  <Form.Control
+    type="text"
+    value={editingDepartment.designation || ""}
+    onChange={(e) => {
+      setEditingDepartment((previousData) => ({
+        ...previousData,
+        designation: e.target.value,
+      }));
+
+      setDepartmentErrors((previousErrors) => ({
+        ...previousErrors,
+        designation: "",
+      }));
+    }}
+    isInvalid={!!departmentErrors.designation}
+  />
+
+  <Form.Control.Feedback type="invalid">
+    {departmentErrors.designation}
+  </Form.Control.Feedback>
+</Form.Group>      </Modal.Body>
 
       <Modal.Footer>
         <div className="app-form-actions" style={{ marginTop: 0 }}>

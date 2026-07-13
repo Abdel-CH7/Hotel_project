@@ -27,9 +27,56 @@ import { Fab } from "@mui/material";
 import { useOpen } from "../Acceuil/OpenProvider"; 
 import { FaArrowLeft, FaArrowRight } from "react-icons/fa6";
 import Swal from "sweetalert2";
+import allSectorIcon from "../assets/sectors/all.png";
 
 //------------------------- CLIENT LIST---------------------//
 const ClientParticulierr = () => {
+
+  const API_BASE_URL = "http://127.0.0.1:8000";
+
+const DEFAULT_SECTEUR_LOGO =
+  "data:image/svg+xml;charset=UTF-8," +
+  encodeURIComponent(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80">
+      <rect width="100%" height="100%" rx="40" fill="#e6fffd"/>
+      <text x="50%" y="54%" text-anchor="middle" font-size="28" fill="#00afaa" font-family="Arial">S</text>
+    </svg>
+  `);
+
+const DEFAULT_CLIENT_LOGO =
+  "data:image/svg+xml;charset=UTF-8," +
+  encodeURIComponent(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80">
+      <rect width="100%" height="100%" rx="40" fill="#f1f5f9"/>
+      <text x="50%" y="54%" text-anchor="middle" font-size="28" fill="#64748b" font-family="Arial">C</text>
+    </svg>
+  `);
+
+const getStorageImageUrl = (path, fallback) => {
+  if (!path) return fallback;
+
+  const cleanPath = String(path)
+    .replace(/^\/+/, "")
+    .replace(/^storage\//, "");
+
+  if (
+    cleanPath.startsWith("http://") ||
+    cleanPath.startsWith("https://") ||
+    cleanPath.startsWith("data:") ||
+    cleanPath.startsWith("blob:")
+  ) {
+    return cleanPath;
+  }
+
+  return `${API_BASE_URL}/storage/${cleanPath}`;
+};
+
+const handleImageError = (fallback) => (e) => {
+  if (e.currentTarget.src !== fallback) {
+    e.currentTarget.src = fallback;
+  }
+};
+
   const [clients, setClients] = useState([]);
   const [editSecteur, setEditSecteur] = useState({
     _method: "put",
@@ -462,73 +509,36 @@ const [villeFilter, setVilleFilter] = useState('');
       const method = "post";
 
       
-    let requestData;
-    
+    const formDatad = new FormData();
 
-    if (editingClient) {
-      requestData = {
-        _method: "put",
-        CodeClient: formData.CodeClient,
-        name: formData.name,
-        prenom: formData.prenom,
-        cin: formData.cin,
-        logoC: formData.logoC,
-        civilite: formData.civilite,
-        nationalite: formData.nationalite,
-        abreviation: formData.abreviation,
-        categorie: formData.categorie,
-        adresse: formData.adresse,
-        tele: formData.tele,
-        ville: formData.ville,
-        zone_id: formData.zone_id,
-        region_id: formData.region_id,
-        agent_id: formData.agent_id,
-        secteur_id: formData.secteur_id,
-        code_postal: formData.code_postal,
-        montant_plafond: formData.montant_plafond,
-        seince: formData.seince,
-        mod_id: formData.mod_id,
-        
-      };
-    } else {
-      const formDatad = new FormData();
-      formDatad.append("CodeClient", formData.CodeClient);
-      formDatad.append("name", formData.name);
-      formDatad.append("prenom", formData.prenom);
-      formDatad.append("cin", formData.cin);
-      formDatad.append("civilite", formData.civilite);
-      formDatad.append("nationalite", formData.nationalite);
-      formDatad.append("abreviation", formData.abreviation);
-      formDatad.append("categorie", formData.categorie);
-      formDatad.append("adresse", formData.adresse);
-      formDatad.append("tele", formData.tele);
-      formDatad.append("ville", formData.ville);
-      formDatad.append("zone_id", formData.zone_id);
-      formDatad.append("region_id", formData.region_id);
-      formDatad.append("code_postal", formData.code_postal);
-      
-      formDatad.append("secteur_id", formData.secteur_id || selectedCategory);
-      formDatad.append("mod_id", formData.mod_id);
-      formDatad.append("agent_id", formData.agent_id);
-      formDatad.append("date_debut", formData.date_debut);
-      formDatad.append("date_fin", formData.date_fin);
-      formDatad.append("seince", formData.seince);
-      formDatad.append("montant_plafond", formData.montant_plafond);
-      if (formData.logoC) {
-        formDatad.append("logoC", formData.logoC);
-      }
-      // if (selectedProductsData && selectedProductsData.length > 0) {
-      //   selectedProductsData.forEach((enfant) => {
-      //     formDatad.append("enfantPrenom", enfant.prenom);
-      //     formDatad.append("enfantAge", enfant.age);
-      //   });
-      // } else {
-      //   formDatad.append("enfantPrenom", ""); // ou null si nécessaire
-      //   formDatad.append("enfantAge", "");   // ou null si nécessaire 
-      // }
+if (editingClient) {
+  formDatad.append("_method", "PUT");
+}
 
-      requestData = formDatad;
-    }
+formDatad.append("CodeClient", formData.CodeClient || "");
+formDatad.append("name", formData.name || "");
+formDatad.append("prenom", formData.prenom || "");
+formDatad.append("cin", formData.cin || "");
+formDatad.append("civilite", formData.civilite || "");
+formDatad.append("nationalite", formData.nationalite || "");
+formDatad.append("abreviation", formData.abreviation || "");
+formDatad.append("categorie", formData.categorie || "Direct");
+formDatad.append("adresse", formData.adresse || "");
+formDatad.append("tele", formData.tele || "");
+formDatad.append("ville", formData.ville || "");
+formDatad.append("zone_id", formData.zone_id || "");
+formDatad.append("region_id", formData.region_id || "");
+formDatad.append("code_postal", formData.code_postal || "");
+formDatad.append("secteur_id", formData.secteur_id || selectedCategory || "");
+formDatad.append("mod_id", formData.mod_id || "");
+formDatad.append("seince", formData.seince || "");
+formDatad.append("montant_plafond", formData.montant_plafond || "");
+
+if (formData.logoC instanceof File) {
+  formDatad.append("logoC", formData.logoC);
+}
+
+const requestData = formDatad;
 
     try {
       const response = await axios.post(url, requestData, {
@@ -537,21 +547,31 @@ const [villeFilter, setVilleFilter] = useState('');
         },
       });
 
-      const formDataEnfant = {
-        info_clients: selectedProductsData.filter((info) => info.name && info.name !== "")?.map(info => ({
-          ...info,
-          id_SiteClient: response.data.siteclient.id,
-          type: 'SC'
-        }))
-      };
-      if (selectedProductsData.filter((info) => info.name && info.name !== "")?.length > 0) {
-        const responseEnfant = await axios({
-          method: 'put',
-          url: urlEnfant,
-          data: formDataEnfant,
-        });
-      }
+const enfantRows = selectedProductsData
+  .filter((row) => String(row.prenom || "").trim() !== "")
+  .map((row) => ({
+    ...(row.id ? { id: row.id } : {}),
+    idClient: response.data.client.id,
+    type: "C",
+    name: String(formData.name || "").trim(),
+    prenom: String(row.prenom || "").trim(),
+    age:
+      row.age === "" || row.age === null || row.age === undefined
+        ? null
+        : Number(row.age),
+  }));
 
+console.log("Enfants envoyés :", {
+  client_id: response.data.client.id,
+  infos: enfantRows,
+});
+
+const enfantResponse = await axios.put(urlEnfant, {
+  client_id: response.data.client.id,
+  infos: enfantRows,
+});
+
+console.log("Réponse Enfants :", enfantResponse.data);
       console.log("Réponse reçue : ", response);
 
       if (response.status === 200 || response.status === 201) {
@@ -614,6 +634,7 @@ const [villeFilter, setVilleFilter] = useState('');
       }
     } catch (error) {
       console.error("Erreur lors de l'ajout du client:", error);
+      console.log("FULL BACKEND ERROR:", error.response?.data);
       if (error.response && error.response.data) {
       console.log("Détails de l'erreur : ", error.response.data.errors);
       setErrors(error.response?.data?.errors || {});
@@ -850,20 +871,25 @@ const [villeFilter, setVilleFilter] = useState('');
       console.log(response.data); // Vérifiez la réponse de l'API
       // selectedProductsData.filter((info) => info.name = formData.name)
 
-      const formDataEnfant = {
-        info_clients: selectedProductsData.filter((info) => info.name && info.name !== "")?.map(info => ({
-          ...info,
-          id_SiteClient: response.data.siteclient.id,
-          type: 'SC'
-        }))
-      };
-      if (selectedProductsData.filter((info) => info.name && info.name !== "")?.length > 0) {
-        const responseEnfant = await axios({
-          method: 'put',
-          url: urlEnfant,
-          data: formDataEnfant,
-        });
-      }
+      const enfantRows = selectedProductsData
+  .filter((info) => info.name && info.name.trim() !== "")
+  .map((info) => ({
+    id: info.id || undefined,
+    idClient: response.data.client.id,
+    type: "C",
+    name: info.name,
+    prenom: info.prenom || "",
+    age: info.age || null,
+  }));
+
+await axios({
+  method: "put",
+  url: urlEnfant,
+  data: {
+    client_id: response.data.client.id,
+    infos: enfantRows,
+  },
+});
 
       // const formDataRep = {
       //   represantants: selectedProductsDataRep.filter((info)=>info.id_agent && info.id_agent!=='')?.map(info => ({
@@ -1420,7 +1446,14 @@ const [villeFilter, setVilleFilter] = useState('');
   //-----------------------------------------//
 
   const handleAddEmptyRow = () => {
-    setSelectedProductsData([...selectedProductsData, {}]);
+  setSelectedProductsData((previousRows) => [
+    ...previousRows,
+    {
+      name: formData.name || "",
+      prenom: "",
+      age: "",
+    },
+  ]);
 };
   const handleAddEmptyRowRep = () => {
     setSelectedProductsDataRep([...selectedProductsDataRep, {}]);
@@ -1450,19 +1483,17 @@ const handleDeleteProductRap = (index, id) => {
   }
 };
 const handleInputChange = (index, field, value) => {
-  const updatedProducts = [...selectedProductsData];
-  updatedProducts[index][field] = value;
-
-  let newErrors = {...errors};
-  if (field === 'name' && value === '') {
-    newErrors.nom = 'Le nom est obligatoire.';
-    updatedProducts[index]["name"] = formData.name;
-  } else {
-    newErrors.nom = '';
-  }
-  setSelectedProductsData(updatedProducts);
-
-  setErrors(newErrors);
+  setSelectedProductsData((previousRows) =>
+    previousRows.map((row, rowIndex) =>
+      rowIndex === index
+        ? {
+            ...row,
+            name: formData.name || row.name || "",
+            [field]: value,
+          }
+        : row
+    )
+  );
 };
 const handleInputChangeRep = (index, field, value) => {
   const updatedProducts = [...selectedProductsDataRep];
@@ -1927,7 +1958,7 @@ useEffect(() => {
             onClick={() => handleCategoryFilterChange("")}
           >
             <img
-              src={'../../images/bayd.jpg'}
+              src={allSectorIcon}
               alt={'tout'}
               loading="lazy"
               className={`rounded-circle category-img ${selectedCategory === '' ? 'selected' : ''}`}
@@ -1943,10 +1974,11 @@ useEffect(() => {
               onClick={() => handleCategoryFilterChange(category.id)}
             >
               <img
-                src={category.logoP ? `http://127.0.0.1:8000/storage/${category.logoP}` : "http://127.0.0.1:8000/storage/secteur-activite.webp"}
-                alt={category.secteurClient}
+                src={getStorageImageUrl(category.logoP, DEFAULT_SECTEUR_LOGO)}
+                alt={category.secteurClient || "Secteur"}
                 loading="lazy"
                 decoding="async"
+                onError={handleImageError(DEFAULT_SECTEUR_LOGO)}
                 className={`rounded-circle category-img ${selectedCategory === category.id ? 'selected' : ''}`}
               />
               <p className="category-text">{category.secteurClient}</p>
@@ -2874,12 +2906,11 @@ Region
                   </a>
       
     </div>
-    <Form.Group controlId="selectedProduitTable">
-    <div className="table-responsive">
-  <table className="table table-bordered" style={{ width: '100%', marginTop:'2px',padding:'0' }}>
-    <thead>
+<Form.Group controlId="selectedProduitTable" className="w-100">
+  <div className="clients-enfants-table-wrapper">
+    <table className="table table-bordered clients-enfants-table">    <thead>
       <tr >
-        <th colSpan={5}>List Enfants</th>
+        <th colSpan={4}>List Enfants</th>
       </tr>
       <tr>
         <th className="ColoretableForm">Nom</th>
@@ -2890,8 +2921,8 @@ Region
     </thead>
     <tbody>
       {selectedProductsData?.map((productData, index) => (
-        <tr key={index.id}>
-          <td style={{ backgroundColor: 'white', width: '20%' }}>
+        <tr key={productData?.id || index}>
+          <td className="clients-enfant-name" style={{ backgroundColor: "white" }}>
             <Form.Control
               type="text"
               disabled={true}
@@ -2903,24 +2934,24 @@ Region
   {errors.name}
 </Form.Text>
           </td>
-          <td style={{ backgroundColor: 'white', width: '20%' }}>
+          <td className="clients-enfant-prenom" style={{ backgroundColor: "white" }}>
             <Form.Control
               type="text"
-              value={productData?.prenom}
+              value={productData?.prenom || ""}
               onChange={(e) => handleInputChange(index, 'prenom', e.target.value)}
               placeholder="Prénom"
             />
           </td>
-          <td style={{ backgroundColor: 'white',width: '20%' }}>
+          <td className="clients-enfant-age" style={{ backgroundColor: 'white',width: '20%' }}>
             <Form.Control
               type="number"
               min="0"
-              value={productData?.age}
+              value={productData?.age ?? ""}
               onChange={(e) => handleInputChange(index, 'age', e.target.value)}
               placeholder="Age"
             />
           </td>
-          <td style={{ backgroundColor: 'white', width: '10%' }}>
+          <td className="clients-enfant-action" style={{ backgroundColor: 'white', width: '10%' }}>
             <a href="#">
               <FontAwesomeIcon   color="red"            onClick={() => handleDeleteProduct(index, productData?.id)}
  icon={faTrash} />
@@ -4275,10 +4306,10 @@ Region
       <th className="tableHead">Catégorie</th>
       <th className="tableHead">Secteur d'activité</th>
       {/* <th className="tableHead">représentant</th> */}
-      <th className="tableHead">Séance</th>
+      <th className="tableHead">Échéance</th>
       <th className="tableHead">Montant plafond</th>
       <th className="tableHead">Mode de paiement </th>
-
+      <th className="tableHead">Enfants</th>
       <th className="tableHead "  >Action</th>
     </tr>
   </thead>
@@ -4305,11 +4336,17 @@ Region
             </td>
             <td style={{ backgroundColor: "white" }}>
                 <img
-                  src={client.logoC ? `http://localhost:8000/storage/${client.logoC}` : "http://localhost:8000/storage/default_user.png"}
-                  alt={client.logoC}
-                  loading="lazy"
-                  style={{ width: "50px", height: "50px", borderRadius: "50%" }}
-                />
+  src={getStorageImageUrl(client.logoC, DEFAULT_CLIENT_LOGO)}
+  alt={`${client.name || "Client"} ${client.prenom || ""}`}
+  loading="lazy"
+  onError={handleImageError(DEFAULT_CLIENT_LOGO)}
+  style={{
+    width: "50px",
+    height: "50px",
+    borderRadius: "50%",
+    objectFit: "cover",
+  }}
+/>
             </td>
             <td style={{ backgroundColor: "white" }}>{highlightText(client.CodeClient ?? "", searchTerm) ||''}</td>
             <td style={{ backgroundColor: "white" }}>{highlightText(client.name  ?? "", searchTerm)  ||''}</td>
@@ -4319,12 +4356,9 @@ Region
             <td style={{ backgroundColor: "white" }}>{highlightText(client.nationalite ?? "" , searchTerm) ||''}</td>
             <td style={{ backgroundColor: "white" }}>{highlightText(client.abreviation ?? "" , searchTerm) ||''}</td>
             <td style={{ backgroundColor: "white" }}>{highlightText(client.adresse  ?? "" , searchTerm) ||''}</td>
-            <td style={{ backgroundColor: "white" }}>{highlightText(client.tele  ?? "" , searchTerm) ||''} <button onClick={() => toggleRowInfo(client.id)} style={{
-              border:'none'
-              ,backgroundColor:'white'
-            }}>
-              <FontAwesomeIcon icon={faList}
-             /></button> </td>
+            <td style={{ backgroundColor: "white" }}>
+  {highlightText(client.tele ?? "", searchTerm) || ""}
+</td>
             <td style={{ backgroundColor: "white" }}>{highlightText(client.ville ?? "", searchTerm) ||''}</td>
 
             <td style={{ backgroundColor: "white" }}>{highlightText(client.code_postal ?? "", searchTerm) ||''}</td>
@@ -4335,8 +4369,45 @@ Region
             {/* <td style={{ backgroundColor: "white" }}>{highlightText(rep?.NomAgent ?? "" , searchTerm)||''}</td>      */}
             <td style={{ backgroundColor: "white" }}>{highlightText(client.seince ?? "", searchTerm) ||''}</td>
             <td style={{ backgroundColor: "white" }}>{highlightText(client.montant_plafond ?? "", searchTerm) ||''}</td>
-            <td>{highlightText(modePaimant.find((agent)=>agent.id===client?.mod_id)?.mode_paimants ?? "", searchTerm) || ''}</td>
-  <td style={{ backgroundColor: "white", whiteSpace: "nowrap" }}>
+            <td>
+  {highlightText(
+    modePaimant.find((agent) => agent.id === client?.mod_id)?.mode_paimants ?? "",
+    searchTerm
+  ) || ""}
+</td>
+
+<td
+  style={{
+    backgroundColor: "white",
+    textAlign: "center",
+  }}
+>
+  <button
+    type="button"
+    className={`client-enfants-count ${
+      client.info_clients?.length > 0 ? "has-enfants" : ""
+    }`}
+    onClick={() => {
+      if (client.info_clients?.length > 0) {
+        toggleRowInfo(client.id);
+      }
+    }}
+    disabled={!client.info_clients?.length}
+    title={
+      client.info_clients?.length > 0
+        ? expandedRowsInfo.includes(client.id)
+          ? "Masquer les enfants"
+          : "Afficher les enfants"
+        : "Aucun enfant"
+    }
+  >
+    <PeopleIcon style={{ fontSize: "16px" }} />
+
+    <span>{client.info_clients?.length || 0}</span>
+  </button>
+</td>
+
+<td style={{ backgroundColor: "white", whiteSpace: "nowrap" }}>
   <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
     <FontAwesomeIcon
       onClick={() => handleEdit(client)}
@@ -4379,13 +4450,7 @@ Region
       <td>{siteClient.nationalite ||''}</td>
       <td>{siteClient.abreviation || ''}</td>
       <td>{siteClient.adresse || ''}</td>
-      <td>
-        {siteClient.tele || ''} 
-        <a href="#" color="black">
-        <FontAwesomeIcon color="black" onClick={() => toggleRowInfoSite(siteClient.id)} icon={faList} />
-
-        </a>
-      </td>
+      <td>{siteClient.tele || ""}</td>
       <td>{siteClient.ville || ''}</td>
       <td>{siteClient.code_postal || ''}</td>
       <td>{siteClient.zone?.zone || ''}</td>
@@ -4404,22 +4469,69 @@ NomAgent|| ''}</td> */}
       <td >{siteClient.seince || ''}</td>
       <td >{siteClient.montant_plafond || ''}</td>
 
-      <td>{modePaimant.find((agent)=>agent.id===siteClient?.
-mod_id
-)?.mode_paimants|| ''}</td>
-      <td>
-        <FontAwesomeIcon
-          onClick={() => handleEditSC(siteClient)}
-          icon={faEdit}
-          style={{ color: "#007bff", cursor: "pointer" }}
-        />
-        <span style={{ margin: "0 8px" }}></span>
-        <FontAwesomeIcon
-          onClick={() => handleDeleteSiteClient(siteClient.id)}
-          icon={faTrash}
-          style={{ color: "#ff0000", cursor: "pointer" }}
-        />
-      </td>
+{/* Mode de paiement */}
+<td>
+  {modePaimant.find(
+    (mode) => mode.id === siteClient?.mod_id
+  )?.mode_paimants || ""}
+</td>
+
+{/* Enfants du Site Client */}
+<td
+  style={{
+    backgroundColor: "white",
+    textAlign: "center",
+  }}
+>
+  <button
+    type="button"
+    className={`client-enfants-count ${
+      siteClient.info_site_clients?.length > 0
+        ? "has-enfants"
+        : ""
+    }`}
+    onClick={() => {
+      if (siteClient.info_site_clients?.length > 0) {
+        toggleRowInfoSite(siteClient.id);
+      }
+    }}
+    disabled={!siteClient.info_site_clients?.length}
+    title={
+      siteClient.info_site_clients?.length > 0
+        ? "Afficher les enfants"
+        : "Aucun enfant"
+    }
+  >
+    <PeopleIcon style={{ fontSize: "16px" }} />
+
+    <span>
+      {siteClient.info_site_clients?.length || 0}
+    </span>
+  </button>
+</td>
+
+{/* Action */}
+<td>
+  <FontAwesomeIcon
+    onClick={() => handleEditSC(siteClient)}
+    icon={faEdit}
+    style={{
+      color: "#007bff",
+      cursor: "pointer",
+    }}
+  />
+
+  <span style={{ margin: "0 8px" }}></span>
+
+  <FontAwesomeIcon
+    onClick={() => handleDeleteSiteClient(siteClient.id)}
+    icon={faTrash}
+    style={{
+      color: "#ff0000",
+      cursor: "pointer",
+    }}
+  />
+</td>
     </tr>
 
     {/* Info Client Rendering */}
@@ -4427,7 +4539,7 @@ mod_id
 info_site_clients
  && (
       <tr>
-        <td colSpan="24"
+        <td colSpan="23"
          style={{
           padding: "0",
         }}
@@ -4459,54 +4571,40 @@ info_site_clients
   </React.Fragment>
 ))}
 
-          {expandedRowsInfo.includes(client.id) && client.info_clients && (
-                                            <tr>
-                                                <td colSpan="25"
-                                                 style={{
-                                                  padding: "0",
-                                                }}
-                                                >
-                                                    <div>
-                                                        <table
-                                                            className="table table-responsive table-bordered"
-                                                            style={{marginTop:'0px',marginBottom:'0px'}}
-                                                        >
-                                                            <thead>
-                                                            <tr>
-                                                                <th  className="ColoretableForm">Nom</th>
-                                                                <th  className="ColoretableForm">Prenom</th>
-                                                                <th  className="ColoretableForm">Age</th>
-                                                                {/* <th    style={{ backgroundColor: "#adb5bd" }}>Prix Vente</th>
-                                                                <th    style={{ backgroundColor: "#adb5bd" }}>Total HT </th> */}
-                                                                {/* <th className="text-center">Action</th> */}
-                                                            </tr>
-                                                            </thead>
-                                                            <tbody>
-                                                            {client.info_clients?.map((info_clients) => {
-                                                                    
-                                                                    return (
-                                                                        <tr key={info_clients.id}>
-                                                                            <td>{info_clients.name}</td>
-                                                                            <td>{info_clients.prenom}</td>
-                                                                            <td>{info_clients.age}</td>
-                                                                            {/* <td>{ligneDevis.prix_vente} DH</td>
-                                                                            <td>
-                                                                                {(
-                                                                                    ligneDevis.quantite *
-                                                                                    ligneDevis.prix_vente
-                                                                                ).toFixed(2)}{" "}
-                                                                                DH
-                                                                            </td> */}
-                                                                        </tr>
-                                                                    );
-                                                                }
-                                                            )}
-                                                            </tbody>
-                                                        </table>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        )}
+          {expandedRowsInfo.includes(client.id) &&
+  client.info_clients?.length > 0 && (
+    <tr className="client-enfants-expanded-row">
+      <td colSpan={23} className="client-enfants-details">
+        <div className="client-enfants-details-header">
+          Enfants de {client.name} {client.prenom}
+        </div>
+
+        <table className="table table-bordered client-enfants-details-table">
+          <thead>
+            <tr>
+              <th className="ColoretableForm">Nom</th>
+              <th className="ColoretableForm">Prénom</th>
+              <th className="ColoretableForm">Âge</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {client.info_clients.map((enfant) => (
+              <tr key={enfant.id}>
+                <td>{enfant.name || "—"}</td>
+                <td>{enfant.prenom || "—"}</td>
+                <td>
+                  {enfant.age !== null && enfant.age !== undefined
+                    ? `${enfant.age} ans`
+                    : "—"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </td>
+    </tr>
+  )}
         </React.Fragment>
       )
        

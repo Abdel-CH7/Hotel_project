@@ -31,6 +31,7 @@ import Box from "@mui/material/Box";
 import { Fab } from "@mui/material";
 import { useOpen } from "../Acceuil/OpenProvider"; // Importer le hook personnalisé
 import { FaArrowLeft, FaArrowRight } from "react-icons/fa6";
+import allSectorsImage from "../assets/sectors/all.png";
 
 //------------------------- CLIENT LIST---------------------//
 const ClientList = () => {
@@ -1923,8 +1924,8 @@ useEffect(() => {
             onClick={() => handleCategoryFilterChange("")}
           >
             <img
-              src={'../../images/bayd.jpg'}
-              alt={'tout'}
+              src={allSectorsImage}
+              alt="Tous les secteurs"
               loading="lazy"
               className={`rounded-circle category-img ${selectedCategory === '' ? 'selected' : ''}`}
             />
@@ -2825,9 +2826,16 @@ useEffect(() => {
                   </a>
       
     </div>
-    <Form.Group controlId="selectedProduitTable">
-    <div className="table-responsive">
-  <table className="table table-bordered" style={{ width: '100%', marginTop:'2px',padding:'0' }}>
+<Form.Group controlId="selectedProduitTable" className="w-100">
+  <div className="clients-contacts-table-wrapper">
+    <table className="table table-bordered clients-contacts-table">
+      <colgroup>
+  <col style={{ width: "18%" }} />
+  <col style={{ width: "18%" }} />
+  <col style={{ width: "20%" }} />
+  <col style={{ width: "36%" }} />
+  <col style={{ width: "8%" }} />
+</colgroup>
     <thead>
       <tr >
         <th colSpan={5}> List Contacts</th>
@@ -2842,41 +2850,40 @@ useEffect(() => {
     </thead>
     <tbody>
       {selectedProductsData?.map((productData, index) => (
-        <>
-        <tr key={index}>
-          <td style={{ backgroundColor: 'white', width: '20%' }}>
+        <tr key={productData.id || index}>
+          <td style={{ backgroundColor: 'white'}}>
             <Form.Control
               type="text"
-              value={productData.name}
+              value={productData.name || ""}
               onChange={(e) => handleInputChange(index, 'name', e.target.value)}
               placeholder="Nom"
             />
           </td>
-          <td style={{ backgroundColor: 'white', width: '20%' }}>
+          <td style={{ backgroundColor: 'white' }}>
             <Form.Control
               type="text"
-              value={productData.prenom}
+              value={productData.prenom || ""}
               onChange={(e) => handleInputChange(index, 'prenom', e.target.value)}
               placeholder="Prénom"
             />
           </td>
-          <td style={{ backgroundColor: 'white',width: '20%' }}>
+          <td style={{ backgroundColor: 'white' }}>
             <Form.Control
               type="number"
-              value={productData.telephone}
+              value={productData.telephone || ""}
               onChange={(e) => handleInputChange(index, 'telephone', e.target.value)}
               placeholder="Téléphone"
             />
           </td>
-          <td style={{ backgroundColor: 'white', width: '20%' }}>
+          <td style={{ backgroundColor: 'white' }}>
             <Form.Control
               type="email"
-              value={productData.email}
+              value={productData.email || ""}
               onChange={(e) => handleInputChange(index, 'email', e.target.value)}
               placeholder="Email"
             />
           </td>
-          <td style={{ backgroundColor: 'white', width: '10%' }}>
+          <td style={{ backgroundColor: 'white' }}>
             <a href="#">
               <FontAwesomeIcon   color="red"            onClick={() => handleDeleteProduct(index, productData.id)}
  icon={faTrash} />
@@ -2885,7 +2892,6 @@ useEffect(() => {
             
           </td>
         </tr>
-        </>
       ))}
       {errors.products && (
         <tr>
@@ -3974,10 +3980,10 @@ useEffect(() => {
                   </a>
       
     </div>
-    <Form.Group controlId="selectedProduitTable">
-    <div className="table-responsive">
-  <table className="table table-bordered" style={{ width: '100%', marginTop:'2px' }}>
-    <thead>
+<Form.Group controlId="selectedProduitTable" className="w-100">
+  <div className="clients-contacts-table-wrapper">
+    <table className="table table-bordered clients-contacts-table">
+          <thead>
       <tr >
         <th colSpan={5}> List Contacts</th>
       </tr>
@@ -3991,7 +3997,7 @@ useEffect(() => {
     </thead>
     <tbody>
       {selectedProductsData?.map((productData, index) => (
-        <tr key={index}>
+        <tr key={productData.id || index}>
           <td style={{ backgroundColor: 'white', width: '20%' }}>
             <Form.Control
               type="text"
@@ -4191,9 +4197,10 @@ useEffect(() => {
       <th className="tableHead">Catégorie</th>
       <th className="tableHead">Secteur d'activité</th>
       {/* <th className="tableHead">représentant</th> */}
-      <th className="tableHead">Séance</th>
+      <th className="tableHead">Échéance</th>
       <th className="tableHead">Montant plafond</th>
       <th className="tableHead">Mode de paiement </th>
+      <th className="tableHead">Contacts</th>
       <th className="tableHead">Action</th>
     </tr>
   </thead>
@@ -4231,12 +4238,9 @@ useEffect(() => {
             <td style={{ backgroundColor: "white" }}>{highlightText(client.raison_sociale ||'', searchTerm)}</td>
             <td style={{ backgroundColor: "white" }}>{highlightText(client.abreviation||'', searchTerm)}</td>
             <td style={{ backgroundColor: "white" }}>{highlightText(client.adresse||'', searchTerm)}</td>
-            <td style={{ backgroundColor: "white" }}>{highlightText(client.tele ||'', searchTerm)} <button onClick={() => toggleRowContact(client.id)} style={{
-              border:'none'
-              ,backgroundColor:'white'
-            }}>
-              <FontAwesomeIcon icon={faList}
-             /></button> </td>
+            <td style={{ backgroundColor: "white" }}>
+  {highlightText(client.tele || "", searchTerm)}
+</td>
             <td style={{ backgroundColor: "white" }}>{highlightText(client.ville ||'', searchTerm) || ''}</td>
             <td style={{ backgroundColor: "white" }}>{highlightText(client.code_postal, searchTerm) || ''}</td>
             <td style={{ backgroundColor: "white" }}>{highlightText(client.ice ||'', searchTerm)}</td>
@@ -4247,9 +4251,47 @@ useEffect(() => {
  {/* <td style={{ backgroundColor: "white" }}>{highlightText(rep?.NomAgent || "", searchTerm) ||''}</td>      */}
        <td style={{ backgroundColor: "white" }}>{highlightText(client.seince ||'', searchTerm)}</td>
        <td style={{ backgroundColor: "white" }}>{highlightText(client.montant_plafond ||'', searchTerm)}</td>
-       <td>{highlightText(modePaimant.find((agent)=>agent.id===client?.mod_id)?.mode_paimants, searchTerm) || ''}</td>
+       <td>
+  {highlightText(
+    modePaimant.find((agent) => agent.id === client?.mod_id)?.mode_paimants,
+    searchTerm
+  ) || ""}
+</td>
 
-  <td style={{ backgroundColor: "white", whiteSpace: "nowrap" }}>
+{/* Contacts */}
+<td
+  style={{
+    backgroundColor: "white",
+    textAlign: "center",
+  }}
+>
+  <button
+    type="button"
+    className={`client-contacts-count ${
+      client.contact_clients?.length > 0 ? "has-contacts" : ""
+    }`}
+    onClick={() => {
+      if (client.contact_clients?.length > 0) {
+        toggleRowContact(client.id);
+      }
+    }}
+    disabled={!client.contact_clients?.length}
+    title={
+      client.contact_clients?.length > 0
+        ? expandedRowsContact.includes(client.id)
+          ? "Masquer les contacts"
+          : "Afficher les contacts"
+        : "Aucun contact"
+    }
+  >
+    <PeopleIcon style={{ fontSize: "16px" }} />
+
+    <span>{client.contact_clients?.length || 0}</span>
+  </button>
+</td>
+
+{/* Action */}
+<td style={{ backgroundColor: "white", whiteSpace: "nowrap" }}>
   <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
     <FontAwesomeIcon
       onClick={() => handleEdit(client)}
@@ -4290,13 +4332,7 @@ useEffect(() => {
       <td>{siteClient.raison_sociale || ''}</td>
       <td>{siteClient.abreviation || ''}</td>
       <td>{siteClient.adresse || ''}</td>
-      <td>
-        {siteClient.tele || ''} 
-        <a href="#" color="black">
-        <FontAwesomeIcon color="black" onClick={() => toggleRowContactSite(siteClient.id)} icon={faList} />
-
-        </a>
-      </td>
+      <td>{siteClient.tele || ""}</td>
       <td>{siteClient.ville || ''}</td>
       <td>{siteClient.code_postal || ''}</td>
       <td>{siteClient.ice || ''}</td>
@@ -4316,11 +4352,47 @@ NomAgent|| ''}</td> */}
       <td >{siteClient.seince || ''}</td>
       <td >{siteClient.montant_plafond || ''}</td>
 
-      <td>{modePaimant.find((agent)=>agent.id===siteClient?.
-mod_id
-)?.mode_paimants|| ''}</td>
       <td>
-        <FontAwesomeIcon
+  {modePaimant.find(
+    (agent) => agent.id === siteClient?.mod_id
+  )?.mode_paimants || ""}
+</td>
+
+{/* Contacts du Site Client */}
+<td
+  style={{
+    backgroundColor: "white",
+    textAlign: "center",
+  }}
+>
+  <button
+    type="button"
+    className={`client-contacts-count ${
+      siteClient.contact_site_clients?.length > 0
+        ? "has-contacts"
+        : ""
+    }`}
+    onClick={() => {
+      if (siteClient.contact_site_clients?.length > 0) {
+        toggleRowContactSite(siteClient.id);
+      }
+    }}
+    disabled={!siteClient.contact_site_clients?.length}
+    title={
+      siteClient.contact_site_clients?.length > 0
+        ? "Afficher les contacts"
+        : "Aucun contact"
+    }
+  >
+    <PeopleIcon style={{ fontSize: "16px" }} />
+
+    <span>{siteClient.contact_site_clients?.length || 0}</span>
+  </button>
+</td>
+
+{/* Action */}
+<td>
+  <FontAwesomeIcon
           onClick={() => handleEditSC(siteClient)}
           icon={faEdit}
           style={{ color: "#007bff", cursor: "pointer" }}
@@ -4339,7 +4411,7 @@ mod_id
 contact_site_clients
  && (
       <tr>
-        <td colSpan="24"
+        <td colSpan={20}
          style={{
           padding: "0",
         }}
@@ -4373,56 +4445,38 @@ contact_site_clients
     )}
   </React.Fragment>
 ))}
-{expandedRowsContact.includes(client.id) && client.contact_clients && (
-                                            <tr>
-                                                <td colSpan="25"
-                                                 style={{
-                                                  padding: "0",
-                                                }}
-                                                >
-                                                    <div>
-                                                        <table
-                                                            className="table table-responsive table-bordered"
-                                                            style={{marginTop:'0px',marginBottom:'0px'}}
-                                                        >
-                                                            <thead>
-                                                            <tr>
-                                                                <th   className="ColoretableForm">Nom</th>
-                                                                <th   className="ColoretableForm">Prenom</th>
-                                                                <th   className="ColoretableForm">Telephone</th>
-                                                                <th   className="ColoretableForm">Email</th>
-                                                                {/* <th    style={{ backgroundColor: "#adb5bd" }}>Prix Vente</th>
-                                                                <th    style={{ backgroundColor: "#adb5bd" }}>Total HT </th> */}
-                                                                {/* <th className="text-center">Action</th> */}
-                                                            </tr>
-                                                            </thead>
-                                                            <tbody>
-                                                            {client.contact_clients?.map((contact_clients) => {
-                                                                    
-                                                                    return (
-                                                                        <tr key={contact_clients.id}>
-                                                                            <td>{contact_clients.name}</td>
-                                                                            <td>{contact_clients.prenom}</td>
-                                                                            <td>{contact_clients.telephone}</td>
-                                                                            <td>{contact_clients.email}</td>
-                                                                            {/* <td>{ligneDevis.prix_vente} DH</td>
-                                                                            <td>
-                                                                                {(
-                                                                                    ligneDevis.quantite *
-                                                                                    ligneDevis.prix_vente
-                                                                                ).toFixed(2)}{" "}
-                                                                                DH
-                                                                            </td> */}
-                                                                        </tr>
-                                                                    );
-                                                                }
-                                                            )}
-                                                            </tbody>
-                                                        </table>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        )}
+{expandedRowsContact.includes(client.id) &&
+  client.contact_clients?.length > 0 && (
+    <tr className="client-contacts-expanded-row">
+      <td colSpan={20} className="client-contacts-details">
+        <div className="client-contacts-details-header">
+          Contacts de {client.raison_sociale}
+        </div>
+
+        <table className="table table-bordered client-contacts-details-table">
+          <thead>
+            <tr>
+              <th className="ColoretableForm">Nom</th>
+              <th className="ColoretableForm">Prénom</th>
+              <th className="ColoretableForm">Téléphone</th>
+              <th className="ColoretableForm">Email</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {client.contact_clients.map((contact) => (
+              <tr key={contact.id}>
+                <td>{contact.name || "—"}</td>
+                <td>{contact.prenom || "—"}</td>
+                <td>{contact.telephone || "—"}</td>
+                <td>{contact.email || "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </td>
+    </tr>
+  )}
         </React.Fragment>
       )
        

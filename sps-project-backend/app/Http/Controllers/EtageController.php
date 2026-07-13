@@ -1,77 +1,152 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use App\Models\Etage;
 use Illuminate\Http\Request;
-use App\Services\ImageService;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 
 class EtageController extends Controller
 {
     public function getAll()
     {
-        $etages = Etage::all();
         return response()->json([
-            "etages" => $etages
+            'etages' => Etage::all(),
         ]);
     }
 
     public function ajouterEtage(Request $request)
     {
-        // Validate Photo
         $validatedData = $request->validate([
-            'etage' => 'required|string',
-            'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'etage' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('etages', 'etage'),
+            ],
+
+            'photo' => [
+                'nullable',
+                'image',
+                'mimes:jpeg,png,jpg,gif,webp',
+                'max:2048',
+            ],
         ]);
-        // Storing Photo
-        $photo = $request->file('photo');
+
+        $newPhotoPath = null;
+
         if ($request->hasFile('photo')) {
-            $webpImagePath = 'etage-photos/' . time() . '_' . pathinfo($photo->getClientOriginalName(), PATHINFO_FILENAME) . '.webp';
-            $convertedImage = ImageService::convertToWebp($photo->getRealPath());
-            Storage::disk('public')->put($webpImagePath, $convertedImage);
-            $validatedData['photo'] = $webpImagePath;
-            // Storage::disk('public')->delete($etage->photo);
+            $newPhotoPath = $request
+                ->file('photo')
+                ->store('etage-photos', 'public');
+
+            $validatedData['photo'] = $newPhotoPath;
         }
-        // Saving Photo
-        $etage = Etage::create($validatedData);
-        return response()->json($etage, 201);
+
+        try {
+            $etage = Etage::create($validatedData);
+        } catch (\Throwable $exception) {
+            if (
+                $newPhotoPath &&
+                Storage::disk('public')->exists($newPhotoPath)
+            ) {
+                Storage::disk('public')->delete($newPhotoPath);
+            }
+
+            throw $exception;
+        }
+
+        return response()->json([
+            'message' => 'Étage ajouté avec succès.',
+            'etage' => $etage,
+        ], 201);
     }
 
-    public function afficherEtage(string $etage)
+    public function afficherEtage(string $id)
     {
-        $etage = Etage::with('typeChambre')->findOrFail($etage);
+        $etage = Etage::findOrFail($id);
+
         return response()->json($etage);
     }
 
-    public function updateEtage(Request $request, string $etage)
+    public function updateEtage(Request $request, string $id)
     {
-        // Finding Photo
-        $etage = Etage::findOrFail($etage);
-        // Validating Photo
+        $etage = Etage::findOrFail($id);
+
         $validatedData = $request->validate([
-            'etage' => 'required|string',
-            'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'etage' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('etages', 'etage')
+                    ->ignore($etage->id),
+            ],
+
+            'photo' => [
+                'nullable',
+                'image',
+                'mimes:jpeg,png,jpg,gif,webp',
+                'max:2048',
+            ],
         ]);
-        // Storing Photo
-        $photo = $request->file('photo');
-        // Deleting Old Photo and Inserting The New Photo
+
+        $oldPhotoPath = $etage->photo;
+        $newPhotoPath = null;
+
         if ($request->hasFile('photo')) {
-            $webpImagePath = 'etage-photos/' . time() . '_' . pathinfo($photo->getClientOriginalName(), PATHINFO_FILENAME) . '.webp';
-            $convertedImage = ImageService::convertToWebp($photo->getRealPath());
-            Storage::disk('public')->put($webpImagePath, $convertedImage);
-            $validatedData['photo'] = $webpImagePath;
-            Storage::disk('public')->delete($etage->photo);
+            $newPhotoPath = $request
+                ->file('photo')
+                ->store('etage-photos', 'public');
+
+            $validatedData['photo'] = $newPhotoPath;
         }
-        // Updating Photo
-        $etage->update($validatedData);
-        return response()->json($request);
+
+        try {
+            $etage->update($validatedData);
+        } catch (\Throwable $exception) {
+            if (
+                $newPhotoPath &&
+                Storage::disk('public')->exists($newPhotoPath)
+            ) {
+                Storage::disk('public')->delete($newPhotoPath);
+            }
+
+            throw $exception;
+        }
+
+        if (
+            $newPhotoPath &&
+            $oldPhotoPath &&
+            $oldPhotoPath !== $newPhotoPath &&
+            Storage::disk('public')->exists($oldPhotoPath)
+        ) {
+            Storage::disk('public')->delete($oldPhotoPath);
+        }
+
+        return response()->json([
+            'message' => 'Étage modifié avec succès.',
+            'etage' => $etage->fresh(),
+        ], 200);
     }
 
-    public function supprimerEtage(string $etage)
+    public function supprimerEtage(string $id)
     {
-        $etage = Etage::findOrFail($etage);
+        $etage = Etage::findOrFail($id);
+
+        $photoPath = $etage->photo;
+
         $etage->delete();
 
-        return response()->json(['message' => 'Etage deleted successfully']);
+        if (
+            $photoPath &&
+            Storage::disk('public')->exists($photoPath)
+        ) {
+            Storage::disk('public')->delete($photoPath);
+        }
+
+        return response()->json([
+            'message' => 'Étage supprimé avec succès.',
+        ], 200);
     }
 }

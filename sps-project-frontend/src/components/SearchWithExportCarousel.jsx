@@ -4,6 +4,7 @@ import { faPrint, faFilePdf, faFileExcel } from "@fortawesome/free-solid-svg-ico
 import { Carousel } from "react-bootstrap";
 import Search from "../Acceuil/Search";  // Make sure you have the correct import path
 import { FaArrowRight, FaArrowLeft } from "react-icons/fa";
+import allFilterImage from "../assets/sectors/all.png";
 
 const SearchWithExportCarousel = ({
   onSearch,
@@ -16,12 +17,35 @@ const SearchWithExportCarousel = ({
   activeIndex,
   handleSelect,
   chunks,
-  subtitle,  // Add subtitle as a prop
+  subtitle,
   Title,
+  fallbackImage = "http://127.0.0.1:8000/storage/chambre-img.webp",
 }) => {
 
   // Ensure that chunks is an array and contains data before mapping
   const validChunks = Array.isArray(chunks) && chunks.length > 0 ? chunks : [];
+  const getCategoryImage = (photo) => {
+  if (!photo) {
+    return fallbackImage;
+  }
+
+  const photoPath = String(photo);
+
+  if (
+    photoPath.startsWith("http://") ||
+    photoPath.startsWith("https://") ||
+    photoPath.startsWith("data:") ||
+    photoPath.startsWith("blob:")
+  ) {
+    return photoPath;
+  }
+
+  const cleanPath = photoPath
+    .replace(/^\/+/, "")
+    .replace(/^storage\//, "");
+
+  return `http://127.0.0.1:8000/storage/${cleanPath}`;
+};
 
   useEffect(() => {
     console.log("Départements dans le carousel :", categories);
@@ -75,7 +99,7 @@ const SearchWithExportCarousel = ({
                       onClick={() => handleCategoryFilterChange("")}
                     >
                       <img
-                        src={'../../images/bayd.jpg'}
+                        src={allFilterImage}
                         alt={'tout'}
                         loading="lazy"
                         className={`rounded-circle category-img ${selectedCategory === '' ? 'selected' : ''}`}
@@ -91,7 +115,7 @@ const SearchWithExportCarousel = ({
                         onClick={() => handleCategoryFilterChange(category.id)}
                       >
                         <img
-                          src={category.photo ? `http://127.0.0.1:8000/storage/${category.photo}` : "http://localhost:8000/storage/chambre-img.webp"}
+                          src={getCategoryImage(category.photo)}
                           alt={category.designation}
                           loading="lazy"
                           className={`rounded-circle category-img ${selectedCategory === category.id ? 'selected' : ''}`}

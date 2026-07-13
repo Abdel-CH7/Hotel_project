@@ -37,17 +37,12 @@ import { FaArrowLeft, FaArrowRight } from "react-icons/fa6";
 //------------------------- Tarifs Chambre ---------------------//
 const TarifChambre = () => {
   const [tarifChambre, setTarifChambre] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState("");
 
 
   const [tarifsChambre, setTarifsChambre] = useState([]);
 
-  // -------------------Filtre Tarifs Chambre -----------------------//
-  const carouselOptions = tarifsChambre?.map((item) => ({
-    id: item.id,
-    label: item.designation,
-    image: item.photo ? `http://127.0.0.1:8000/storage/${item.photo}` : "http://localhost:8000/storage/repas-img.webp",
-  }));
+  
   
 
   //---------------form-------------------//
@@ -66,12 +61,10 @@ const TarifChambre = () => {
   const [hasSubmittedAjoutTarif, setHasSubmittedAjoutTarif] = useState(false);
   
   const [newDesignation, setNewDesignation] = useState({
-    id: "",
-    created_at: "",
-    updated_at: "",
-    designation: "",
-    photo: ""
-  });
+  designation: "",
+  photo: null,
+  existingPhoto: null,
+});
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [showEditModalDesignation, setShowEditModalDesignation] = useState(false);
@@ -319,11 +312,10 @@ const [typesChambre, setTypesChambre] = useState([]);
       newTypeErrors.type_chambre = newTypeChambre.type_chambre === "" || typesCodes.some((chambre) => sanitizeInput(chambre.type_chambre) === sanitizeInput(newTypeChambre.type_chambre))
       && sanitizeInput(newTypeChambre.type_chambre) != sanitizeInput(editingTypeChambre.type_chambre);
       // Validation L'insertion de Tarif Chambre (Designation & Photo)
-      const designations = tarifsChambre.filter((chambre) => chambre.designation);
-      newTarifChambreErrors.designation = newDesignation.designation === "" || designations.some((chambre) => sanitizeInput(chambre.designation) === sanitizeInput(newDesignation.designation))
-      && sanitizeInput(newDesignation.designation || "") != sanitizeInput(editingDesignation.designation || "");
-      newTarifChambreErrors.designationAdd = newDesignation.designation === "" || designations.some((chambre) => sanitizeInput(chambre.designation) === sanitizeInput(newDesignation.designation));
-      // newTarifChambreErrors.photo = newDesignation.photo === "";
+newTarifChambreErrors.designation =
+  hasSubmittedAjoutTarif &&
+  !String(newDesignation.designation || "").trim();
+        // newTarifChambreErrors.photo = newDesignation.photo === "";
       setErrors(newErrors);
       setTypeErrors(newTypeErrors);
       setTarifChambreErrors(newTarifChambreErrors);
@@ -661,13 +653,14 @@ const [typesChambre, setTypesChambre] = useState([]);
       if (selectedTarif) {
         setEditingTarifChambre(selectedTarif);
         setFormData({
-          code: selectedTarif.code?.id || "",
-          type_chambre: selectedTarif.type_chambre?.id || "",
-          single: selectedTarif.single?.id || "",
-          double: selectedTarif.double || "",
-          triple: selectedTarif.triple || "",
-          lit_supp: selectedTarif.lit_supp || "",
-        });
+  code: selectedTarif.code || "",
+  type_chambre: selectedTarif.type_chambre?.id || "",
+  designation: selectedTarif.tarif_chambre?.id || "",
+  single: selectedTarif.single ?? "",
+  double: selectedTarif.double ?? "",
+  triple: selectedTarif.triple ?? "",
+  lit_supp: selectedTarif.lit_supp ?? "",
+});
   
         if (formContainerStyle.right === "-100%") {
           setFormContainerStyle({ right: "0" });
@@ -962,66 +955,92 @@ const handleCloseTarifChambre = () => {
 
 
 const handleAddDesignation = async () => {
-  setHasSubmittedAjoutTarif(true); // Indique que le formulaire a été soumis
+  setHasSubmittedAjoutTarif(true);
 
-  // Vérifier si le champ de désignation est vide
-    if (!newDesignation.designation.trim()) {
-      setTarifChambreErrors(prevErrors => ({
-        ...prevErrors,
-        designation: "Ce champ est obligatoire."
-      }));
-      return;
-    }
-  
-    // Vérifier si la désignation existe déjà
-    const designationExists = tarifsChambre.some(tarif =>
-      sanitizeInput(tarif.designation) === sanitizeInput(newDesignation.designation)
-    );
-  
-    if (designationExists) {
-      Swal.fire({
-        icon: "error",
-        title: "Erreur",
-        text: "Cette désignation existe déjà.",
-      });
-      return;
-    }
-  try {
-  
-    const formData = new FormData();
-    if (newDesignation.photo) {
-      formData.append('photo', newDesignation.photo);
-    }
-    formData.append("designation", newDesignation.designation);
-    
-    const response = await axios.post(
-      "http://localhost:8000/api/desigs-chambre", formData
-    );
+  const designationValue = String(
+    newDesignation.designation || ""
+  ).trim();
 
-    await fetchTarifChambre(); 
+  if (!designationValue) {
+    setTarifChambreErrors((previousErrors) => ({
+      ...previousErrors,
+      designation: "Ce champ est obligatoire.",
+    }));
+    return;
+  }
+
+  const designationExists = tarifsChambre.some(
+    (tarif) =>
+      sanitizeInput(tarif.designation) ===
+      sanitizeInput(designationValue)
+  );
+
+  if (designationExists) {
+    setTarifChambreErrors((previousErrors) => ({
+      ...previousErrors,
+      designation: "Cette désignation existe déjà.",
+    }));
+
     Swal.fire({
-                icon: "success",
-                title: "Succès!",
-                text: "Tarif Chambre ajoutée avec succès.",
-              }); // Hide the modal after success
-              setShowAddDesignation(false);
-              setNewDesignation({
-                photo: null,
-                designation: "",
-              })
-              // Réinitialiser l'état après un ajout réussi
-    setShowAddDesignation(false);
-    setNewDesignation({ photo: null, designation: "" });
-    setTarifChambreErrors({ designation: "", photo: null });
-    setHasSubmittedAjoutTarif(false); // Réinitialiser le flag après succès
+      icon: "error",
+      title: "Erreur",
+      text: "Cette désignation existe déjà.",
+    });
+    return;
+  }
 
+  try {
+    const requestData = new FormData();
+
+    requestData.append("designation", designationValue);
+
+    if (newDesignation.photo instanceof File) {
+      requestData.append("photo", newDesignation.photo);
+    }
+
+    await axios.post(
+      "http://localhost:8000/api/desigs-chambre",
+      requestData
+    );
+
+    await fetchTarifChambre();
+
+    setShowAddDesignation(false);
+    setNewDesignation({
+      designation: "",
+      photo: null,
+      existingPhoto: null,
+    });
+    setTarifChambreErrors({
+      designation: "",
+      photo: null,
+    });
+    setHasSubmittedAjoutTarif(false);
+
+    Swal.fire({
+      icon: "success",
+      title: "Succès!",
+      text: "Tarif Chambre ajouté avec succès.",
+    });
   } catch (error) {
-    setTimeout(() => {
-      setErrors({
-        designation: error.response.data?.errors?.designation,
-        photo: error.response.data?.errors?.photo,
-      });
-  }, 3000);
+    const backendErrors = error.response?.data?.errors || {};
+
+    setTarifChambreErrors({
+      designation:
+        backendErrors.designation?.[0] || "",
+      photo:
+        backendErrors.photo?.[0] || null,
+    });
+
+    Swal.fire({
+      icon: "error",
+      title: "Erreur!",
+      text:
+        backendErrors.designation?.[0] ||
+        backendErrors.photo?.[0] ||
+        error.response?.data?.message ||
+        "Impossible d'ajouter le Tarif Chambre.",
+    });
   }
 };
 
@@ -1080,71 +1099,130 @@ const handleSaveTypeChambre = async () => {
 
 const handleCloseEditDesignation = () => {
   setShowEditModalDesignation(false);
-  setNewDesignation({ designation: "", photo: null });
-  setTarifChambreErrors({ designation: "", photo: null });
+
+  setNewDesignation({
+    designation: "",
+    photo: null,
+    existingPhoto: null,
+  });
+
+  setEditingDesignation({});
+  setCategorie(null);
+
+  setTarifChambreErrors({
+    designation: "",
+    photo: null,
+  });
+
   setHasSubmittedAjoutTarif(false);
 };
 
 const handleSaveDesignation = async () => {
+  setHasSubmittedAjoutTarif(true);
 
-  setHasSubmittedAjoutTarif(true); // Indique que le formulaire a été soumis
+  const designationValue = String(
+    newDesignation.designation || ""
+  ).trim();
 
-  // Vérifier si la désignation est vide
-  if (!newDesignation.designation.trim()) {
-    setTarifChambreErrors(prevErrors => ({
-      ...prevErrors,
-      designation: "Ce champ est obligatoire."
+  if (!designationValue) {
+    setTarifChambreErrors((previousErrors) => ({
+      ...previousErrors,
+      designation: "Ce champ est obligatoire.",
     }));
     return;
   }
-   const designationExists = tarifsChambre.some(tarif =>
-      sanitizeInput(tarif.designation) === sanitizeInput(newDesignation.designation)
-    );
-  
-    if (designationExists) {
-      Swal.fire({
-        icon: "error",
-        title: "Erreur",
-        text: "Cette désignation existe déjà.",
-      });
-      return;
-    }
+
+  const designationExists = tarifsChambre.some((tarif) => {
+    const sameDesignation =
+      sanitizeInput(tarif.designation) ===
+      sanitizeInput(designationValue);
+
+    const differentRecord =
+      String(tarif.id) !== String(categorieId);
+
+    return sameDesignation && differentRecord;
+  });
+
+  if (designationExists) {
+    setTarifChambreErrors((previousErrors) => ({
+      ...previousErrors,
+      designation: "Cette désignation existe déjà.",
+    }));
+
+    Swal.fire({
+      icon: "error",
+      title: "Erreur",
+      text: "Cette désignation existe déjà.",
+    });
+    return;
+  }
+
   try {
-  const formData = new FormData();
-  formData.append('_method', 'put');
-    if (newDesignation.photo) {
-      formData.append('photo', newDesignation.photo);
+    const requestData = new FormData();
+
+    requestData.append("_method", "PUT");
+    requestData.append("designation", designationValue);
+
+    if (newDesignation.photo instanceof File) {
+      requestData.append("photo", newDesignation.photo);
     }
-    formData.append("designation", newDesignation.designation);
 
-  
-    const response = await axios.post(`http://localhost:8000/api/desigs-chambre/${categorieId}`,formData);
+    await axios.post(
+      `http://localhost:8000/api/desigs-chambre/${categorieId}`,
+      requestData
+    );
 
-    await fetchTarifChambre(); // Refresh categories after adding
+    await fetchTarifChambre();
+
     setShowEditModalDesignation(false);
-    
-    // Show success message
+    setNewDesignation({
+      designation: "",
+      photo: null,
+      existingPhoto: null,
+    });
+    setEditingDesignation({});
+    setCategorie(null);
+    setTarifChambreErrors({
+      designation: "",
+      photo: null,
+    });
+    setHasSubmittedAjoutTarif(false);
+
     Swal.fire({
       icon: "success",
       title: "Succès!",
-      text: "Tarif Chambre modifiée avec succès.",
+      text: "Tarif Chambre modifié avec succès.",
     });
-    
-     // Réinitialiser l'état après mise à jour
-     setShowEditModalDesignation(false);
-     setNewDesignation({ designation: "", photo: null });
-     setTarifChambreErrors({ designation: "", photo: null });
-     setHasSubmittedAjoutTarif(false); // Réinitialiser l'état de soumission
   } catch (error) {
-    setTimeout(() => {
-      setErrors({
-        designation_edit: error.response.data?.errors?.designation,
-        photo_edit: error.response.data?.errors?.photo,
-      });
-  }, 3000);
+    console.error(
+      "Erreur modification Tarif Chambre:",
+      error.response?.data || error
+    );
+
+    const backendErrors = error.response?.data?.errors || {};
+
+    const designationError =
+      backendErrors.designation?.[0] || "";
+
+    const photoError =
+      backendErrors.photo?.[0] || "";
+
+    setTarifChambreErrors({
+      designation: designationError,
+      photo: photoError,
+    });
+
+    Swal.fire({
+      icon: "error",
+      title: "Erreur!",
+      text:
+        designationError ||
+        photoError ||
+        error.response?.data?.message ||
+        `Erreur serveur ${error.response?.status || ""}`,
+    });
   }
 };
-
 
 const handleDeleteDesignation = async (categorieId) => {
   try {
@@ -1225,14 +1303,23 @@ const handleEditTypeChambre = (typeChambre) => {
   setHasSubmittedAjoutTarif(false);
 };
 
-const handleEditDesignation = (categorieId) => {
-  setNewDesignation(categorieId);
-  setEditingDesignation(categorieId);
-  setCategorie(categorieId.id)
-  setShowEditModalDesignation(true);
-  // Réinitialiser erreurs et état de soumission
-  setTarifChambreErrors({ designation: "", photo: null });
+const handleEditDesignation = (designation) => {
+  setCategorie(designation.id);
+  setEditingDesignation(designation);
+
+  setNewDesignation({
+    designation: designation.designation || "",
+    photo: null,
+    existingPhoto: designation.photo || null,
+  });
+
+  setTarifChambreErrors({
+    designation: "",
+    photo: null,
+  });
+
   setHasSubmittedAjoutTarif(false);
+  setShowEditModalDesignation(true);
 };
 
 const [activeIndex, setActiveIndex] = useState(0);
@@ -1306,19 +1393,20 @@ const sanitizeInput = (val) => {
 
               <div>
                 <SearchWithExportCarousel
-                  onSearch={handleSearch}
-                  exportToExcel={exportToExcel}
-                  exportToPDF={exportToPDF}
-                  printTable={printTable}
-                  categories={chunks}
-                  selectedCategory={selectedCategory}
-                  handleCategoryFilterChange={handleCategoryFilterChange}
-                  activeIndex={activeIndex}
-                  handleSelect={handleSelect}
-                  chunks={chunks}
-                  subtitle="Tarifs de Chambre"
-                  Title="Liste des Tarifs"
-                />
+  onSearch={handleSearch}
+  exportToExcel={exportToExcel}
+  exportToPDF={exportToPDF}
+  printTable={printTable}
+  categories={chunks}
+  selectedCategory={selectedCategory}
+  handleCategoryFilterChange={handleCategoryFilterChange}
+  activeIndex={activeIndex}
+  handleSelect={handleSelect}
+  chunks={chunks}
+  subtitle="Tarifs de Chambre"
+  Title="Liste des Tarifs"
+  fallbackImage="http://127.0.0.1:8000/storage/chambre-img.webp"
+/>
               </div>
 
           <div className="app-controls-row">
@@ -1341,11 +1429,14 @@ const sanitizeInput = (val) => {
     value={typeChambre} onChange={handleChambreFilterChange}
     className="app-filter-select">
     <option value=""  style={{ fontWeight: "bold"}}>Sélectionner Type Chambre</option>
-    {tarifChambre?.map((type) => (
-        <option value={type.type_chambre.type_chambre}>
-          {type.type_chambre.type_chambre}
-        </option>
-    ))}
+    {typesChambre?.map((type) => (
+  <option
+    key={type.id}
+    value={type.type_chambre}
+  >
+    {type.type_chambre}
+  </option>
+))}
     </Form.Select>
 </div>
 </div>
@@ -1678,17 +1769,50 @@ const sanitizeInput = (val) => {
       </Modal.Header>
       <Modal.Body>
         <Form>
-          <Form.Group>
-                <Form.Label>Photo</Form.Label>
-                  <Form.Control
-                    type="file"
-                    name="photo"
-                    isInvalid={!!tarifChambreErrors.photo}
-                    onChange={(e) => setNewDesignation({ ...newDesignation, photo: e.target.files[0] })}
-                    className="form-control"
-                    lang="fr"
-                  />
-                </Form.Group>
+          <Form.Group className="mb-3">
+  <Form.Label>Photo actuelle</Form.Label>
+
+  {newDesignation.existingPhoto ? (
+    <div className="mb-2">
+      <img
+        src={`http://127.0.0.1:8000/storage/${newDesignation.existingPhoto}`}
+        alt={newDesignation.designation || "Tarif Chambre"}
+        style={{
+          width: "70px",
+          height: "70px",
+          objectFit: "cover",
+          borderRadius: "50%",
+          border: "1px solid #e2e8f0",
+        }}
+      />
+    </div>
+  ) : (
+    <p className="text-muted">Aucune photo actuelle</p>
+  )}
+
+  <Form.Label>Nouvelle photo</Form.Label>
+
+  <Form.Control
+    type="file"
+    name="photo"
+    accept="image/jpeg,image/png,image/jpg,image/gif,image/webp"
+    isInvalid={!!tarifChambreErrors.photo}
+    onChange={(e) =>
+      setNewDesignation((previousData) => ({
+        ...previousData,
+        photo: e.target.files?.[0] || null,
+      }))
+    }
+    className="form-control"
+    lang="fr"
+  />
+
+  {tarifChambreErrors.photo && (
+    <Form.Control.Feedback type="invalid">
+      {tarifChambreErrors.photo}
+    </Form.Control.Feedback>
+  )}
+</Form.Group>
             <Form.Group>
               <Form.Label>Designation</Form.Label>
               <Form.Control
@@ -1701,8 +1825,8 @@ const sanitizeInput = (val) => {
                 />
                 {hasSubmittedAjoutTarif && tarifChambreErrors.designation && (
                                                   <Form.Control.Feedback type="invalid">
-                                                        Required
-                                                      </Form.Control.Feedback>
+  {tarifChambreErrors.designation}
+</Form.Control.Feedback>
                              )}
             </Form.Group>
       </Form>
@@ -1736,6 +1860,7 @@ const sanitizeInput = (val) => {
                   <Form.Control
                     type="file"
                     name="photo"
+                    accept="image/jpeg,image/png,image/jpg,image/gif,image/webp"
                     isInvalid={!!tarifChambreErrors.photo}
                     onChange={(e) => setNewDesignation({ ...newDesignation, photo: e.target.files[0] })}
                     className="form-control"

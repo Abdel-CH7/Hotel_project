@@ -9,7 +9,10 @@ class Departement extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['nom'];
+    protected $fillable = [
+    'nom',
+    'photo',
+];
 
     // One Departement has many Reclamations
     public function reclamations()

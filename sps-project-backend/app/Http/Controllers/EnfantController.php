@@ -4,115 +4,90 @@ namespace App\Http\Controllers;
 
 use App\Models\Enfant;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
 class EnfantController extends Controller
 {
 
 
-    public function store(Request $request)
-    {
-        // Validate the incoming request
-        $validator = Validator::make($request->all(), [
-            'type' => 'nullable',
-            'name' => 'nullable|string|max:255',
-            'prenom' => 'nullable|string|max:255',
-            'age' => 'nullable|numeric',
-        ]);
+public function store(Request $request)
+{
+    return $this->saveEnfants($request);
+}
 
-        // If validation fails, return the errors
-        if ($validator->fails()) {
-            return response()->json(['error' => $validator->errors()], 400);
-        }
+public function update(Request $request)
+{
+    return $this->saveEnfants($request);
+}
 
-        try {
-            // Initialize an array to store created info clients
-            $createdEnfant = [];
+private function saveEnfants(Request $request)
+{
+    $infos = $request->input('infos', $request->input('info_clients', []));
+    $clientId = $request->input('client_id');
 
-            // Loop through each info and create a new record
-            foreach ($request->input('infos') as $enfant) {
-                $createdEnfant = Enfant::create([
+    $request->merge([
+        'infos' => $infos,
+        'client_id' => $clientId,
+    ]);
+
+    $validator = Validator::make($request->all(), [
+        'client_id' => 'nullable|exists:clients_particulier,id',
+        'infos' => 'nullable|array',
+        'infos.*.id' => 'nullable|exists:enfants,id',
+        'infos.*.idClient' => 'required_with:infos|exists:clients_particulier,id',
+        'infos.*.type' => 'nullable|string|max:10',
+        'infos.*.name' => 'required_with:infos|string|max:255',
+        'infos.*.prenom' => 'nullable|string|max:255',
+        'infos.*.age' => 'nullable|integer|min:0',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json(['errors' => $validator->errors()], 422);
+    }
+
+    return DB::transaction(function () use ($infos, $clientId) {
+        $savedEnfants = [];
+        $savedIds = [];
+
+        foreach ($infos as $enfant) {
+            $savedEnfant = Enfant::updateOrCreate(
+                [
+                    'id' => $enfant['id'] ?? null,
+                ],
+                [
                     'idClient' => $enfant['idClient'],
-                    'type' => $enfant['type'],
+                    'type' => $enfant['type'] ?? 'C',
                     'name' => $enfant['name'],
-                    'prenom' => $enfant['prenom']?? null,
-                    'age' => $enfant['age']?? null,
-                ]);
+                    'prenom' => $enfant['prenom'] ?? null,
+                    'age' => $enfant['age'] ?? null,
+                ]
+            );
 
-                // Add the created info to the array
-                $createds[] = $createdEnfant;
-            }
-
-            // Return a success response with the created infos
-            return response()->json([
-                'message' => 'Info clients added successfully',
-                'infos' => $createds
-            ], 200);
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
-        }
-    }
-
-    public function update(Request $request)
-    {
-        // Validate the incoming request
-        $validator = Validator::make($request->all(), [
-            'infos' => 'nullable|array',
-            'id' => 'nullable|exists:info_clients,id',
-            'type' => 'nullable',
-            'name' => 'required|string|max:255',
-            'prenom' => 'nullable|string',
-            'age' => 'nullable|numeric',
-        ]);
-
-        // If validation fails, return the errors
-        if ($validator->fails()) {
-            return response()->json(['error' => $validator->errors()], 400);
+            $savedEnfants[] = $savedEnfant;
+            $savedIds[] = $savedEnfant->id;
         }
 
-        try {
-            // Initialize an array to store updated or created info clients
-            $updatedEnfants = [];
+        $targetClientId = $clientId ?: ($infos[0]['idClient'] ?? null);
 
-            // Loop through each info and update or create the record
-            foreach ($request->input('infos') as $enfant) {
-                // Check if 'id' is set and not null
-                if (isset($enfant['id'])) {
-                    $updatedEnfant = Enfant::updateOrCreate(
-                        ['id' => $enfant['id']], // Condition to find existing record
-                        [
-                            'idClient' => $enfant['idClient']?? null,
-                            'type' => $enfant['type']?? null,
-                            'name' => $enfant['name']?? null,
-                            'prenom' => $enfant['prenom']?? null,
-                            'age' => $enfant['age']?? null,
-                        ]
-                    );
-                } else {
-                    // Handle the case where 'id' is not set
-                    $updatedEnfant = Enfant::create([
-                        'idClient' => $enfant['idClient']?? null,
-                        'type' => $enfant['type']?? null,
-                        'name' => $enfant['name']?? null,
-                        'prenom' => $enfant['prenom']?? null,
-                        'age' => $enfant['age']?? null,
-                    ]);
-                }
-
-                // Add the updated or created info to the array
-                $updatedEnfants[] = $updatedEnfant;
-            }
-
-            // Return a success response with the updated or created infos
-            return response()->json([
-                'message' => 'Info clients updated or created successfully',
-                'enfant' => $updatedEnfants
-            ], 200);
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
+        if ($targetClientId) {
+            Enfant::where('idClient', $targetClientId)
+                ->where('type', 'C')
+                ->when(count($savedIds) > 0, function ($query) use ($savedIds) {
+                    $query->whereNotIn('id', $savedIds);
+                })
+                ->when(count($savedIds) === 0, function ($query) {
+                    return $query;
+                })
+                ->delete();
         }
-    }
-    public function destroy($id)
+
+        return response()->json([
+            'message' => 'Enfants enregistrés avec succès',
+            'enfants' => $savedEnfants,
+        ], 200);
+    });
+}    public function destroy($id)
     {
         try {
             $client = Enfant::findOrFail($id);

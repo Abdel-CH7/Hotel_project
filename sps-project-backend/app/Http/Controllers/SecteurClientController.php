@@ -20,27 +20,31 @@ class SecteurClientController extends Controller
     /**
      * Stocke un nouveau secteur client.
      */
-    public function store(Request $request)
-    {
-        $request->validate([
-            'secteurClient' => 'required|string|max:255', // Validation des données
-            'logoP' => '|image|mimes:jpeg,png,jpg,gif|max:2048', // Category logo validation
+public function store(Request $request)
+{
+    $validatedData = $request->validate([
+        'secteurClient' => 'required|string|max:255',
+        'logoP' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+    ]);
 
-        ]);
-        $secteur = new SecteurClient();
-        $secteur->secteurClient = $request->input('secteurClient');
-        $photo = $request->file('logoP');
-        // Deleting Old Photo and Inserting The New Photo
-        if ($request->hasFile('logoP')) {
-            // Storage::disk('public')->delete($vue->photo);
-            $photoPath = $photo->storeAs('logoP', time() . '_' . $photo->getClientOriginalName(), 'public');
-            $secteur['logoP'] = $photoPath;
-        }
-        $secteurClient= $secteur->save();
+    $secteur = new SecteurClient();
+    $secteur->secteurClient = $validatedData['secteurClient'];
 
-        return response()->json($secteurClient, 201); // Retourne le secteur créé avec un code 201
+    if ($request->hasFile('logoP')) {
+        $file = $request->file('logoP');
+        $fileName = time() . '_' . preg_replace('/\s+/', '_', $file->getClientOriginalName());
+
+        $secteur->logoP = $file->storeAs(
+            'secteurs',
+            $fileName,
+            'public'
+        );
     }
 
+    $secteur->save();
+
+    return response()->json($secteur, 201);
+}
     /**
      * Affiche un secteur client spécifique.
      */
@@ -54,23 +58,34 @@ class SecteurClientController extends Controller
      * Met à jour un secteur client existant.
      */
     public function update(Request $request, $id)
-    {
-        $request->validate([
-            'secteurClient' => 'required|string|max:255',
-            'logoP' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048', // Category logo validation
-        ]);
+{
+    $validatedData = $request->validate([
+        'secteurClient' => 'required|string|max:255',
+        'logoP' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+    ]);
 
-        $secteurClient = SecteurClient::findOrFail($id);
-        $secteurClient->secteurClient = $request->input('secteurClient');
-        if ($request->hasFile('logoP')) {
-            $photo = $request->logoP;
-            $photoPath = $photo->storeAs('logoP', time() . '_' . $photo->getClientOriginalName(), 'public');
-            $secteurClient->logoP = $photoPath;
+    $secteurClient = SecteurClient::findOrFail($id);
+    $secteurClient->secteurClient = $validatedData['secteurClient'];
+
+    if ($request->hasFile('logoP')) {
+        if ($secteurClient->logoP && Storage::disk('public')->exists($secteurClient->logoP)) {
+            Storage::disk('public')->delete($secteurClient->logoP);
         }
-        $secteurClient->save(); // Save the updated model
 
-        return response()->json($secteurClient);
+        $file = $request->file('logoP');
+        $fileName = time() . '_' . preg_replace('/\s+/', '_', $file->getClientOriginalName());
+
+        $secteurClient->logoP = $file->storeAs(
+            'secteurs',
+            $fileName,
+            'public'
+        );
     }
+
+    $secteurClient->save();
+
+    return response()->json($secteurClient, 200);
+}
 
     /**
      * Supprime un secteur client.

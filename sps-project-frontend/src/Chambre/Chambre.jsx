@@ -14,6 +14,7 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { storeDataInIndexedDB } from "../indexDB";
 import ExpandRTable from "../components/ExpandRTable";
+import allFilterImage from "../assets/sectors/all.png";
 
 import {
   faTrash,
@@ -37,17 +38,45 @@ import { FaArrowLeft, FaArrowRight } from "react-icons/fa6";
 
 //------------------------- Chambres ---------------------//
 const Chambre = () => {
+  const STORAGE_URL = "http://127.0.0.1:8000/storage";
+
+const getStorageImageUrl = (photo, fallbackImage) => {
+  if (!photo) {
+    return `${STORAGE_URL}/${fallbackImage}`;
+  }
+
+  const photoPath = String(photo);
+
+  if (
+    photoPath.startsWith("http://") ||
+    photoPath.startsWith("https://") ||
+    photoPath.startsWith("data:") ||
+    photoPath.startsWith("blob:")
+  ) {
+    return photoPath;
+  }
+
+  const cleanPath = photoPath
+    .replace(/^\/+/, "")
+    .replace(/^storage\//, "");
+
+  return `${STORAGE_URL}/${cleanPath}`;
+};
   const [chambres, setChambres] = useState([]);
   const [vueErrors, setVueErrors] = useState({ vue: "", photo: "", vueAdd: "" });
   const [typeErrors, setTypeErrors] = useState({
     codeAdd: "", nb_litAdd: "", nb_salleAdd: "", type_chambreAdd: "", commentaireAdd: ""
   });
-  const [etageErrors, setEtageErrors] = useState({ photo: "", etageAdd: "" });
+  const [etageErrors, setEtageErrors] = useState({
+  etage: "",
+  etageAdd: "",
+  photo: "",
+});
   const [vues, setVues] = useState([]);
   const [etages, setEtages] = useState([]);
   const [types, setTypes] = useState([]);
-  const [selectedVue, setSelectedVue] = useState(null);
-  const [selectedEtage, setSelectedEtage] = useState(null);
+  const [selectedVue, setSelectedVue] = useState("");
+  const [selectedEtage, setSelectedEtage] = useState("");
   const emptyTypeChambre = {
   code: "",
   type_chambre: "",
@@ -98,15 +127,18 @@ const Chambre = () => {
   const [showAddVue, setShowAddVue] = useState(false); 
   const [showAddEtage, setShowAddEtage] = useState(false); 
   const [newVue, setNewVue] = useState({
-    vue: "",
-    vueAdd: "",
-    photo: "",
-  });
-  const [newEtage, setNewEtage] = useState({
-    etage: "",
-    photo: "",
-    etageAdd: ""
-  });
+  vue: "",
+  vueAdd: "",
+  photo: null,
+  existingPhoto: null,
+});
+
+const [newEtage, setNewEtage] = useState({
+  etage: "",
+  etageAdd: "",
+  photo: null,
+  existingPhoto: null,
+});
 
   const [showEditModalSecteur, setShowEditModalSecteur] = useState(false);
   const [showEditModalmod, setShowEditModalmod] = useState(false);
@@ -328,8 +360,8 @@ const handleChange = (e) => {
         const newTypeErrors = { ...typeErrors };
         // Chambre Validation
         const num_chambres = chambres.filter((chambre) => chambre.num_chambre);
-        newErrors.vue = (selectedVue || formData.vue) === "";
-        newErrors.etage = (selectedEtage || formData.etage) === "";
+        newErrors.vue = formData.vue === "";
+        newErrors.etage = formData.etage === "";
         newErrors.num_chambre =
           formData.num_chambre === "" ||
           (num_chambres.some(
@@ -415,24 +447,24 @@ const handleSubmit = async (e) => {
     requestData ={
     type_chambre: formData.type_chambre,
     num_chambre: formData.num_chambre,
-    etage_id: formData.etage || selectedEtage,
+    etage_id: formData.etage,
     nb_lit: formData.nb_lit,
     nb_salle: formData.nb_salle,
     climat: formData.climat,
     wifi: formData.wifi,
-    vue_id: formData.vue || selectedVue,
+    vue_id: formData.vue,
     }
   }
   else {
   const formDatad = new FormData();
   formDatad.append("type_chambre", formData.type_chambre);
   formDatad.append("num_chambre", formData.num_chambre);
-  formDatad.append("etage_id", formData.etage || selectedEtage);
+  formDatad.append("etage_id", formData.etage);
   formDatad.append("nb_lit", formData.nb_lit);
   formDatad.append("nb_salle", formData.nb_salle);
   formDatad.append("climat", formData.climat);
   formDatad.append("wifi", formData.wifi);
-  formDatad.append("vue_id", formData.vue || selectedVue);
+  formDatad.append("vue_id", formData.vue);
   requestData = formDatad;
   }
 
@@ -1080,14 +1112,16 @@ const chunks = chunkArray(vues, chunkSize);
 const chunks1 = chunkArray(etages, chunkSize);
 
 
-const handleVueFilterChange = (catId) => {
-  setSelectedVue(catId);
-  setFormData({...formData, vue: ""})
+const handleVueFilterChange = (vueId) => {
+  setSelectedVue(vueId);
+  setPage(0);
 };
-const handleEtageFilterChange = (catId) => {
-  setSelectedEtage(catId);
-  setFormData({...formData, etage: ""})
+
+const handleEtageFilterChange = (etageId) => {
+  setSelectedEtage(etageId);
+  setPage(0);
 };
+
 const handleShowFormButtonClick = () => {
   if (formContainerStyle.right === "-100%") {
     setFormContainerStyle({ right: "0" });
@@ -1125,29 +1159,63 @@ const closeForm = () => {
   setEditingChambre(null); 
 };
 const handleAddEtage = async () => {
+  const etageValue = String(
+    newEtage.etageAdd || ""
+  ).trim();
+
+  if (!etageValue) {
+    setEtageErrors((previousErrors) => ({
+      ...previousErrors,
+      etageAdd: "L'étage est obligatoire.",
+    }));
+    return;
+  }
+
   try {
-    const hasErrors = Object.values(etageErrors).some(error => error === true);
-      if (hasErrors) {
-        alert(JSON.stringify(etageErrors));
-        return;  
-      }
-    const formData = new FormData();
-    formData.append('photo', newEtage.photo);
-    formData.append("etage", newEtage.etageAdd);
-    
-    const response = await axios.post(
-      "http://localhost:8000/api/etages", formData
+    const requestData = new FormData();
+
+    requestData.append("etage", etageValue);
+
+    if (newEtage.photo instanceof File) {
+      requestData.append("photo", newEtage.photo);
+    }
+
+    await axios.post(
+      "http://localhost:8000/api/etages",
+      requestData
     );
 
-    fetchChambres(); 
+    await fetchChambres();
+    closeAddEtageModal();
+
     Swal.fire({
-                icon: "success",
-                title: "Succès!",
-                text: "Etage ajoutée avec succès.",
-              }); // Hide the modal after success
-              setShowAddEtage(false);
+      icon: "success",
+      title: "Succès!",
+      text: "Étage ajouté avec succès.",
+    });
   } catch (error) {
-    console.error("Error adding etage:", error);
+    const backendErrors =
+      error.response?.data?.errors || {};
+
+    setEtageErrors((previousErrors) => ({
+      ...previousErrors,
+      etage:
+        backendErrors.etage?.[0] || "",
+      etageAdd:
+        backendErrors.etage?.[0] || "",
+      photo:
+        backendErrors.photo?.[0] || "",
+    }));
+
+    Swal.fire({
+      icon: "error",
+      title: "Erreur!",
+      text:
+        backendErrors.etage?.[0] ||
+        backendErrors.photo?.[0] ||
+        error.response?.data?.message ||
+        "Impossible d'ajouter l'étage.",
+    });
   }
 };
 const handleDeleteEtage = async (categorieId) => {
@@ -1171,68 +1239,162 @@ const handleDeleteEtage = async (categorieId) => {
     });
   }
 };
-const handleEditEtage = (categorieId) => {
-  setNewEtage(categorieId);
-  setEditingEtage(categorieId);
-  setEtageErrors({...etageErrors, 
+const handleEditEtage = (etage) => {
+  setCategorie(etage.id);
+  setEditingEtage(etage);
+
+  setNewEtage({
+    etage: etage.etage || "",
     etageAdd: "",
-  })
-  setCategorie(categorieId.id);
+    photo: null,
+    existingPhoto: etage.photo || null,
+  });
+
+  setEtageErrors({
+    etage: "",
+    etageAdd: "",
+    photo: "",
+  });
+
   setShowEditModalEtage(true);
 };
-const handleSaveEtage = async () => {
-  try {
-    const hasErrors = Object.values(etageErrors).some(error => error === true);
-      if (hasErrors) {
-        alert("Veuillez remplir tous les champs obligatoires.");
-        return;  
-      }
-      const formData = new FormData();
-      formData.append('_method', 'put');
-        if (newEtage.photo) {
-          formData.append('photo', newEtage.photo);
-        }
-    formData.append("etage", newEtage.etage);
-    const response = await axios.post(`http://localhost:8000/api/etages/${categorieId}`,formData);
+const closeEditEtageModal = () => {
+  setShowEditModalEtage(false);
 
-    await fetchChambres(); // Refresh categories after adding
-    setShowEditModalEtage(false);
-    
-    // Show success message
+  setNewEtage({
+    etage: "",
+    etageAdd: "",
+    photo: null,
+    existingPhoto: null,
+  });
+
+  setEditingEtage([]);
+  setCategorie(null);
+
+  setEtageErrors({
+    etage: "",
+    etageAdd: "",
+    photo: "",
+  });
+};
+const handleSaveEtage = async () => {
+  const etageValue = String(
+    newEtage.etage || ""
+  ).trim();
+
+  if (!etageValue) {
+    setEtageErrors((previousErrors) => ({
+      ...previousErrors,
+      etage: "L'étage est obligatoire.",
+    }));
+    return;
+  }
+
+  try {
+    const requestData = new FormData();
+
+    requestData.append("_method", "PUT");
+    requestData.append("etage", etageValue);
+
+    if (newEtage.photo instanceof File) {
+      requestData.append("photo", newEtage.photo);
+    }
+
+    await axios.post(
+      `http://localhost:8000/api/etages/${categorieId}`,
+      requestData
+    );
+
+    await fetchChambres();
+    closeEditEtageModal();
+
     Swal.fire({
       icon: "success",
       title: "Succès!",
-      text: "Etage modifiée avec succès.",
+      text: "Étage modifié avec succès.",
     });
-    
-    // Clear the form state
-    setNewEtage({ etage: '', photo: null });
   } catch (error) {
-    console.error("Erreur lors de la modification de la Etage");
+    console.error(
+      "Erreur modification Étage:",
+      error.response?.data || error
+    );
+
+    const backendErrors =
+      error.response?.data?.errors || {};
+
+    setEtageErrors((previousErrors) => ({
+      ...previousErrors,
+      etage:
+        backendErrors.etage?.[0] || "",
+      photo:
+        backendErrors.photo?.[0] || "",
+    }));
+
+    Swal.fire({
+      icon: "error",
+      title: "Erreur!",
+      text:
+        backendErrors.etage?.[0] ||
+        backendErrors.photo?.[0] ||
+        error.response?.data?.message ||
+        `Erreur serveur ${error.response?.status || ""}`,
+    });
   }
 };
 
 const handleAddVue = async () => {
+  const vueValue = String(newVue.vueAdd || "").trim();
+
+  if (!vueValue) {
+    setVueErrors((previousErrors) => ({
+      ...previousErrors,
+      vueAdd: "La vue est obligatoire.",
+    }));
+    return;
+  }
+
   try {
-    const formData = new FormData();
-    if (newVue.photo) {
-      formData.append('photo', newVue.photo);
+    const requestData = new FormData();
+
+    requestData.append("vue", vueValue);
+
+    if (newVue.photo instanceof File) {
+      requestData.append("photo", newVue.photo);
     }
-    formData.append("vue", newVue.vueAdd);
-    
-    const response = await axios.post(
-      "http://localhost:8000/api/vues", formData
+
+    await axios.post(
+      "http://localhost:8000/api/vues",
+      requestData
     );
 
-    fetchChambres(); 
+    await fetchChambres();
+    closeAddVueModal();
+
     Swal.fire({
-                icon: "success",
-                title: "Succès!",
-                text: "Vue ajoutée avec succès.",
-              }); // Hide the modal after success
-              setShowAddVue(false);
+      icon: "success",
+      title: "Succès!",
+      text: "Vue ajoutée avec succès.",
+    });
   } catch (error) {
-    console.error("Error adding vue:", error);
+    const backendErrors =
+      error.response?.data?.errors || {};
+
+    setVueErrors((previousErrors) => ({
+      ...previousErrors,
+      vue: backendErrors.vue?.[0] || "",
+      vueAdd: backendErrors.vue?.[0] || "",
+      photo: backendErrors.photo?.[0] || "",
+    }));
+
+    Swal.fire({
+      icon: "error",
+      title: "Erreur!",
+      text:
+        backendErrors.vue?.[0] ||
+        backendErrors.photo?.[0] ||
+        error.response?.data?.message ||
+        "Impossible d'ajouter la vue.",
+    });
   }
 };
 const handleDeleteVue = async (categorieId) => {
@@ -1256,42 +1418,170 @@ const handleDeleteVue = async (categorieId) => {
     });
   }
 };
-const handleEditVue = (categorieId) => {
-  setNewVue(categorieId);
-  setEditingVue(categorieId);
-  setCategorie(categorieId.id);
+const handleEditVue = (vue) => {
+  setCategorie(vue.id);
+  setEditingVue(vue);
+
+  setNewVue({
+    vue: vue.vue || "",
+    vueAdd: "",
+    photo: null,
+    existingPhoto: vue.photo || null,
+  });
+
+  setVueErrors({
+    vue: "",
+    vueAdd: "",
+    photo: "",
+  });
+
   setShowEditModalVue(true);
 };
+const closeEditVueModal = () => {
+  setShowEditModalVue(false);
+
+  setNewVue({
+    vue: "",
+    vueAdd: "",
+    photo: null,
+    existingPhoto: null,
+  });
+
+  setEditingVue([]);
+  setCategorie(null);
+
+  setVueErrors({
+    vue: "",
+    vueAdd: "",
+    photo: "",
+  });
+};
+
 const handleSaveVue = async () => {
-  const formData = new FormData();
-  formData.append('_method', 'put');
-    if (newVue.photo) {
-      formData.append('photo', newVue.photo);
-    }
-    formData.append("vue", newVue.vue);
+  const vueValue = String(newVue.vue || "").trim();
+
+  if (!vueValue) {
+    setVueErrors((previousErrors) => ({
+      ...previousErrors,
+      vue: "La vue est obligatoire.",
+    }));
+    return;
+  }
 
   try {
-    const response = await axios.post(`http://localhost:8000/api/vues/${categorieId}`,formData);
+    const requestData = new FormData();
 
-    await fetchChambres(); // Refresh categories after adding
-    setShowEditModalVue(false);
-    
-    // Show success message
+    requestData.append("_method", "PUT");
+    requestData.append("vue", vueValue);
+
+    if (newVue.photo instanceof File) {
+      requestData.append("photo", newVue.photo);
+    }
+
+    await axios.post(
+      `http://localhost:8000/api/vues/${categorieId}`,
+      requestData
+    );
+
+    await fetchChambres();
+    closeEditVueModal();
+
     Swal.fire({
       icon: "success",
       title: "Succès!",
       text: "Vue modifiée avec succès.",
     });
-    
-    // Clear the form state
-    setNewVue({ vue: '', photo: null });
   } catch (error) {
+    console.error(
+      "Erreur modification Vue:",
+      error.response?.data || error
+    );
+
+    const backendErrors =
+      error.response?.data?.errors || {};
+
+    setVueErrors((previousErrors) => ({
+      ...previousErrors,
+      vue: backendErrors.vue?.[0] || "",
+      photo: backendErrors.photo?.[0] || "",
+    }));
+
     Swal.fire({
       icon: "error",
-      title: "Ereur!",
-      text: "Échec de la suppression du Vue.",
+      title: "Erreur!",
+      text:
+        backendErrors.vue?.[0] ||
+        backendErrors.photo?.[0] ||
+        error.response?.data?.message ||
+        `Erreur serveur ${error.response?.status || ""}`,
     });
   }
+};
+const openAddVueModal = () => {
+  setNewVue({
+    vue: "",
+    vueAdd: "",
+    photo: null,
+    existingPhoto: null,
+  });
+
+  setVueErrors({
+    vue: "",
+    vueAdd: "",
+    photo: "",
+  });
+
+  setShowAddVue(true);
+};
+
+const closeAddVueModal = () => {
+  setShowAddVue(false);
+
+  setNewVue({
+    vue: "",
+    vueAdd: "",
+    photo: null,
+    existingPhoto: null,
+  });
+
+  setVueErrors({
+    vue: "",
+    vueAdd: "",
+    photo: "",
+  });
+};
+const openAddEtageModal = () => {
+  setNewEtage({
+    etage: "",
+    etageAdd: "",
+    photo: null,
+    existingPhoto: null,
+  });
+
+  setEtageErrors({
+    etage: "",
+    etageAdd: "",
+    photo: "",
+  });
+
+  setShowAddEtage(true);
+};
+
+const closeAddEtageModal = () => {
+  setShowAddEtage(false);
+
+  setNewEtage({
+    etage: "",
+    etageAdd: "",
+    photo: null,
+    existingPhoto: null,
+  });
+
+  setEtageErrors({
+    etage: "",
+    etageAdd: "",
+    photo: "",
+  });
 };
 const handleSelectItem = (item) => {
   const selectedIndex = selectedItems.findIndex(
@@ -1504,15 +1794,7 @@ const closeTypeForm = () => {
     commentaireAdd: "",
   })
 }
-const closeEtageForm = () => {
-  setShowEditModalEtage(false);
-  setEtageErrors({...etageErrors, 
-    etageAdd: ""
-  });
-  setNewEtage({...newEtage, 
-    etageAdd: ""
-  })
-}
+
 useEffect(() => {
   if (!showEditModalEtage)
     setEtageErrors({...etageErrors, 
@@ -1618,42 +1900,74 @@ const columns = [
   nextIcon={<FaArrowRight className="app-carousel-arrow-icon" />}
   prevIcon={<FaArrowLeft className="app-carousel-arrow-icon" />}
 >
-                {chunks?.map((chunk, chunkIndex) => (
-    <Carousel.Item key={chunkIndex}>
-                    <div className="app-carousel-strip">
-                      <a href="#" style={{marginLeft:'60px'}}>
-                        <div
-                          className={`category-item ${selectedVue === '' ? 'active' : ''}`} 
-                          onClick={() => handleVueFilterChange("")}
-                        >
-                          <img
-                            src={'../../images/bayd.jpg'}
-                            alt={'tout'}
-                            loading="lazy"
-                            className={`rounded-circle category-img ${selectedVue === '' ? 'selected' : ''}`}
-                          />
-                          <p className="category-text">Tout</p>
-                        </div>
-                      </a>
-                      {chunk?.map((category, index) => (
-              <a href="#" className="mx-5" key={index}>
-              <div 
-              className={`category-item ${selectedVue === category.id ? 'active' : ''}`} 
-              onClick={() => handleVueFilterChange(category.id)}
-              >
-              <img
-                src={category.photo ? `http://127.0.0.1:8000/storage/${category.photo}` : "http://127.0.0.1:8000/storage/vue-img.webp"}
-                alt={category.vue}
-                loading="lazy"
-                className={`rounded-circle category-img ${selectedVue === category.id ? 'selected' : ''}`}
-              />
-              <p className="category-text">{category.vue}</p>
-              </div>
-              </a>
-              ))}
-      </div>
-    </Carousel.Item>
-  ))}
+{chunks?.map((chunk, chunkIndex) => (
+  <Carousel.Item key={chunkIndex}>
+    <div className="app-carousel-strip">
+      <a
+        href="#"
+        style={{ marginLeft: "60px" }}
+        onClick={(e) => e.preventDefault()}
+      >
+        <div
+          className={`category-item ${
+            selectedVue === "" ? "active" : ""
+          }`}
+          onClick={() => handleVueFilterChange("")}
+        >
+          <img
+            src={allFilterImage}
+            alt="Toutes les vues"
+            loading="lazy"
+            className={`rounded-circle category-img ${
+              selectedVue === "" ? "selected" : ""
+            }`}
+          />
+
+          <p className="category-text">Tout</p>
+        </div>
+      </a>
+
+      {chunk?.map((category) => (
+        <a
+          href="#"
+          className="mx-5"
+          key={category.id}
+          onClick={(e) => e.preventDefault()}
+        >
+          <div
+            className={`category-item ${
+              String(selectedVue) === String(category.id)
+                ? "active"
+                : ""
+            }`}
+            onClick={() =>
+              handleVueFilterChange(category.id)
+            }
+          >
+            <img
+              src={getStorageImageUrl(
+                category.photo,
+                "vue-img.webp"
+              )}
+              alt={category.vue}
+              loading="lazy"
+              className={`rounded-circle category-img ${
+                String(selectedVue) ===
+                String(category.id)
+                  ? "selected"
+                  : ""
+              }`}
+            />
+
+            <p className="category-text">
+              {category.vue}
+            </p>
+          </div>
+        </a>
+      ))}
+    </div>
+  </Carousel.Item>
+))}
 </Carousel>
 </div>
 </div>
@@ -1667,43 +1981,75 @@ const columns = [
   nextIcon={<FaArrowRight className="app-carousel-arrow-icon" />}
   prevIcon={<FaArrowLeft className="app-carousel-arrow-icon" />}
 >
-  {chunks1?.map((chunk, chunkIndex) => (
-    <Carousel.Item key={chunkIndex}>
-                    <div className="app-carousel-strip">
-                      <a href="#" style={{marginLeft:'60px'}}>
-                        <div
-                          className={`category-item ${selectedEtage === '' ? 'active' : ''}`} 
-                          onClick={() => handleEtageFilterChange("")}
-                        >
-                          <img
-                            src={'../../images/bayd.jpg'}
-                            alt={'tout'}
-                            loading="lazy"
-                            className={`rounded-circle category-img ${selectedEtage === '' ? 'selected' : ''}`}
-                          />
-                          <p className="category-text">Tout</p>
-                        </div>
-                      </a>
-                      {chunk?.map((category, index) => (
-              <a href="#" className="mx-5" key={index}>
-              <div 
-              className={`category-item ${selectedEtage === category.id ? 'active' : ''}`} 
-              onClick={() => handleEtageFilterChange(category.id)}
-              >
-              <img
-              src={category.photo ? `http://127.0.0.1:8000/storage/${category.photo}` : "http://127.0.0.1:8000/storage/etage-img.webp"}
+{chunks1?.map((chunk, chunkIndex) => (
+  <Carousel.Item key={chunkIndex}>
+    <div className="app-carousel-strip">
+      <a
+        href="#"
+        style={{ marginLeft: "60px" }}
+        onClick={(e) => e.preventDefault()}
+      >
+        <div
+          className={`category-item ${
+            selectedEtage === "" ? "active" : ""
+          }`}
+          onClick={() => handleEtageFilterChange("")}
+        >
+          <img
+            src={allFilterImage}
+            alt="Tous les étages"
+            loading="lazy"
+            className={`rounded-circle category-img ${
+              selectedEtage === "" ? "selected" : ""
+            }`}
+          />
+
+          <p className="category-text">Tout</p>
+        </div>
+      </a>
+
+      {chunk?.map((category) => (
+        <a
+          href="#"
+          className="mx-5"
+          key={category.id}
+          onClick={(e) => e.preventDefault()}
+        >
+          <div
+            className={`category-item ${
+              String(selectedEtage) ===
+              String(category.id)
+                ? "active"
+                : ""
+            }`}
+            onClick={() =>
+              handleEtageFilterChange(category.id)
+            }
+          >
+            <img
+              src={getStorageImageUrl(
+                category.photo,
+                "etage-img.webp"
+              )}
               alt={category.etage}
               loading="lazy"
-              className={`rounded-circle category-img ${selectedEtage === category.id ? 'selected' : ''}`}
-              />
-              <p className="category-text">{category.etage}</p>
-              </div>
-              </a>
-              ))}
-      </div>
-    </Carousel.Item>
-  ))}
-</Carousel>
+              className={`rounded-circle category-img ${
+                String(selectedEtage) ===
+                String(category.id)
+                  ? "selected"
+                  : ""
+              }`}
+            />
+
+            <p className="category-text">
+              {category.etage}
+            </p>
+          </div>
+        </a>
+      ))}
+    </div>
+  </Carousel.Item>
+))}</Carousel>
 </div>
 </div>
 </div>
@@ -1790,20 +2136,23 @@ const columns = [
                       icon={faPlus}
                       className="text-primary me-2"
                       style={{ cursor: "pointer" }}
-                      onClick={() => setShowAddVue(true)}
+                      onClick={openAddVueModal}
                     />
                     <Form.Label>Vue</Form.Label>
                   </div>
                   <Form.Select
                     name="vue"
                     isInvalid={submitted && !!errors.vue}
-                    value={selectedVue || formData.vue}
+                    value={formData.vue}
                     onChange={handleChange}
                   >
                     <option value="">Sélectionner une Vue</option>
                     {vues?.map((vue) => (
-                      <option value={vue?.id}>{vue?.vue}</option>
-                    ))}
+  <option key={vue.id} value={vue.id}>
+    {vue.vue}
+  </option>
+))}
+
                   </Form.Select>
                   <Form.Control.Feedback type="invalid">
                     {errors.vue}
@@ -1816,43 +2165,84 @@ const columns = [
                       icon={faPlus}
                       className="text-primary me-2"
                       style={{ cursor: "pointer" }}
-                      onClick={() => setShowAddEtage(true)}
+                      onClick={openAddEtageModal}
                     />
                     <Form.Label>Etage</Form.Label>
                   </div>
                   <Form.Select
                     name="etage"
                     isInvalid={submitted && !!errors.etage}
-                    value={selectedEtage || formData.etage}
+                    value={formData.etage}
                     onChange={handleChange}
                   >
                     <option value="">Sélectionner un Etage</option>
                     {etages?.map((etage) => (
-                      <option value={etage?.id}>{etage?.etage}</option>
-                    ))}
+  <option key={etage.id} value={etage.id}>
+    {etage.etage}
+  </option>
+))}
                   </Form.Select>
                   <Form.Control.Feedback type="invalid">
                     {errors.etage}
                   </Form.Control.Feedback>
                 </Form.Group>
               </div>
-                <Modal show={showEditModalVue} onHide={() => setShowEditModalVue(false)}>
+                <Modal
+  show={showEditModalVue}
+  onHide={closeEditVueModal}
+>
       <Modal.Header closeButton>
         <Modal.Title>Modifier une Vue</Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <Form>
-          <Form.Group>
-                <Form.Label>Photo</Form.Label>
-                  <Form.Control
-                    type="file"
-                    name="photo"
-                    onChange={(e) => setNewVue({ ...newVue, photo: e.target.files[0] })}
-                    className="form-control"
-                    lang="fr"
-                  />
-                  <Form.Text className="text-danger">{errors.photo}</Form.Text>
-                </Form.Group>
+          <Form.Group className="mb-3">
+  <Form.Label>Photo actuelle</Form.Label>
+
+  {newVue.existingPhoto ? (
+    <div className="mb-2">
+      <img
+        src={getStorageImageUrl(
+          newVue.existingPhoto,
+          "vue-img.webp"
+        )}
+        alt={newVue.vue || "Vue"}
+        style={{
+          width: "70px",
+          height: "70px",
+          objectFit: "cover",
+          borderRadius: "50%",
+          border: "1px solid #e2e8f0",
+        }}
+      />
+    </div>
+  ) : (
+    <p className="text-muted">
+      Aucune photo actuelle
+    </p>
+  )}
+
+  <Form.Label>Nouvelle photo</Form.Label>
+
+  <Form.Control
+    type="file"
+    name="photo"
+    accept="image/jpeg,image/png,image/jpg,image/gif,image/webp"
+    isInvalid={!!vueErrors.photo}
+    onChange={(e) =>
+      setNewVue((previousData) => ({
+        ...previousData,
+        photo: e.target.files?.[0] || null,
+      }))
+    }
+  />
+
+  {vueErrors.photo && (
+    <Form.Control.Feedback type="invalid">
+      {vueErrors.photo}
+    </Form.Control.Feedback>
+  )}
+</Form.Group>
             <Form.Group>
               <Form.Label>Vue</Form.Label>
               <Form.Control
@@ -1879,28 +2269,67 @@ const columns = [
   <Fab
     variant="extended"
     className="btn-sm FabAnnule mb-2 mx-2"
-    onClick={() => setShowEditModalVue(false)}  >
+    onClick={closeEditVueModal}  >
     Annuler
   </Fab>
       </Form.Group>
     </Modal>
-    <Modal show={showEditModalEtage} onHide={() => setShowEditModalEtage(false)}>
+    <Modal
+  show={showEditModalEtage}
+  onHide={closeEditEtageModal}
+>
       <Modal.Header closeButton>
         <Modal.Title>Modifier une Etage</Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <Form>
-          <Form.Group>
-                <Form.Label>Photo</Form.Label>
-                  <Form.Control
-                    type="file"
-                    name="photo"
-                    onChange={(e) => setNewEtage({ ...newEtage, photo: e.target.files[0] })}
-                    className="form-control"
-                    lang="fr"
-                  />
-                  <Form.Text className="text-danger">{errors.photo}</Form.Text>
-                </Form.Group>
+          <Form.Group className="mb-3">
+  <Form.Label>Photo actuelle</Form.Label>
+
+  {newEtage.existingPhoto ? (
+    <div className="mb-2">
+      <img
+        src={getStorageImageUrl(
+          newEtage.existingPhoto,
+          "etage-img.webp"
+        )}
+        alt={newEtage.etage || "Étage"}
+        style={{
+          width: "70px",
+          height: "70px",
+          objectFit: "cover",
+          borderRadius: "50%",
+          border: "1px solid #e2e8f0",
+        }}
+      />
+    </div>
+  ) : (
+    <p className="text-muted">
+      Aucune photo actuelle
+    </p>
+  )}
+
+  <Form.Label>Nouvelle photo</Form.Label>
+
+  <Form.Control
+    type="file"
+    name="photo"
+    accept="image/jpeg,image/png,image/jpg,image/gif,image/webp"
+    isInvalid={!!etageErrors.photo}
+    onChange={(e) =>
+      setNewEtage((previousData) => ({
+        ...previousData,
+        photo: e.target.files?.[0] || null,
+      }))
+    }
+  />
+
+  {etageErrors.photo && (
+    <Form.Control.Feedback type="invalid">
+      {etageErrors.photo}
+    </Form.Control.Feedback>
+  )}
+</Form.Group>
             <Form.Group>
               <Form.Label>Etage</Form.Label>
               <Form.Control
@@ -1927,42 +2356,65 @@ const columns = [
   <Fab
     variant="extended"
     className="btn-sm FabAnnule mb-2 mx-2"
-    onClick={closeEtageForm} >
+    onClick={closeEditEtageModal} >
     Annuler
   </Fab>
       </Form.Group>
     </Modal>
-                <Modal show={showAddVue} onHide={() => setShowAddVue(false)}>
+                <Modal show={showAddVue} onHide={closeAddVueModal}>
         <Modal.Header closeButton>
           <Modal.Title>Ajouter une Vue</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Form encType="multipart/form-data">
-          <Form.Group>
-                <Form.Label>Photo</Form.Label>
-                  <Form.Control
-                    type="file"
-                    name="photo"
-                    isInvalid={!!vueErrors.photo}
-                    onChange={(e) => setNewVue({ ...newVue, photo: e.target.files[0] })}
-                    className="form-control"
-                    lang="fr"
-                  />
-                  <Form.Text className="text-danger">{errors.photo}</Form.Text>
-                </Form.Group>
+          <Form.Group className="mb-3">
+  <Form.Label>Photo</Form.Label>
+
+  <Form.Control
+    type="file"
+    name="photo"
+    accept="image/jpeg,image/png,image/jpg,image/gif,image/webp"
+    isInvalid={!!vueErrors.photo}
+    onChange={(e) =>
+      setNewVue((previousData) => ({
+        ...previousData,
+        photo: e.target.files?.[0] || null,
+      }))
+    }
+    className="form-control"
+    lang="fr"
+  />
+
+  {vueErrors.photo && (
+    <Form.Control.Feedback type="invalid">
+      {vueErrors.photo}
+    </Form.Control.Feedback>
+  )}
+</Form.Group>
 
 
 
-            <Form.Group>
-              <Form.Label>Vue</Form.Label>
-              <Form.Control
-                type="text"
-                placeholder="Vue"
-                name="vue"
-                isInvalid={!!vueErrors.vueAdd}
-                onChange={(e) => setNewVue({ ...newVue, vueAdd: e.target.value })}
-              />
-            </Form.Group>
+<Form.Group>
+  <Form.Label>Vue</Form.Label>
+
+  <Form.Control
+    type="text"
+    placeholder="Vue"
+    name="vue"
+    value={newVue.vueAdd}
+    isInvalid={!!vueErrors.vueAdd}
+    onChange={(e) =>
+      setNewVue({
+        ...newVue,
+        vueAdd: e.target.value,
+      })
+    }
+  />
+
+  <Form.Control.Feedback type="invalid">
+    {vueErrors.vueAdd}
+  </Form.Control.Feedback>
+</Form.Group>
       </Form>
             
             <Form.Group className="mt-3">
@@ -1981,7 +2433,10 @@ const columns = [
                     <td>{categ?.vue}</td>
                     <td>  
                     <img
-                      src={categ.photo ? `http://127.0.0.1:8000/storage/${categ.photo}` : "http://127.0.0.1:8000/storage/vue-img.webp"}
+                      src={getStorageImageUrl(
+  categ.photo,
+  "vue-img.webp"
+)}
                       alt={categ.vue}
                       loading="lazy"
                       className={`rounded-circle category-img`}
@@ -2025,30 +2480,43 @@ const columns = [
   <Fab
     variant="extended"
     className="btn-sm FabAnnule mb-2 mx-2"
-    onClick={() => setShowAddVue(false)}
+    onClick={closeAddVueModal}
   >
     Annuler
   </Fab>
   </Form.Group>
       </Modal.Body>
       </Modal>
-      <Modal show={showAddEtage} onHide={() => setShowAddEtage(false)}>
+      <Modal show={showAddEtage} onHide={closeAddEtageModal}>
         <Modal.Header closeButton>
           <Modal.Title>Ajouter une Etage</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Form encType="multipart/form-data">
-          <Form.Group>
-                <Form.Label>Photo</Form.Label>
-                  <Form.Control
-                    type="file"
-                    name="photo"
-                    onChange={(e) => setNewEtage({ ...newEtage, photo: e.target.files[0] })}
-                    className="form-control"
-                    lang="fr"
-                  />
-                  <Form.Text className="text-danger">{errors.photo}</Form.Text>
-                </Form.Group>
+<Form.Group className="mb-3">
+  <Form.Label>Photo</Form.Label>
+
+  <Form.Control
+    type="file"
+    name="photo"
+    accept="image/jpeg,image/png,image/jpg,image/gif,image/webp"
+    isInvalid={!!etageErrors.photo}
+    onChange={(e) =>
+      setNewEtage((previousData) => ({
+        ...previousData,
+        photo: e.target.files?.[0] || null,
+      }))
+    }
+    className="form-control"
+    lang="fr"
+  />
+
+  {etageErrors.photo && (
+    <Form.Control.Feedback type="invalid">
+      {etageErrors.photo}
+    </Form.Control.Feedback>
+  )}
+</Form.Group>
             <Form.Group>
               <Form.Label>Etage</Form.Label>
               <Form.Control
@@ -2077,7 +2545,10 @@ const columns = [
                     <td>{categ?.etage}</td>
                     <td>  
                     <img
-                        src={categ.photo ? `http://127.0.0.1:8000/storage/${categ.photo}` : "http://127.0.0.1:8000/storage/etage-img.webp"}
+                        src={getStorageImageUrl(
+  categ.photo,
+  "etage-img.webp"
+)}
                         alt={categ.etage}
                         loading="lazy"
                         className={`rounded-circle category-img`}
@@ -2121,7 +2592,7 @@ const columns = [
   <Fab
     variant="extended"
     className="btn-sm FabAnnule mb-2 mx-2"
-    onClick={() => setShowAddEtage(false)}
+    onClick={closeAddEtageModal}
   >
     Annuler
   </Fab>

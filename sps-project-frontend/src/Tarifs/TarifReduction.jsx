@@ -34,13 +34,12 @@ import { createTheme, ThemeProvider } from "@mui/material/styles";
 import Box from "@mui/material/Box";
 import { useOpen } from "../Acceuil/OpenProvider"; // Importer le hook personnalisé
 import { FaArrowLeft, FaArrowRight } from "react-icons/fa6";
-import TarifChambre from "./TarifChambre";
 
 //------------------------- Tarifs Reduction ---------------------//
 const TarifReduction = () => {
   const [tarifReduction, setTarifReduction] = useState([]);
   const [typesReduction, setTypesReduction] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState("");
   const [tarifReductionErrors, setTarifReductionErrors] = useState({
     designation: "",
     photo: null
@@ -56,12 +55,7 @@ const TarifReduction = () => {
     type_reduction: "",
   })
 
-  // -------------------Tarif de reduction -------------------------------
-  const carouselOptions = tarifsReduction?.map((item) => ({
-    id: item.id,
-    label: item.designation,
-    image: item.photo ? `http://127.0.0.1:8000/storage/${item.photo}` : "http://localhost:8000/storage/repas-img.webp",
-  }));
+  
   //---------------form-------------------//
   const [newReduction, setNewReduction] = useState({
     type_reduction: "",
@@ -70,9 +64,10 @@ const TarifReduction = () => {
     percentage: ""
   });
   const [newDesignation, setNewDesignation] = useState({
-    designation: "",
-    photo: ""
-  });
+  designation: "",
+  photo: null,
+  existingPhoto: null,
+});
   const [newCategory, setNewCategory] = useState({ categorie: ""})
   const [showEditModal, setShowEditModal] = useState(false);
   const [showEditModalSite, setShowEditModalSite] = useState(false);
@@ -94,11 +89,11 @@ const [newTypeReduction, setNewTypeReduction] = useState({
 
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
-    type_reduction: "", 	
-    designation: "",
-    percentage: "",
-    montat: "",
-  });
+  type_reduction: "",
+  designation: "",
+  percentage: "",
+  montant: "",
+});
   const [errors, setErrors] = useState({
     type_reduction: "",
     designation: "",
@@ -295,11 +290,10 @@ const [newTypeReduction, setNewTypeReduction] = useState({
       newTypeErrors.type_reduction = newTypeReduction.type_reduction === "" || typesCodes.some((chambre) => sanitizeInput(chambre.type_reduction) === sanitizeInput(newTypeReduction.type_reduction || ""))
       && sanitizeInput(newTypeReduction.type_reduction) != sanitizeInput(editingTypeReduction.type_reduction);
       // Validation L'insertion de Tarif Chambre (Designation & Photo)
-      const designations = tarifsReduction.filter((chambre) => chambre.designation);
-      newTarifReductionErrors.designation = newDesignation.designation === "" || designations.some((chambre) => sanitizeInput(chambre.designation) === sanitizeInput(newDesignation.designation))
-      && sanitizeInput(newDesignation.designation || "") != sanitizeInput(editingDesignation.designation || "");;
-      newTarifReductionErrors.designationAdd = newDesignation.designation === "" || designations.some((chambre) => sanitizeInput(chambre.designation) === sanitizeInput(newDesignation.designation));
-      setTarifReductionErrors(newTarifReductionErrors);
+newTarifReductionErrors.designation =
+  hasSubmittedAjoutTarif &&
+  !String(newDesignation.designation || "").trim();
+        setTarifReductionErrors(newTarifReductionErrors);
       setErrors(newErrors);
       setTypeErrors(newTypeErrors);
       return true;
@@ -381,14 +375,37 @@ const [newTypeReduction, setNewTypeReduction] = useState({
         setEditingTarifReduction(null);
         closeForm(); // Close form after successful submission
       }
-    } catch (error) {
-      Swal.fire({
-        icon: "error",
-        title: "Erreur!",
-        text: error.response?.data?.error || "Une erreur s'est produite.",
-      });
-    }
-  };
+} catch (error) {
+  const backendErrors =
+    error.response?.data?.errors || {};
+
+  setErrors({
+    type_reduction:
+      backendErrors.type_reduction?.[0] || false,
+
+    designation:
+      backendErrors.tarif_reduction?.[0] || false,
+
+    montant:
+      backendErrors.montant?.[0] || false,
+
+    percentage:
+      backendErrors.percentage?.[0] || false,
+  });
+
+  Swal.fire({
+    icon: "error",
+    title: "Erreur!",
+    text:
+      backendErrors.type_reduction?.[0] ||
+      backendErrors.tarif_reduction?.[0] ||
+      backendErrors.montant?.[0] ||
+      backendErrors.percentage?.[0] ||
+      error.response?.data?.message ||
+      error.response?.data?.error ||
+      "Une erreur s'est produite.",
+  });
+}  };
 
     //------------------------- Reduction FORM---------------------//
 
@@ -614,11 +631,20 @@ const [newTypeReduction, setNewTypeReduction] = useState({
       const selectedTarif = tarifReduction.find((item) => item.id === updatedSelection[0]);
       if (selectedTarif) {
         setEditingTarifReduction(selectedTarif);
+        setSelectedCategory("");
         setFormData({
-          type_reduction: selectedTarif.type_reduction?.id || "",
-          percentage: selectedTarif.percentage?.id || "",
-          montant: selectedTarif.montant || "",
-        });
+  designation:
+    selectedTarif.tarif_reduction?.id || "",
+
+  type_reduction:
+    selectedTarif.type_reduction?.id || "",
+
+  montant:
+    selectedTarif.montant ?? "",
+
+  percentage:
+    selectedTarif.percentage ?? "",
+});
   
         if (formContainerStyle.right === "-100%") {
           setFormContainerStyle({ right: "0" });
@@ -1110,73 +1136,109 @@ const handleCloseAddTypeReduction = () => {
 };
 
 const handleAddTypeReduction = async () => {
-  setHasSubmittedAjoutTarif(true); // Marquer que le formulaire a été soumis
+  setHasSubmittedAjoutTarif(true);
 
-  // Vérification des champs vides
-  if (!newTypeReduction.code.trim()) {
-    setTarifRepasErrors(prevErrors => ({
-      ...prevErrors,
-      code: "Ce champ est obligatoire."
-    }));
+  const newErrors = {
+    code: !String(newTypeReduction.code || "").trim()
+      ? "Ce champ est obligatoire."
+      : "",
+    type_reduction: !String(
+      newTypeReduction.type_reduction || ""
+    ).trim()
+      ? "Ce champ est obligatoire."
+      : "",
+  };
+
+  setTypeErrors(newErrors);
+
+  if (newErrors.code || newErrors.type_reduction) {
     return;
   }
 
-  if (!newTypeReduction.type_reduction.trim()) {
-    setTarifRepasErrors(prevErrors => ({
-      ...prevErrors,
-      type_reduction: "Ce champ est obligatoire."
-    }));
-    return;
-  }
+  const codeExists = typesReduction.some(
+    (type) =>
+      sanitizeInput(type.code) ===
+      sanitizeInput(newTypeReduction.code)
+  );
 
-
-
-  // Vérifier si `code` ou `type_reduction` existent déjà
-  const codeExists = typesReduction.some(type => sanitizeInput(type.code) === sanitizeInput(newTypeReduction.code));
-  const typeExists = typesReduction.some(type => sanitizeInput(type.type_reduction) === sanitizeInput(newTypeReduction.type_reduction));
+  const typeExists = typesReduction.some(
+    (type) =>
+      sanitizeInput(type.type_reduction) ===
+      sanitizeInput(newTypeReduction.type_reduction)
+  );
 
   if (codeExists || typeExists) {
     Swal.fire({
       icon: "error",
       title: "Duplication détectée",
-      text: `${codeExists ? "Ce code existe déjà." : ""} ${typeExists ? "Ce type de réduction existe déjà." : ""}`,
+      text: [
+        codeExists ? "Ce code existe déjà." : "",
+        typeExists
+          ? "Ce type de réduction existe déjà."
+          : "",
+      ]
+        .filter(Boolean)
+        .join(" "),
     });
+
     return;
   }
 
-  // Si tout est bon, procéder à l'ajout
   try {
-    const formData = new FormData();
-    formData.append("code", newTypeReduction.code);
-    formData.append("type_reduction", newTypeReduction.type_reduction);
-    
-    const response = await axios.post("http://localhost:8000/api/types-reduction", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    const requestData = new FormData();
+
+    requestData.append(
+      "code",
+      newTypeReduction.code.trim()
+    );
+
+    requestData.append(
+      "type_reduction",
+      newTypeReduction.type_reduction.trim()
+    );
+
+    await axios.post(
+      "http://localhost:8000/api/types-reduction",
+      requestData
+    );
 
     await fetchTarifReduction();
 
-    if (response.status === 201) {
-      Swal.fire({
-        icon: "success",
-        title: "Succès!",
-        text: "Type Reduction ajoutée avec succès.",
-      });
+    setShowAddCategory(false);
+    setNewTypeReduction({
+      code: "",
+      type_reduction: "",
+    });
+    setTypeErrors({
+      code: "",
+      type_reduction: "",
+    });
+    setHasSubmittedAjoutTarif(false);
 
-      // Réinitialiser l'état après ajout
-      setShowAddCategory(false);
-      setNewTypeReduction({ code: "", type_reduction: "" });
-      setTypeErrors({ code: "", type_reduction: "" });
-      setHasSubmittedAjoutTarif(false);
-    }
-
+    Swal.fire({
+      icon: "success",
+      title: "Succès!",
+      text: "Type Réduction ajouté avec succès.",
+    });
   } catch (error) {
+    const backendErrors =
+      error.response?.data?.errors || {};
+
+    setTypeErrors({
+      code: backendErrors.code?.[0] || "",
+      type_reduction:
+        backendErrors.type_reduction?.[0] || "",
+    });
+
     Swal.fire({
       icon: "error",
       title: "Erreur!",
-      text: "Une erreur s'est produite lors de l'ajout.",
+      text:
+        backendErrors.code?.[0] ||
+        backendErrors.type_reduction?.[0] ||
+        error.response?.data?.message ||
+        "Impossible d'ajouter le Type Réduction.",
     });
-    setShowAddCategory(false);
   }
 };
 
@@ -1222,63 +1284,124 @@ const handleEditTypeReduction
 
 const handleCloseTarifReduction = () => {
   setShowAddDesignation(false);
-  setNewDesignation({ designation: "", photo: "" });
-  setTarifReductionErrors({ designation: "", photo: null });
+
+  setNewDesignation({
+    designation: "",
+    photo: null,
+    existingPhoto: null,
+  });
+
+  setTarifReductionErrors({
+    designation: "",
+    photo: null,
+  });
+
   setHasSubmittedAjoutTarif(false);
 };
 
 const handleAddDesignation = async () => {
-  setHasSubmittedAjoutTarif(true); // Indique que le formulaire a été soumis
+  setHasSubmittedAjoutTarif(true);
 
-  // Vérifier si le champ de désignation est vide
-  if (!newDesignation.designation.trim()) {
-    setTarifReductionErrors(prevErrors => ({
-      ...prevErrors,
-      designation: "Ce champ est obligatoire."
+  const designationValue = String(
+    newDesignation.designation || ""
+  ).trim();
+
+  if (!designationValue) {
+    setTarifReductionErrors((previousErrors) => ({
+      ...previousErrors,
+      designation: "Ce champ est obligatoire.",
     }));
+
     return;
   }
 
-  // Vérifier si la désignation existe déjà
-  const designationExists = tarifsReduction.some(tarif =>
-    sanitizeInput(tarif.designation) === sanitizeInput(newDesignation.designation)
+  const designationExists = tarifsReduction.some(
+    (tarif) =>
+      sanitizeInput(tarif.designation) ===
+      sanitizeInput(designationValue)
   );
 
   if (designationExists) {
+    setTarifReductionErrors((previousErrors) => ({
+      ...previousErrors,
+      designation: "Cette désignation existe déjà.",
+    }));
+
     Swal.fire({
       icon: "error",
       title: "Erreur",
       text: "Cette désignation existe déjà.",
     });
+
     return;
   }
 
   try {
-    const formData = new FormData();
-    if (newDesignation.photo) {
-      formData.append('photo', newDesignation.photo);
-    }
-    formData.append("designation", newDesignation.designation);
+    const requestData = new FormData();
 
-    const response = await axios.post(
-      "http://localhost:8000/api/desigs-reduction", formData
+    requestData.append(
+      "designation",
+      designationValue
     );
 
-    await fetchTarifReduction(); 
+    if (newDesignation.photo instanceof File) {
+      requestData.append(
+        "photo",
+        newDesignation.photo
+      );
+    }
+
+    await axios.post(
+      "http://localhost:8000/api/desigs-reduction",
+      requestData
+    );
+
+    await fetchTarifReduction();
+
+    setShowAddDesignation(false);
+
+    setNewDesignation({
+      designation: "",
+      photo: null,
+      existingPhoto: null,
+    });
+
+    setTarifReductionErrors({
+      designation: "",
+      photo: null,
+    });
+
+    setHasSubmittedAjoutTarif(false);
+
     Swal.fire({
       icon: "success",
       title: "Succès!",
       text: "Désignation ajoutée avec succès.",
     });
-
-    // Réinitialiser l'état après un ajout réussi
-    setShowAddDesignation(false);
-    setNewDesignation({ photo: null, designation: "" });
-    setTarifReductionErrors({ designation: "", photo: null });
-    setHasSubmittedAjoutTarif(false); // Réinitialiser le flag après succès
-
   } catch (error) {
-    console.error("Erreur lors de l'ajout de la désignation:", error);
+    const backendErrors =
+      error.response?.data?.errors || {};
+
+    const designationError =
+      backendErrors.designation?.[0] || "";
+
+    const photoError =
+      backendErrors.photo?.[0] || "";
+
+    setTarifReductionErrors({
+      designation: designationError,
+      photo: photoError,
+    });
+
+    Swal.fire({
+      icon: "error",
+      title: "Erreur!",
+      text:
+        designationError ||
+        photoError ||
+        error.response?.data?.message ||
+        "Impossible d'ajouter la désignation.",
+    });
   }
 };
 
@@ -1306,73 +1429,161 @@ const handleDeleteDesignation = async (categorieId) => {
 
 const handleCloseEditDesignation = () => {
   setShowEditModalDesignation(false);
-  setNewDesignation({ designation: "", photo: null });
-  setTarifReductionErrors({ designation: "", photo: null });
+
+  setNewDesignation({
+    designation: "",
+    photo: null,
+    existingPhoto: null,
+  });
+
+  setEditingDesignation({});
+  setCategorie(null);
+
+  setTarifReductionErrors({
+    designation: "",
+    photo: null,
+  });
+
   setHasSubmittedAjoutTarif(false);
 };
 
-const handleEditDesignation = (categorieId) => {
-  setSelectedCategoryId(categorieId);
-  setNewDesignation(categorieId);
-  setCategorie(categorieId?.id);
-  setEditingDesignation(categorieId);
+const handleEditDesignation = (designation) => {
+  setCategorie(designation.id);
+  setEditingDesignation(designation);
+
+  setNewDesignation({
+    designation: designation.designation || "",
+    photo: null,
+    existingPhoto: designation.photo || null,
+  });
+
+  setTarifReductionErrors({
+    designation: "",
+    photo: null,
+  });
+
+  setHasSubmittedAjoutTarif(false);
   setShowEditModalDesignation(true);
-   // Réinitialiser erreurs et état de soumission
-   setTarifReductionErrors({ designation: "", photo: null });
-   setHasSubmittedAjoutTarif(false);
 };
-
 const handleSaveDesignation = async () => {
-  setHasSubmittedAjoutTarif(true); // Indique que le formulaire a été soumis
+  setHasSubmittedAjoutTarif(true);
 
-  // Vérifier si la désignation est vide
-  if (!newDesignation.designation.trim()) {
-    setTarifReductionErrors(prevErrors => ({
-      ...prevErrors,
-      designation: "Ce champ est obligatoire."
+  const designationValue = String(
+    newDesignation.designation || ""
+  ).trim();
+
+  if (!designationValue) {
+    setTarifReductionErrors((previousErrors) => ({
+      ...previousErrors,
+      designation: "Ce champ est obligatoire.",
     }));
+
     return;
   }
 
+  const designationExists = tarifsReduction.some(
+    (tarif) => {
+      const sameDesignation =
+        sanitizeInput(tarif.designation) ===
+        sanitizeInput(designationValue);
 
-  const designationExists = tarifsReduction.some(tarif =>
-    sanitizeInput(tarif.designation) === sanitizeInput(newDesignation.designation)
+      const differentRecord =
+        String(tarif.id) !== String(categorieId);
+
+      return sameDesignation && differentRecord;
+    }
   );
 
   if (designationExists) {
+    setTarifReductionErrors((previousErrors) => ({
+      ...previousErrors,
+      designation: "Cette désignation existe déjà.",
+    }));
+
     Swal.fire({
       icon: "error",
       title: "Erreur",
       text: "Cette désignation existe déjà.",
     });
+
     return;
   }
+
   try {
-    const formData = new FormData();
-    formData.append('_method', 'put');
-    if (newDesignation.photo) {
-      formData.append('photo', newDesignation.photo);
+    const requestData = new FormData();
+
+    requestData.append("_method", "PUT");
+    requestData.append(
+      "designation",
+      designationValue
+    );
+
+    if (newDesignation.photo instanceof File) {
+      requestData.append(
+        "photo",
+        newDesignation.photo
+      );
     }
-    formData.append("designation", newDesignation.designation);
 
-    const response = await axios.post(`http://localhost:8000/api/desigs-reduction/${categorieId}`, formData);
+    await axios.post(
+      `http://localhost:8000/api/desigs-reduction/${categorieId}`,
+      requestData
+    );
 
-    await fetchTarifReduction(); // Rafraîchir les données après la modification
+    await fetchTarifReduction();
+
+    setShowEditModalDesignation(false);
+
+    setNewDesignation({
+      designation: "",
+      photo: null,
+      existingPhoto: null,
+    });
+
+    setEditingDesignation({});
+    setCategorie(null);
+
+    setTarifReductionErrors({
+      designation: "",
+      photo: null,
+    });
+
+    setHasSubmittedAjoutTarif(false);
 
     Swal.fire({
       icon: "success",
       title: "Succès!",
       text: "Désignation modifiée avec succès.",
     });
-
-    // Réinitialiser l'état après mise à jour
-    setShowEditModalDesignation(false);
-    setNewDesignation({ designation: "", photo: null });
-    setTarifReductionErrors({ designation: "", photo: null });
-    setHasSubmittedAjoutTarif(false); // Réinitialiser l'état de soumission
-
   } catch (error) {
-    console.error("Erreur lors de la modification de la désignation :", error.response.data);
+    console.error(
+      "Erreur modification Tarif Réduction:",
+      error.response?.data || error
+    );
+
+    const backendErrors =
+      error.response?.data?.errors || {};
+
+    const designationError =
+      backendErrors.designation?.[0] || "";
+
+    const photoError =
+      backendErrors.photo?.[0] || "";
+
+    setTarifReductionErrors({
+      designation: designationError,
+      photo: photoError,
+    });
+
+    Swal.fire({
+      icon: "error",
+      title: "Erreur!",
+      text:
+        designationError ||
+        photoError ||
+        error.response?.data?.message ||
+        `Erreur serveur ${error.response?.status || ""}`,
+    });
   }
 };
 
@@ -1427,19 +1638,20 @@ const handleShowTarifReduction = () => {
 
 <div>
                 <SearchWithExportCarousel
-                  onSearch={handleSearch}
-                  exportToExcel={exportToExcel}
-                  exportToPDF={exportToPDF}
-                  printTable={printTable}
-                  categories={chunks}
-                  selectedCategory={selectedCategory}
-                  handleCategoryFilterChange={handleCategoryFilterChange}
-                  activeIndex={activeIndex}
-                  handleSelect={handleSelect}
-                  chunks={chunks}
-                  subtitle="Tarifs de Réduction"
-                  Title="Liste des Tarifs"
-                />
+  onSearch={handleSearch}
+  exportToExcel={exportToExcel}
+  exportToPDF={exportToPDF}
+  printTable={printTable}
+  categories={chunks}
+  selectedCategory={selectedCategory}
+  handleCategoryFilterChange={handleCategoryFilterChange}
+  activeIndex={activeIndex}
+  handleSelect={handleSelect}
+  chunks={chunks}
+  subtitle="Tarifs de Réduction"
+  Title="Liste des Tarifs"
+  fallbackImage="http://127.0.0.1:8000/storage/reduction-img.webp"
+/>
               </div>
 
           <div className="app-controls-row">
@@ -1463,10 +1675,13 @@ const handleShowTarifReduction = () => {
     className="app-filter-select">
     <option value=""  style={{ fontWeight: "bold"}}>Sélectionner Type Réduction</option>
     {typesReduction?.map((type) => (
-        <option value={type.type_reduction}>
-          {type.type_reduction}
-        </option>
-    ))}
+  <option
+    key={type.id}
+    value={type.type_reduction}
+  >
+    {type.type_reduction}
+  </option>
+))}
     </Form.Select>
 </div>
 </div>
@@ -1492,7 +1707,7 @@ const handleShowTarifReduction = () => {
                     <Form.Select
                       name="designation"
                       isInvalid={hasSubmitted && !!errors.designation} // Ensure it's a boolean
-                      value={selectedCategory ? selectedCategory : formData.designation}
+                      value={formData.designation}
                       onChange={handleChange}
                     >
                       <option value="">Sélectionner un Tarif Reduction</option>
@@ -1516,18 +1731,55 @@ const handleShowTarifReduction = () => {
       </Modal.Header>
       <Modal.Body>
         <Form>
-          <Form.Group>
-                <Form.Label>Photo</Form.Label>
-                  <Form.Control
-                    type="file"
-                    name="photo"
-                    isInvalid={!!tarifReductionErrors.photo}
-                    onChange={(e) => setNewDesignation({ ...newDesignation, photo: e.target.files[0] })}
-                    className="form-control"
-                    lang="fr"
-                  />
-                  <Form.Text className="text-danger">{errors.photo}</Form.Text>
-                </Form.Group>
+          <Form.Group className="mb-3">
+  <Form.Label>Photo actuelle</Form.Label>
+
+  {newDesignation.existingPhoto ? (
+    <div className="mb-2">
+      <img
+        src={`http://127.0.0.1:8000/storage/${newDesignation.existingPhoto}`}
+        alt={
+          newDesignation.designation ||
+          "Tarif Réduction"
+        }
+        style={{
+          width: "70px",
+          height: "70px",
+          objectFit: "cover",
+          borderRadius: "50%",
+          border: "1px solid #e2e8f0",
+        }}
+      />
+    </div>
+  ) : (
+    <p className="text-muted">
+      Aucune photo actuelle
+    </p>
+  )}
+
+  <Form.Label>Nouvelle photo</Form.Label>
+
+  <Form.Control
+    type="file"
+    name="photo"
+    accept="image/jpeg,image/png,image/jpg,image/gif,image/webp"
+    isInvalid={!!tarifReductionErrors.photo}
+    onChange={(e) =>
+      setNewDesignation((previousData) => ({
+        ...previousData,
+        photo: e.target.files?.[0] || null,
+      }))
+    }
+    className="form-control"
+    lang="fr"
+  />
+
+  {tarifReductionErrors.photo && (
+    <Form.Control.Feedback type="invalid">
+      {tarifReductionErrors.photo}
+    </Form.Control.Feedback>
+  )}
+</Form.Group>
             <Form.Group>
               <Form.Label>Designation</Form.Label>
               <Form.Control
@@ -1539,9 +1791,9 @@ const handleShowTarifReduction = () => {
                 onChange={(e) => setNewDesignation({ ...newDesignation, designation: e.target.value })}
                 />
                 {hasSubmittedAjoutTarif && tarifReductionErrors.designation && (
-                                    <Form.Control.Feedback type="invalid">
-                                          Required
-                                        </Form.Control.Feedback>
+                                   <Form.Control.Feedback type="invalid">
+  {tarifReductionErrors.designation}
+</Form.Control.Feedback>
                )}
             </Form.Group>
       </Form>
@@ -1575,6 +1827,7 @@ const handleShowTarifReduction = () => {
                   <Form.Control
                     type="file"
                     name="photo"
+                    accept="image/jpeg,image/png,image/jpg,image/gif,image/webp"
                     isInvalid={!!tarifReductionErrors.photo}
                     onChange={(e) => setNewDesignation({ ...newDesignation, photo: e.target.files[0] })}
                     className="form-control"

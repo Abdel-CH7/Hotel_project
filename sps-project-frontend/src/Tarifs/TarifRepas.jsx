@@ -42,7 +42,7 @@ const TarifRepas = () => {
   const API_URL = import.meta.env.VITE_API_URL;
   const API_URL_BASE_IMAGE = import.meta.env.VITE_API_URL_BASE_IMAGE;
   const [tarifRepas, setTarifRepas] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState("");
   const [tarifRepasErrors, setTarifRepasErrors] = useState({
     designation: "",
     photo: null
@@ -61,11 +61,7 @@ const TarifRepas = () => {
     type_repas: "",
   })
   //-------------Filtrer par tarifs repas-------------
-  const carouselOptions = tarifsRepas?.map((item) => ({
-    id: item.id,
-    label: item.designation,
-    image: item.photo ? `http://127.0.0.1:8000/storage/${item.photo}` : "http://localhost:8000/storage/repas-img.webp",
-  }));
+  
    
   
 
@@ -290,8 +286,9 @@ const [typeRepas, setTypeRepas] = useState('');
       newErrors.type_repas = formData.type_repas === "";
       newErrors.montant = formData.montant === "";
       const designations = tarifsRepas.filter((chambre) => chambre.designation);
-      newTarifRepasErrors.designation = newDesignation.designation === "" || designations.some((chambre) => sanitizeInput(chambre.designation) === sanitizeInput(newDesignation.designation))
-      && sanitizeInput(newDesignation.designation) != sanitizeInput(editingDesignation.designation);
+      newTarifRepasErrors.designation =
+  hasSubmittedAjoutTarif &&
+  !String(newDesignation.designation || "").trim();
       newTarifRepasErrors.designationAdd = newDesignation.designation === "" || designations.some((chambre) => sanitizeInput(chambre.designation) === sanitizeInput(newDesignation.designation));
       setTarifRepasErrors(newTarifRepasErrors);
       setErrors(newErrors);
@@ -1076,83 +1073,165 @@ const handleDeleteDesignation = async (categorieId) => {
     });
   }
 };
-const handleEditDesignation = (categorieId) => {
-  setSelectedCategoryId(categorieId);
-  setNewDesignation(categorieId);
-  setEditingDesignation(categorieId);
-  setCategorie(categorieId?.id)
+const handleEditDesignation = (designation) => {
+  setSelectedCategoryId(designation);
+  setCategorie(designation.id);
+  setEditingDesignation(designation);
+
+  setNewDesignation({
+    designation: designation.designation || "",
+    photo: null,
+    existingPhoto: designation.photo || null,
+  });
+
+  setTarifRepasErrors({
+    designation: "",
+    photo: null,
+  });
+
+  setHasSubmittedAjoutTarif(false);
   setShowEditModalDesignation(true);
-   // Réinitialiser erreurs et état de soumission
-   setTarifRepasErrors({ designation: "", photo: null });
-   setHasSubmittedAjoutTarif(false);
 };
 
 const handleCloseEditDesignation = () => {
   setShowEditModalDesignation(false);
-  setNewDesignation({ designation: "", photo: null });
-  setTarifRepasErrors({ designation: "", photo: null });
+
+  setNewDesignation({
+    designation: "",
+    photo: null,
+    existingPhoto: null,
+  });
+
+  setEditingDesignation({});
+  setCategorie(null);
+
+  setTarifRepasErrors({
+    designation: "",
+    photo: null,
+  });
+
   setHasSubmittedAjoutTarif(false);
 };
 
 const handleSaveDesignation = async () => {
-  setHasSubmittedAjoutTarif(true); // Indique que le formulaire a été soumis
+  setHasSubmittedAjoutTarif(true);
 
-  // Vérifier si la désignation est vide
-  if (!newDesignation.designation.trim()) {
-    setTarifRepasErrors(prevErrors => ({
-      ...prevErrors,
-      designation: "Ce champ est obligatoire."
+  const designationValue = String(
+    newDesignation.designation || ""
+  ).trim();
+
+  if (!designationValue) {
+    setTarifRepasErrors((previousErrors) => ({
+      ...previousErrors,
+      designation: "Ce champ est obligatoire.",
     }));
     return;
   }
 
+  const designationExists = tarifsRepas.some((tarif) => {
+    const sameDesignation =
+      sanitizeInput(tarif.designation) ===
+      sanitizeInput(designationValue);
 
-  const designationExists = tarifsRepas.some(tarif =>
-    sanitizeInput(tarif.designation) === sanitizeInput(newDesignation.designation)
-  );
+    const differentRecord =
+      String(tarif.id) !== String(categorieId);
+
+    return sameDesignation && differentRecord;
+  });
 
   if (designationExists) {
+    setTarifRepasErrors((previousErrors) => ({
+      ...previousErrors,
+      designation: "Cette désignation existe déjà.",
+    }));
+
     Swal.fire({
       icon: "error",
       title: "Erreur",
       text: "Cette désignation existe déjà.",
     });
+
     return;
   }
+
   try {
-  const formData = new FormData();
-  formData.append('_method', 'put');
-    if (newDesignation.photo) {
-      formData.append('photo', newDesignation.photo);
+    const requestData = new FormData();
+
+    requestData.append("_method", "PUT");
+    requestData.append("designation", designationValue);
+
+    if (newDesignation.photo instanceof File) {
+      requestData.append("photo", newDesignation.photo);
     }
-    formData.append("designation", newDesignation.designation);
 
+    const response = await axios.post(
+  `${API_URL}/desigs-repas/${categorieId}`,
+  requestData
+);
 
-    const response = await axios.post(`${API_URL}/desigs-repas/${categorieId}`,formData);
+    console.log("Réponse modification désignation :", response.data);
 
     await fetchTarifRepas();
-      // Réinitialiser l'état après mise à jour
-      setShowEditModalDesignation(false);
-      setNewDesignation({ designation: "", photo: null });
-      setTarifRepasErrors({ designation: "", photo: null });
-      setHasSubmittedAjoutTarif(false); // Réinitialiser l'état de soumission    
-    // Show success message
+
+    setShowEditModalDesignation(false);
+    setNewDesignation({
+      designation: "",
+      photo: null,
+      existingPhoto: null,
+    });
+    setEditingDesignation({});
+    setSelectedCategoryId([]);
+    setCategorie(null);
+    setTarifRepasErrors({
+      designation: "",
+      photo: null,
+    });
+    setHasSubmittedAjoutTarif(false);
+
     Swal.fire({
       icon: "success",
       title: "Succès!",
-      text: "Tarif Repas modifiée avec succès.",
+      text: "Tarif Repas modifié avec succès.",
     });
-    
-    // Clear the form state
-    setNewDesignation({ designation: '', photo: null });
   } catch (error) {
-    setTimeout(() => {
-      setErrors({
-        photo: error.response.data?.errors?.photo,
-        designation: error.response.data?.errors?.tarif_repas,
-      });
-  }, 3000);
-  }
+  const status = error.response?.status;
+  const backendData = error.response?.data;
+
+  console.error("STATUS MODIFICATION :", status);
+  console.error("ERREUR BACKEND COMPLÈTE :", backendData);
+
+  const backendErrors = backendData?.errors || backendData?.error || {};
+
+  const designationError =
+    backendErrors?.designation?.[0] ||
+    backendErrors?.tarif_repas?.[0] ||
+    "";
+
+  const photoError =
+    backendErrors?.photo?.[0] ||
+    "";
+
+  setTarifRepasErrors({
+    designation: designationError,
+    photo: photoError,
+  });
+
+  const displayedMessage =
+    designationError ||
+    photoError ||
+    backendData?.message ||
+    backendData?.error ||
+    `Erreur serveur ${status || ""}`;
+
+  Swal.fire({
+    icon: "error",
+    title: "Erreur!",
+    text:
+      typeof displayedMessage === "string"
+        ? displayedMessage
+        : JSON.stringify(displayedMessage),
+  });
+}
 };
 const handleShowTarifRepas = () => {
   setShowAddDesignation(true)
@@ -1168,19 +1247,20 @@ const handleShowTarifRepas = () => {
 
     <div>
       <SearchWithExportCarousel
-        onSearch={handleSearch}
-        exportToExcel={exportToExcel}
-        exportToPDF={exportToPDF}
-        printTable={printTable}
-        categories={chunks}
-        selectedCategory={selectedCategory}
-        handleCategoryFilterChange={handleCategoryFilterChange}
-        activeIndex={activeIndex}
-        handleSelect={handleSelect}
-        chunks={chunks}
-        subtitle="Tarifs de Repas"
-         Title="Liste des Tarifs"
-      />
+  onSearch={handleSearch}
+  exportToExcel={exportToExcel}
+  exportToPDF={exportToPDF}
+  printTable={printTable}
+  categories={chunks}
+  selectedCategory={selectedCategory}
+  handleCategoryFilterChange={handleCategoryFilterChange}
+  activeIndex={activeIndex}
+  handleSelect={handleSelect}
+  chunks={chunks}
+  subtitle="Tarifs de Repas"
+  Title="Liste des Tarifs"
+  fallbackImage="http://127.0.0.1:8000/storage/repas-img.webp"
+/>
     </div>
           
 
@@ -1262,17 +1342,50 @@ const handleShowTarifRepas = () => {
       </Modal.Header>
       <Modal.Body>
         <Form>
-          <Form.Group>
-                <Form.Label>Photo</Form.Label>
-                  <Form.Control
-                    type="file"
-                    name="photo"
-                    isInvalid={!!tarifRepasErrors.photo}
-                    onChange={(e) => setNewDesignation({ ...newDesignation, photo: e.target.files[0] })}
-                    className="form-control"
-                    lang="fr"
-                  />
-                </Form.Group>
+<Form.Group className="mb-3">
+  <Form.Label>Photo actuelle</Form.Label>
+
+  {newDesignation.existingPhoto ? (
+    <div className="mb-2">
+      <img
+        src={`http://127.0.0.1:8000/storage/${newDesignation.existingPhoto}`}
+        alt={newDesignation.designation || "Tarif repas"}
+        style={{
+          width: "70px",
+          height: "70px",
+          objectFit: "cover",
+          borderRadius: "50%",
+          border: "1px solid #e2e8f0",
+        }}
+      />
+    </div>
+  ) : (
+    <p className="text-muted">Aucune photo actuelle</p>
+  )}
+
+  <Form.Label>Nouvelle photo</Form.Label>
+
+  <Form.Control
+    type="file"
+    name="photo"
+    accept="image/jpeg,image/png,image/jpg,image/gif,image/webp"
+    isInvalid={!!tarifRepasErrors.photo}
+    onChange={(e) =>
+      setNewDesignation((previousData) => ({
+        ...previousData,
+        photo: e.target.files?.[0] || null,
+      }))
+    }
+    className="form-control"
+    lang="fr"
+  />
+
+  {tarifRepasErrors.photo && (
+    <Form.Control.Feedback type="invalid">
+      {tarifRepasErrors.photo}
+    </Form.Control.Feedback>
+  )}
+</Form.Group>
             <Form.Group>
               <Form.Label>Designation</Form.Label>
               <Form.Control
@@ -1321,6 +1434,7 @@ const handleShowTarifRepas = () => {
                   <Form.Control
                     type="file"
                     name="photo"
+                    accept="image/jpeg,image/png,image/jpg,image/gif,image/webp"
                     isInvalid={!!tarifRepasErrors.photo}
                     onChange={(e) => setNewDesignation({ ...newDesignation, photo: e.target.files[0] })}
                     className="form-control"
