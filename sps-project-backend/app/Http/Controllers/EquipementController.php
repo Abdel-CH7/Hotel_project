@@ -2,55 +2,43 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Equipement;
 use App\Models\CategorieEquipement;
-use App\Models\Maintenance;
+use App\Models\Chambre;
+use App\Models\Emplacement;
+use App\Models\Equipement;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
+use Throwable;
 
 class EquipementController extends Controller
 {
-    // Liste paginée des équipements
-    public function index(Request $request)
+    public function index()
     {
         try {
-            $query = Equipement::with(['categorie'])
-                ->orderBy('created_at', 'desc');
-
-            // Filtrage
-            if ($request->has('search')) {
-                $search = $request->search;     
-                $query->where(function($q) use ($search) {
-                    $q->where('nom', 'like', "%$search%")
-                      ->orWhere('numero_serie', 'like', "%$search%")
-                      ->orWhere('localisation', 'like', "%$search%");
-                });
-            }
-
-            if ($request->has('statut')) {
-                $query->where('statut', $request->statut);
-            }
-
-            if ($request->has('categorie_id')) {
-                $query->where('categorie_id', $request->categorie_id);
-            }
-
-            $equipements = $query->paginate(15);
+            $equipements = Equipement::with(['categorie', 'chambre', 'emplacement'])
+                ->latest()
+                ->get();
 
             return response()->json([
                 'success' => true,
-                'equipements' => $equipements,
+                'equipements' => [
+                    'data' => $equipements,
+                ],
                 'categories' => CategorieEquipement::all(),
-                'stats' => $this->getStats()
+                'chambres' => Chambre::orderBy('num_chambre')->get(['id', 'num_chambre']),
+                'emplacements' => Emplacement::orderBy('nom')->get(),
+                'stats' => $this->getStats(),
+            ]);
+        } catch (Throwable $exception) {
+            Log::error('Unable to retrieve equipment.', [
+                'exception' => $exception,
             ]);
 
-        } catch (\Exception $e) {
-            Log::error('Erreur dans EquipementController@index: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur lors de la récupération des équipements: ' . $e->getMessage()
+                'message' => 'Erreur lors de la récupération des équipements.',
             ], 500);
         }
     }
@@ -58,90 +46,184 @@ class EquipementController extends Controller
     // Création d'un nouvel équipement
     public function store(Request $request)
     {
-        $validator = Validator::make($request->all(), [
+        $validatedData = $request->validate([
             'nom' => 'required|string|max:255',
-            'numero_serie' => 'required|string|unique:equipements',
+            'numero_serie' => 'required|string|unique:equipements,numero_serie',
             'modele' => 'required|string|max:255',
             'marque' => 'required|string|max:255',
             'date_acquisition' => 'required|date',
-            'date_fin_garantie' => 'nullable|date',
+            'date_fin_garantie' => 'nullable|date|after_or_equal:date_acquisition',
             'categorie_id' => 'required|exists:categories_equipements,id',
-            'statut' => 'required|string|in:disponible,en_maintenance,hors_service',
-            'localisation' => 'required|string|max:255',
+            'statut' => 'required|in:disponible,en_maintenance,hors_service',
+            'chambre_id' => [
+                'nullable',
+                'integer',
+                'exists:chambres,id',
+                'required_without:emplacement_id',
+                Rule::prohibitedIf(fn () => $request->filled('emplacement_id')),
+            ],
+            'emplacement_id' => [
+                'nullable',
+                'integer',
+                'exists:emplacements,id',
+                'required_without:chambre_id',
+                Rule::prohibitedIf(fn () => $request->filled('chambre_id')),
+            ],
             'fournisseur' => 'nullable|string|max:255',
             'prix_achat' => 'nullable|numeric|min:0',
-            'document_path' => 'nullable|string',
-            'notes' => 'nullable|string'
-        ]);
+            'notes' => 'nullable|string',
+            'document' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
+        ], $this->locationValidationMessages());
 
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
+        unset($validatedData['document']);
+        $validatedData = $this->normalizeLocationSelection($validatedData);
+        $newDocumentPath = null;
+
+        try {
+            if ($request->hasFile('document')) {
+                $newDocumentPath = $request->file('document')
+                    ->store('equipements/documentation', 'public');
+
+                if (! $newDocumentPath) {
+                    throw new \RuntimeException('The equipment document could not be stored.');
+                }
+
+                $validatedData['document_path'] = $newDocumentPath;
+            }
+
+            $equipement = Equipement::create($validatedData);
+        } catch (Throwable $exception) {
+            if ($newDocumentPath) {
+                Storage::disk('public')->delete($newDocumentPath);
+            }
+
+            Log::error('Unable to create equipment.', [
+                'exception' => $exception,
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la création de l\'équipement.',
+            ], 500);
         }
 
-        $data = $request->all();
-
-        if ($request->hasFile('document_path')) {
-            $path = $request->file('document_path')->store('equipements/documentation');
-            $data['document_path'] = $path;
-        }
-
-        $equipement = Equipement::create($data);
-
-        return response()->json($equipement, 201);
+        return response()->json(
+            $equipement->load(['categorie', 'chambre', 'emplacement']),
+            201
+        );
     }
 
     // Affichage d'un équipement spécifique
     public function show(Equipement $equipement)
     {
-        return response()->json($equipement->load('categorie'));
+        return response()->json($equipement->load(['categorie', 'chambre', 'emplacement']));
     }
 
     // Mise à jour d'un équipement
     public function update(Request $request, Equipement $equipement)
     {
-        $validator = Validator::make($request->all(), [
+        $validatedData = $request->validate([
             'nom' => 'sometimes|required|string|max:255',
-            'numero_serie' => 'sometimes|required|string|unique:equipements,numero_serie,' . $equipement->id,
+            'numero_serie' => [
+                'sometimes',
+                'required',
+                'string',
+                Rule::unique('equipements', 'numero_serie')->ignore($equipement->id),
+            ],
             'modele' => 'sometimes|required|string|max:255',
             'marque' => 'sometimes|required|string|max:255',
             'date_acquisition' => 'sometimes|required|date',
-            'date_fin_garantie' => 'nullable|date',
+            'date_fin_garantie' => 'nullable|date|after_or_equal:date_acquisition',
             'categorie_id' => 'sometimes|required|exists:categories_equipements,id',
-            'statut' => 'sometimes|required|string|in:disponible,en_maintenance,hors_service',
-            'localisation' => 'sometimes|required|string|max:255',
+            'statut' => 'sometimes|required|in:disponible,en_maintenance,hors_service',
+            'chambre_id' => [
+                'nullable',
+                'integer',
+                'exists:chambres,id',
+                'required_without:emplacement_id',
+                Rule::prohibitedIf(fn () => $request->filled('emplacement_id')),
+            ],
+            'emplacement_id' => [
+                'nullable',
+                'integer',
+                'exists:emplacements,id',
+                'required_without:chambre_id',
+                Rule::prohibitedIf(fn () => $request->filled('chambre_id')),
+            ],
             'fournisseur' => 'nullable|string|max:255',
             'prix_achat' => 'nullable|numeric|min:0',
-            'document_path' => 'nullable|string',
-            'notes' => 'nullable|string'
-        ]);
+            'notes' => 'nullable|string',
+            'document' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
+        ], $this->locationValidationMessages());
 
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
-        }
+        unset($validatedData['document']);
+        $validatedData = $this->normalizeLocationSelection($validatedData);
+        $oldDocumentPath = $equipement->document_path;
+        $newDocumentPath = null;
 
-        $data = $request->all();
+        try {
+            if ($request->hasFile('document')) {
+                $newDocumentPath = $request->file('document')
+                    ->store('equipements/documentation', 'public');
 
-        if ($request->hasFile('document_path')) {
-            if ($equipement->document_path) {
-                Storage::delete($equipement->document_path);
+                if (! $newDocumentPath) {
+                    throw new \RuntimeException('The equipment document could not be stored.');
+                }
+
+                $validatedData['document_path'] = $newDocumentPath;
             }
-            $path = $request->file('document_path')->store('equipements/documentation');
-            $data['document_path'] = $path;
+
+            $equipement->update($validatedData);
+        } catch (Throwable $exception) {
+            if ($newDocumentPath) {
+                Storage::disk('public')->delete($newDocumentPath);
+            }
+
+            Log::error('Unable to update equipment.', [
+                'equipment_id' => $equipement->id,
+                'exception' => $exception,
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la modification de l\'équipement.',
+            ], 500);
         }
 
-        $equipement->update($data);
+        if ($newDocumentPath && $oldDocumentPath) {
+            Storage::disk('public')->delete($oldDocumentPath);
+        }
 
-        return response()->json($equipement);
+        return response()->json($equipement->load(['categorie', 'chambre', 'emplacement']));
     }
 
     // Suppression d'un équipement
     public function destroy(Equipement $equipement)
     {
-        if ($equipement->document_path) {
-            Storage::delete($equipement->document_path);
+        $documentPath = $equipement->document_path;
+
+        try {
+            $equipement->delete();
+        } catch (Throwable $exception) {
+            Log::error('Unable to delete equipment.', [
+                'equipment_id' => $equipement->id,
+                'exception' => $exception,
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la suppression de l\'équipement.',
+            ], 500);
         }
-        $equipement->delete();
-        return response()->json(null, 204);
+
+        if ($documentPath) {
+            Storage::disk('public')->delete($documentPath);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Équipement supprimé avec succès.',
+        ]);
     }
 
     // Récupérer les statistiques
@@ -153,10 +235,14 @@ class EquipementController extends Controller
                 'stats' => $this->getStats()
             ]);
 
-        } catch (\Exception $e) {
+        } catch (Throwable $exception) {
+            Log::error('Unable to retrieve equipment statistics.', [
+                'exception' => $exception,
+            ]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur lors de la récupération des statistiques'
+                'message' => 'Erreur lors de la récupération des statistiques.',
             ], 500);
         }
     }
@@ -170,10 +256,14 @@ class EquipementController extends Controller
                 'categories' => CategorieEquipement::all()
             ]);
 
-        } catch (\Exception $e) {
+        } catch (Throwable $exception) {
+            Log::error('Unable to retrieve equipment categories.', [
+                'exception' => $exception,
+            ]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur lors de la récupération des catégories'
+                'message' => 'Erreur lors de la récupération des catégories.',
             ], 500);
         }
     }
@@ -181,29 +271,19 @@ class EquipementController extends Controller
     // Méthode privée pour les statistiques
     private function getStats()
     {
-        try {
-            return [
-                'total' => (int) Equipement::count(),
-                'disponible' => (int) Equipement::where('statut', 'disponible')->count(),
-                'en_maintenance' => (int) Equipement::where('statut', 'en_maintenance')->count(),
-                'hors_service' => (int) Equipement::where('statut', 'hors_service')->count()
-            ];
-        } catch (\Exception $e) {
-            Log::error('Erreur dans getStats: ' . $e->getMessage());
-            return [
-                'total' => 0,
-                'disponible' => 0,
-                'en_maintenance' => 0,
-                'hors_service' => 0
-            ];
-        }
+        return [
+            'total' => (int) Equipement::count(),
+            'disponible' => (int) Equipement::where('statut', 'disponible')->count(),
+            'en_maintenance' => (int) Equipement::where('statut', 'en_maintenance')->count(),
+            'hors_service' => (int) Equipement::where('statut', 'hors_service')->count(),
+        ];
     }
 
     // Export Excel
     public function exportExcel()
     {
         try {
-            $equipements = Equipement::with('categorie')->get();
+            $equipements = Equipement::with(['categorie', 'chambre', 'emplacement'])->get();
 
             $data = $equipements->map(function ($equipement) {
                 return [
@@ -211,8 +291,8 @@ class EquipementController extends Controller
                     'N° Série' => $equipement->numero_serie,
                     'Modèle' => $equipement->modele,
                     'Marque' => $equipement->marque,
-                    'Catégorie' => $equipement->categorie->nom,
-                    'Localisation' => $equipement->localisation,
+                    'Catégorie' => $equipement->categorie?->nom,
+                    'Localisation' => $this->getLocationLabel($equipement),
                     'Statut' => $equipement->statut,
                     'Date acquisition' => $equipement->date_acquisition,
                     'Fin garantie' => $equipement->date_fin_garantie,
@@ -226,12 +306,48 @@ class EquipementController extends Controller
                 'data' => $data
             ]);
 
-        } catch (\Exception $e) {
+        } catch (Throwable $exception) {
+            Log::error('Unable to export equipment.', [
+                'exception' => $exception,
+            ]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur lors de l\'export Excel'
+                'message' => 'Erreur lors de l\'export Excel.',
             ], 500);
         }
+    }
+
+    private function locationValidationMessages(): array
+    {
+        return [
+            'chambre_id.required_without' => 'Sélectionnez une chambre ou un emplacement.',
+            'emplacement_id.required_without' => 'Sélectionnez une chambre ou un emplacement.',
+            'chambre_id.prohibited' => 'Un équipement ne peut pas être affecté à une chambre et un emplacement simultanément.',
+            'emplacement_id.prohibited' => 'Un équipement ne peut pas être affecté à une chambre et un emplacement simultanément.',
+        ];
+    }
+
+    private function normalizeLocationSelection(array $validatedData): array
+    {
+        if (! empty($validatedData['chambre_id'])) {
+            $validatedData['emplacement_id'] = null;
+        } elseif (! empty($validatedData['emplacement_id'])) {
+            $validatedData['chambre_id'] = null;
+        }
+
+        return $validatedData;
+    }
+
+    private function getLocationLabel(Equipement $equipement): string
+    {
+        if ($equipement->chambre) {
+            return 'Chambre '.$equipement->chambre->num_chambre;
+        }
+
+        return $equipement->emplacement?->nom
+            ?? $equipement->localisation
+            ?? 'Non affecté';
     }
 }
 
@@ -386,4 +502,3 @@ class EquipementController extends Controller
 //         // }
 //     }
 // }
-

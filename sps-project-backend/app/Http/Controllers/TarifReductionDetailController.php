@@ -1,64 +1,106 @@
 <?php
+
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use App\Models\TypeReduction;
 use App\Models\TarifReduction;
 use App\Models\TarifReductionDetail;
+use App\Models\TypeReduction;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 
 class TarifReductionDetailController extends Controller
 {
     public function getAll()
     {
-        $tarifsReductionDetail = TarifReductionDetail::with(['type_reduction', 'tarif_reduction'])->get();
-        $tarifsReduction = TarifReduction::all();
-        $typesReduction = TypeReduction::all();
         return response()->json([
-            "tarifsReductionDetail" => $tarifsReductionDetail,
-            "tarifsReduction" => $tarifsReduction,
-            "typesReduction" => $typesReduction,
+            'tarifsReductionDetail' => TarifReductionDetail::with(['reductionType', 'reductionGrid'])->orderBy('id')->get(),
+            'tarifsReduction' => TarifReduction::orderBy('designation')->get(),
+            'typesReduction' => TypeReduction::orderBy('type_reduction')->get(),
         ]);
     }
+
     public function ajouterTarifReductionDetail(Request $request)
     {
-        $validatedData = $request->validate([
-            'tarif_reduction' => 'required|exists:tarifs_reduction,id|integer',
-            'type_reduction' => 'required|exists:types_reduction,id|integer',
-            'montant' => 'required|integer|min:0',
-            'percentage' => 'required|integer|min:0|max:100',
+        $data = $this->validatedData($request);
+        if ($locked = $this->lockedGridResponse((int) $data['tarif_reduction_id'])) {
+            return $locked;
+        }
+
+        $detail = TarifReductionDetail::create($data);
+
+        return response()->json($detail->load(['reductionType', 'reductionGrid']), 201);
+    }
+
+    public function afficherTarifReductionDetail(TarifReductionDetail $tarifReductionDetail)
+    {
+        return response()->json($tarifReductionDetail->load(['reductionType', 'reductionGrid']));
+    }
+
+    public function updateTarifReductionDetail(Request $request, TarifReductionDetail $tarifReductionDetail)
+    {
+        $data = $this->validatedData($request, $tarifReductionDetail);
+        foreach (array_unique([$tarifReductionDetail->tarif_reduction_id, (int) $data['tarif_reduction_id']]) as $gridId) {
+            if ($locked = $this->lockedGridResponse((int) $gridId)) {
+                return $locked;
+            }
+        }
+
+        $tarifReductionDetail->update($data);
+
+        return response()->json($tarifReductionDetail->refresh()->load(['reductionType', 'reductionGrid']));
+    }
+
+    public function supprimerTarifReductionDetail(TarifReductionDetail $tarifReductionDetail)
+    {
+        if ($locked = $this->lockedGridResponse($tarifReductionDetail->tarif_reduction_id)) {
+            return $locked;
+        }
+
+        $tarifReductionDetail->delete();
+
+        return response()->json(['message' => 'Tarif réduction supprimé avec succès.']);
+    }
+
+    private function validatedData(Request $request, ?TarifReductionDetail $detail = null): array
+    {
+        $input = [
+            'tarif_reduction_id' => $request->input('tarif_reduction_id', $request->input('tarif_reduction')),
+            'type_reduction_id' => $request->input('type_reduction_id', $request->input('type_reduction')),
+            'montant_fixe' => $request->input('montant_fixe', $request->input('montant', 0)),
+            'pourcentage' => $request->input('pourcentage', $request->input('percentage', 0)),
+        ];
+
+        $validator = Validator::make($input, [
+            'tarif_reduction_id' => ['required', 'integer', 'exists:tarifs_reduction,id'],
+            'type_reduction_id' => [
+                'required',
+                'integer',
+                'exists:types_reduction,id',
+                Rule::unique('tarif_reduction_detail', 'type_reduction_id')
+                    ->where(fn ($query) => $query->where('tarif_reduction_id', $input['tarif_reduction_id']))
+                    ->ignore($detail?->id),
+            ],
+            'montant_fixe' => ['required', 'numeric', 'min:0'],
+            'pourcentage' => ['required', 'numeric', 'min:0', 'max:100'],
         ]);
-        $tarifReduction = TarifReductionDetail::create($validatedData);
-        return response()->json($tarifReduction, 201);
+
+        $validator->after(function ($validator) use ($input): void {
+            if ((float) $input['montant_fixe'] <= 0 && (float) $input['pourcentage'] <= 0) {
+                $validator->errors()->add('montant_fixe', 'Un montant fixe ou un pourcentage supérieur à zéro est requis.');
+            }
+        });
+
+        return $validator->validate();
     }
 
-    public function afficherTarifReductionDetail(string $tarif_reduction_code)
+    private function lockedGridResponse(int $gridId)
     {
-        $tarifReduction = TarifReductionDetail::findOrFail($tarif_reduction_code);
-        return response()->json($tarifReduction);
-    }
+        $plan = TarifReduction::find($gridId);
+        if ($message = $plan?->detailLockMessage()) {
+            return response()->json(['message' => $message], 409);
+        }
 
-    public function updateTarifReductionDetail(Request $request, string $tarif_reduction_code)
-    {
-        $tarifReduction = TarifReductionDetail::findOrFail($tarif_reduction_code);
-        $validatedData = $request->validate([
-            'tarif_reduction' => 'required|exists:tarifs_reduction,id|integer',
-            'type_reduction' => 'required|exists:types_reduction,id|integer',
-            'montant' => 'required|integer|min:0',
-            'percentage' => 'required|integer|min:0|max:100',
-            ]);
-        $tarifReduction->update($validatedData);
-        return response()->json($tarifReduction);
-    }
-    public function supprimerTarifReductionDetail(string $tarif_reduction_code)
-    {
-        $tarifReduction = TarifReductionDetail::findOrFail($tarif_reduction_code);
-        $tarifReduction->delete();
-        return response()->json(['message' => 'Tarif reduction deleted successfully']);
-    }
-
-    public function supprimerTarifsReduction()
-    {
-        TarifReductionDetail::truncate();
-        return response()->json(['message' => 'Tarifs Repas deleted successfully']);
+        return null;
     }
 }

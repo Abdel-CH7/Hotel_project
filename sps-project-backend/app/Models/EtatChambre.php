@@ -17,6 +17,7 @@ class EtatChambre extends Model
         'status',
         'date_nettoyage',
         'nettoyée_par',
+        'nettoyee_par_id',
         'maintenance',
         'maintenance_type_id',
         'date_debut_maintenance',
@@ -49,5 +50,10 @@ class EtatChambre extends Model
     public function maintenanceType()
     {
         return $this->belongsTo(MaintenanceType::class, 'maintenance_type_id');
+    }
+
+    public function nettoyeePar()
+    {
+        return $this->belongsTo(Employe::class, 'nettoyee_par_id');
     }
 }

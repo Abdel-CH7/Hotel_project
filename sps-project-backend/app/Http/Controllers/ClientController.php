@@ -7,6 +7,7 @@ use App\Models\Zone;
 use App\Models\Agent;
 use App\Models\Ville;
 use App\Models\Client;
+use App\Models\Reservation;
 use App\Models\Region;
 use App\Models\ContactClient;
 use App\Models\SiteClient;
@@ -215,6 +216,14 @@ public function statsBySecteur()
     {
         // if (Gate::allows('delete_clients')) {
                 $client = Client::findOrFail($id);
+                if (Reservation::query()
+                    ->where('client_type', 'societe')
+                    ->where('client_id', $client->id)
+                    ->exists()) {
+                    return response()->json([
+                        'message' => 'Ce client ne peut pas être supprimé car il est utilisé par des réservations.',
+                    ], 409);
+                }
                 $client->delete();
                 return response()->json(['message' => 'Client supprimé avec succès'], 200);
         // } else {

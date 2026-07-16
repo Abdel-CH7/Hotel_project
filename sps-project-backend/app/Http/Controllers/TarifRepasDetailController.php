@@ -3,68 +3,94 @@
 namespace App\Http\Controllers;
 
 use App\Models\TarifRepas;
-use Illuminate\Http\Request;
 use App\Models\TarifRepasDetail;
 use App\Models\TypeRepas;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 
 class TarifRepasDetailController extends Controller
 {
     public function getAll()
     {
-        $tarifRepas = TarifRepasDetail::with(['type_repas', 'tarif_repas'])->get();
-        $tarifsRepas = TarifRepas::all();
-        $typesRepas = TypeRepas::all();
         return response()->json([
-            "tarifRepas" => $tarifRepas,
-            "tarifsRepas" => $tarifsRepas,
-            "typesRepas" => $typesRepas
+            'tarifRepas' => TarifRepasDetail::with(['mealType', 'mealRateGrid'])->orderBy('id')->get(),
+            'tarifsRepas' => TarifRepas::orderBy('designation')->get(),
+            'typesRepas' => TypeRepas::orderBy('type_repas')->get(),
         ]);
     }
 
     public function ajouterTarifRepasDetail(Request $request)
     {
-        $validatedData = $request->validate([
-        'type_repas' => 'required|integer|max:255',
-        'montant' => 'required|integer|min:0',
-        'tarif_repas' => 'required|exists:tarifs_repas,id|integer',
-        ]);
+        $data = $this->validatedData($request);
+        if ($locked = $this->lockedGridResponse((int) $data['tarif_repas_id'])) {
+            return $locked;
+        }
 
-        $tarifRepas = TarifRepasDetail::create($validatedData);
+        $detail = TarifRepasDetail::create($data);
 
-        return response()->json($tarifRepas, 201);
+        return response()->json($detail->load(['mealType', 'mealRateGrid']), 201);
     }
 
-    public function afficherTarifRepasDetail(string $tarif_repas_code)
+    public function afficherTarifRepasDetail(TarifRepasDetail $tarifRepasDetail)
     {
-        $tarifRepas = TarifRepasDetail::findOrFail($tarif_repas_code);
-        return response()->json($tarifRepas);
+        return response()->json($tarifRepasDetail->load(['mealType', 'mealRateGrid']));
     }
 
-    public function updateTarifRepasDetail(Request $request, string $tarif_repas_code)
+    public function updateTarifRepasDetail(Request $request, TarifRepasDetail $tarifRepasDetail)
     {
-        $tarifRepas = TarifRepasDetail::findOrFail($tarif_repas_code);
-        $validatedData = $request->validate([
-        'type_repas' => 'required|integer|max:255',
-        'montant' => 'required|integer|min:0',
-        'tarif_repas' => 'required|exists:tarifs_repas,id|integer',
-        ]);
-        $tarifRepas->update($validatedData);
-        return response()->json($tarifRepas);
+        $data = $this->validatedData($request, $tarifRepasDetail);
+        foreach (array_unique([$tarifRepasDetail->tarif_repas_id, (int) $data['tarif_repas_id']]) as $gridId) {
+            if ($locked = $this->lockedGridResponse((int) $gridId)) {
+                return $locked;
+            }
+        }
 
+        $tarifRepasDetail->update($data);
+
+        return response()->json($tarifRepasDetail->refresh()->load(['mealType', 'mealRateGrid']));
     }
 
-    public function supprimerTarifRepasDetail(string $tarif_repas_code)
+    public function supprimerTarifRepasDetail(TarifRepasDetail $tarifRepasDetail)
     {
-        $tarifRepas = TarifRepasDetail::findOrFail($tarif_repas_code);
-        $tarifRepas->delete();
-        return response()->json(['message' => 'Tarif repas deleted successfully']);
+        if ($locked = $this->lockedGridResponse($tarifRepasDetail->tarif_repas_id)) {
+            return $locked;
+        }
+
+        $tarifRepasDetail->delete();
+
+        return response()->json(['message' => 'Tarif repas supprimé avec succès.']);
     }
 
-    public function supprimerTarifsRepas()
+    private function validatedData(Request $request, ?TarifRepasDetail $detail = null): array
     {
-        TarifRepasDetail::truncate();
-        return response()->json(['message' => 'Tarifs Repas deleted successfully']);
+        $input = [
+            'tarif_repas_id' => $request->input('tarif_repas_id', $request->input('tarif_repas')),
+            'type_repas_id' => $request->input('type_repas_id', $request->input('type_repas')),
+            'prix_par_personne' => $request->input('prix_par_personne', $request->input('montant')),
+        ];
+
+        return Validator::make($input, [
+            'tarif_repas_id' => ['required', 'integer', 'exists:tarifs_repas,id'],
+            'type_repas_id' => [
+                'required',
+                'integer',
+                'exists:types_repas,id',
+                Rule::unique('tarif_repas_detail', 'type_repas_id')
+                    ->where(fn ($query) => $query->where('tarif_repas_id', $input['tarif_repas_id']))
+                    ->ignore($detail?->id),
+            ],
+            'prix_par_personne' => ['required', 'numeric', 'min:0'],
+        ])->validate();
     }
 
+    private function lockedGridResponse(int $gridId)
+    {
+        $plan = TarifRepas::find($gridId);
+        if ($message = $plan?->detailLockMessage()) {
+            return response()->json(['message' => $message], 409);
+        }
+
+        return null;
+    }
 }
-

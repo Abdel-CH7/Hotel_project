@@ -1,68 +1,133 @@
 <?php
+
 namespace App\Http\Controllers;
 
-use App\Models\TarifChambreDetail;
 use App\Models\TarifChambre;
+use App\Models\TarifChambreDetail;
 use App\Models\TypeChambre;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class TarifChambreDetailController extends Controller
 {
     public function getAll()
     {
-        $typesChambre = TypeChambre::all();
-        $tarifsChambreDetail = TarifChambreDetail::with(['type_chambre', 'tarif_chambre'])->get();
-        $tarifsChambre = TarifChambre::all();
         return response()->json([
-            "tarifsChambreDetail" => $tarifsChambreDetail,
-            "typesChambre" => $typesChambre,
-            "tarifsChambre" => $tarifsChambre
+            'tarifsChambreDetail' => TarifChambreDetail::with(['roomType', 'roomRateGrid'])->orderBy('id')->get(),
+            'typesChambre' => TypeChambre::orderBy('type_chambre')->get(),
+            'tarifsChambre' => TarifChambre::orderBy('designation')->get(),
         ]);
     }
 
     public function ajouterTarifChambreDetail(Request $request)
     {
-        $validatedData = $request->validate([
-            'code' => 'required|string|unique:tarif_chambre_detail,code|max:255',
-            'tarif_chambre' => 'required|exists:tarifs_chambre,id|integer',
-            'type_chambre' => 'required|exists:types_chambre,id|integer',
-            'single' => 'required|numeric',
-            'double' => 'required|numeric',
-            'triple' => 'required|numeric',
-            'lit_supp' => 'required|integer|min:0',
+        $data = $this->validatedData($request);
+        if ($locked = $this->lockedGridResponse((int) $data['tarif_chambre_id'])) {
+            return $locked;
+        }
+
+        $detail = TarifChambreDetail::create($data);
+
+        return response()->json($detail->load(['roomType', 'roomRateGrid']), 201);
+    }
+
+    public function afficherTarifChambreDetail(TarifChambreDetail $tarifChambreDetail)
+    {
+        return response()->json($tarifChambreDetail->load(['roomType', 'roomRateGrid']));
+    }
+
+    public function updateTarifChambreDetail(Request $request, TarifChambreDetail $tarifChambreDetail)
+    {
+        $data = $this->validatedData($request, $tarifChambreDetail);
+        foreach (array_unique([$tarifChambreDetail->tarif_chambre_id, (int) $data['tarif_chambre_id']]) as $gridId) {
+            if ($locked = $this->lockedGridResponse((int) $gridId)) {
+                return $locked;
+            }
+        }
+
+        $tarifChambreDetail->update($data);
+
+        return response()->json($tarifChambreDetail->refresh()->load(['roomType', 'roomRateGrid']));
+    }
+
+    public function supprimerTarifChambreDetail(TarifChambreDetail $tarifChambreDetail)
+    {
+        if ($locked = $this->lockedGridResponse($tarifChambreDetail->tarif_chambre_id)) {
+            return $locked;
+        }
+
+        $tarifChambreDetail->delete();
+
+        return response()->json(['message' => 'Tarif chambre supprimé avec succès.']);
+    }
+
+    private function validatedData(Request $request, ?TarifChambreDetail $detail = null): array
+    {
+        $input = [
+            'code' => trim((string) $request->input('code', $detail?->code ?? $this->generateCode())),
+            'tarif_chambre_id' => $request->input('tarif_chambre_id', $request->input('tarif_chambre')),
+            'type_chambre_id' => $request->input('type_chambre_id', $request->input('type_chambre')),
+            'prix_1_personne' => $this->nullableMoney($request->input('prix_1_personne', $request->input('single'))),
+            'prix_2_personnes' => $this->nullableMoney($request->input('prix_2_personnes', $request->input('double'))),
+            'prix_3_personnes' => $this->nullableMoney($request->input('prix_3_personnes', $request->input('triple'))),
+            'prix_lit_supplementaire' => $request->input('prix_lit_supplementaire', $request->input('lit_supp', 0)),
+        ];
+
+        $validator = Validator::make($input, [
+            'code' => ['required', 'string', 'max:255', Rule::unique('tarif_chambre_detail', 'code')->ignore($detail?->id)],
+            'tarif_chambre_id' => ['required', 'integer', 'exists:tarifs_chambre,id'],
+            'type_chambre_id' => [
+                'required',
+                'integer',
+                'exists:types_chambre,id',
+                Rule::unique('tarif_chambre_detail', 'type_chambre_id')
+                    ->where(fn ($query) => $query->where('tarif_chambre_id', $input['tarif_chambre_id']))
+                    ->ignore($detail?->id),
+            ],
+            'prix_1_personne' => ['nullable', 'numeric', 'min:0'],
+            'prix_2_personnes' => ['nullable', 'numeric', 'min:0'],
+            'prix_3_personnes' => ['nullable', 'numeric', 'min:0'],
+            'prix_lit_supplementaire' => ['required', 'numeric', 'min:0'],
         ]);
-        $tarifChambre = TarifChambreDetail::create($validatedData);
-        return response()->json($tarifChambre, 201);
+
+        $validator->after(function ($validator) use ($input): void {
+            $hasPositiveOccupancyPrice = collect([
+                $input['prix_1_personne'],
+                $input['prix_2_personnes'],
+                $input['prix_3_personnes'],
+            ])->contains(fn ($price) => $price !== null && (float) $price > 0);
+
+            if (! $hasPositiveOccupancyPrice) {
+                $validator->errors()->add('prix_1_personne', "Au moins un prix d'occupation strictement supérieur à zéro est requis.");
+            }
+        });
+
+        return $validator->validate();
     }
 
-    public function afficherTarifChambreDetail(string $tarif_chambre_code)
+    private function lockedGridResponse(int $gridId)
     {
-        $tarifChambre = TarifChambreDetail::with('typeChambre')->findOrFail($tarif_chambre_code);
-        return response()->json($tarifChambre);
+        $plan = TarifChambre::find($gridId);
+        if ($message = $plan?->detailLockMessage()) {
+            return response()->json(['message' => $message], 409);
+        }
+
+        return null;
     }
 
-    public function updateTarifChambreDetail(Request $request, string $tarif_chambre_code)
+    private function nullableMoney(mixed $value): mixed
     {
-        $tarifChambre = TarifChambreDetail::findOrFail($tarif_chambre_code);
-        $validatedData = $request->validate([
-            'code' => 'required|string',
-            'tarif_chambre' => 'required|exists:tarifs_chambre,id|integer',
-            'type_chambre' => 'required|exists:types_chambre,id|integer',
-            'single' => 'required|numeric',
-            'double' => 'required|numeric',
-            'triple' => 'required|numeric',
-            'lit_supp' => 'required|integer|min:0',
-        ]);
-        $tarifChambre->update($validatedData);
-        return response()->json($tarifChambre);
-
+        return $value === '' ? null : $value;
     }
 
-    public function supprimerTarifChambreDetail(string $tarif_chambre_code)
+    private function generateCode(): string
     {
-        $tarifChambre = TarifChambreDetail::findOrFail($tarif_chambre_code);
-        $tarifChambre->delete();
-        return response()->json(['message' => 'Tarif chambre deleted successfully']);
-    }
+        do {
+            $code = 'TC-'.Str::upper((string) Str::ulid());
+        } while (TarifChambreDetail::where('code', $code)->exists());
 
+        return $code;
+    }
 }

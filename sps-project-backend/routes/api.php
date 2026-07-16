@@ -13,6 +13,7 @@ use App\Http\Controllers\SuiviInterventionController;
 use App\Http\Controllers\SecteurController;
 use App\Http\Controllers\TypeRepasController;
 use App\Http\Controllers\EquipementController;
+use App\Http\Controllers\EmplacementController;
 use App\Http\Controllers\SiteClientController;
 use App\Http\Controllers\TarifRepasController;
 use App\Http\Controllers\IntervenantController;
@@ -42,10 +43,13 @@ use App\Http\Controllers\ClientGrpController;
 use App\Http\Controllers\GroupController;
 use App\Http\Controllers\EtatChambreController;
 use App\Http\Controllers\MaintenanceTypeController;
+use App\Http\Controllers\EmployeController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ReclamationController;
 
 use App\Http\Controllers\ReservationController;
+use App\Http\Controllers\ReservationReadinessController;
+use App\Http\Controllers\ReservationFormOptionsController;
 
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
@@ -66,59 +70,58 @@ Route::delete('/clients-particulier/{code}', [ClientParticulierController::class
 // Tarifs Chambre routes :Tested
 Route::get('/tarifs-chambre', [TarifChambreDetailController::class, 'getAll']);
 Route::post('/tarifs-chambre', [TarifChambreDetailController::class, 'ajouterTarifChambreDetail']);
-Route::get('/tarifs-chambre/{tarif_chambre_code}', [TarifChambreDetailController::class, 'afficherTarifChambreDetail']);
-Route::put('/tarifs-chambre/{tarif_chambre_code}', [TarifChambreDetailController::class, 'updateTarifChambreDetail']);
-Route::delete( '/tarifs-chambre/{tarif_chambre_code}', [TarifChambreDetailController::class, 'supprimerTarifChambreDetail']);
+Route::get('/tarifs-chambre/{tarifChambreDetail}', [TarifChambreDetailController::class, 'afficherTarifChambreDetail'])->whereNumber('tarifChambreDetail');
+Route::put('/tarifs-chambre/{tarifChambreDetail}', [TarifChambreDetailController::class, 'updateTarifChambreDetail'])->whereNumber('tarifChambreDetail');
+Route::delete('/tarifs-chambre/{tarifChambreDetail}', [TarifChambreDetailController::class, 'supprimerTarifChambreDetail'])->whereNumber('tarifChambreDetail');
 
 // Tarifs Repas routes: Tested
 Route::get('/tarifs-repas', [TarifRepasDetailController::class, 'getAll']);
 Route::middleware('throttle:60,1')->post('/tarifs-repas', [TarifRepasDetailController::class, 'ajouterTarifRepasDetail']);
-Route::get('/tarifs-repas/{tarif_repas_code}', [TarifRepasDetailController::class, 'afficherTarifRepasDetail']);
-Route::put('/tarifs-repas/{tarif_repas_code}', [TarifRepasDetailController::class, 'updateTarifRepasDetail']);
-Route::delete('/tarifs-repas/{tarif_repas_code}', [TarifRepasDetailController::class, 'supprimerTarifRepasDetail']);
+Route::get('/tarifs-repas/{tarifRepasDetail}', [TarifRepasDetailController::class, 'afficherTarifRepasDetail'])->whereNumber('tarifRepasDetail');
+Route::put('/tarifs-repas/{tarifRepasDetail}', [TarifRepasDetailController::class, 'updateTarifRepasDetail'])->whereNumber('tarifRepasDetail');
+Route::delete('/tarifs-repas/{tarifRepasDetail}', [TarifRepasDetailController::class, 'supprimerTarifRepasDetail'])->whereNumber('tarifRepasDetail');
 
 // Tarifs Reduction routes: Tested
 Route::get('/tarifs-reduction', [TarifReductionDetailController::class, 'getAll']);
 Route::post('/tarifs-reduction', [TarifReductionDetailController::class, 'ajouterTarifReductionDetail']);
-Route::get('/tarifs-reduction/{tarif_reduction_code}', [TarifReductionDetailController::class, 'afficherTarifReductionDetail']);
-Route::put('/tarifs-reduction/{tarif_reduction_code}', [TarifReductionDetailController::class, 'updateTarifReductionDetail']);
-Route::delete('/tarifs-reduction/{tarif_reduction_code}', [TarifReductionDetailController::class, 'supprimerTarifReductionDetail']);
+Route::get('/tarifs-reduction/{tarifReductionDetail}', [TarifReductionDetailController::class, 'afficherTarifReductionDetail'])->whereNumber('tarifReductionDetail');
+Route::put('/tarifs-reduction/{tarifReductionDetail}', [TarifReductionDetailController::class, 'updateTarifReductionDetail'])->whereNumber('tarifReductionDetail');
+Route::delete('/tarifs-reduction/{tarifReductionDetail}', [TarifReductionDetailController::class, 'supprimerTarifReductionDetail'])->whereNumber('tarifReductionDetail');
 
 // Tarifs Actuel routes: Tested
 Route::get('/tarifs-actuel', [TarifActuelController::class, 'getAll']);
 Route::post('/tarifs-actuel', [TarifActuelController::class, 'ajouterTarifActuel']);
-Route::get('/tarifs-actuel/{tarif_actuel_code}', [TarifActuelController::class, 'afficherTarifActuel']);
-Route::put('/tarifs-actuel/{tarif_actuel_code}', [TarifActuelController::class, 'updateTarifActuel']);
-Route::delete('/tarifs-actuel/{tarif_actuel_code}', [TarifActuelController::class, 'supprimerTarifActuel']);
+Route::get('/tarifs-actuel/{tarifActuel}', [TarifActuelController::class, 'afficherTarifActuel'])->whereNumber('tarifActuel');
+Route::put('/tarifs-actuel/{tarifActuel}', [TarifActuelController::class, 'updateTarifActuel'])->whereNumber('tarifActuel');
+Route::delete('/tarifs-actuel/{tarifActuel}', [TarifActuelController::class, 'supprimerTarifActuel'])->whereNumber('tarifActuel');
 
 // Types Chambre routes :Tested
 Route::get('/types-chambre', [TypeChambreController::class, 'getAll']);
 Route::post('/types-chambre', [TypeChambreController::class, 'ajouterTypeChambre']);
-Route::get('/types-chambre/{type_chambre_code}', [TypeChambreController::class, 'afficherTypeChambre']);
-Route::put('/types-chambre/{type_chambre_code}', [TypeChambreController::class, 'updateTypeChambre']);
-Route::delete('/types-chambre/{type_chambre_code}', [TypeChambreController::class, 'supprimerClient']);
+Route::get('/types-chambre/{typeChambre}', [TypeChambreController::class, 'afficherTypeChambre'])->whereNumber('typeChambre');
+Route::put('/types-chambre/{typeChambre}', [TypeChambreController::class, 'updateTypeChambre'])->whereNumber('typeChambre');
+Route::delete('/types-chambre/{typeChambre}', [TypeChambreController::class, 'supprimerTypeChambre'])->whereNumber('typeChambre');
 
 // Types Reduction routes :Tested
 Route::get('/types-reduction', [TypeReductionController::class, 'getAll']);
 Route::post('/types-reduction', [TypeReductionController::class, 'ajouterTypeReduction']);
-Route::get('/types-reduction/{type_reduction_code}', [TypeReductionController::class, 'afficherTypeReduction']);
-Route::put('/types-reduction/{type_reduction_code}', [TypeReductionController::class, 'updateTypeReduction']);
-Route::delete('/types-reduction/{type_reduction_code}', [TypeReductionController::class, 'supprimerClient']);
+Route::get('/types-reduction/{typeReduction}', [TypeReductionController::class, 'afficherTypeReduction'])->whereNumber('typeReduction');
+Route::put('/types-reduction/{typeReduction}', [TypeReductionController::class, 'updateTypeReduction'])->whereNumber('typeReduction');
+Route::delete('/types-reduction/{typeReduction}', [TypeReductionController::class, 'supprimerTypeReduction'])->whereNumber('typeReduction');
 
 // Types Repas routes :Tested
 Route::get('/types-repas', [TypeRepasController::class, 'getAll']);
 Route::post('/types-repas', [TypeRepasController::class, 'ajouterTypeRepas']);
-Route::get('/types-repas/{type_repas_code}', [TypeRepasController::class, 'afficherTypeRepas']);
-Route::put('/types-repas/{type_repas_code}', [TypeRepasController::class, 'updateTypeRepas']);
-Route::delete('/types-repas/{type_repas_code}', [TypeRepasController::class, 'supprimerClient']);
+Route::get('/types-repas/{typeRepas}', [TypeRepasController::class, 'afficherTypeRepas'])->whereNumber('typeRepas');
+Route::put('/types-repas/{typeRepas}', [TypeRepasController::class, 'updateTypeRepas'])->whereNumber('typeRepas');
+Route::delete('/types-repas/{typeRepas}', [TypeRepasController::class, 'supprimerTypeRepas'])->whereNumber('typeRepas');
 
 // Chambres routes
 Route::get('/chambres', [ChambreController::class, 'getAll']);
 Route::post('/chambres', [ChambreController::class, 'ajouterChambre']);
-Route::get('/chambres/{num_chambre}', [ChambreController::class, 'afficherChambre']);
-Route::put('/chambres/{num_chambre}', [ChambreController::class, 'updateChambre']);
-Route::delete('/chambres/{num_chambre}', [ChambreController::class, 'supprimerChambre']);
-Route::delete('/all-chambres', [ChambreController::class, 'supprimerChambres']);
+Route::get('/chambres/{chambre}', [ChambreController::class, 'afficherChambre'])->whereNumber('chambre');
+Route::put('/chambres/{chambre}', [ChambreController::class, 'updateChambre'])->whereNumber('chambre');
+Route::delete('/chambres/{chambre}', [ChambreController::class, 'supprimerChambre'])->whereNumber('chambre');
 
 // Info routes: Tested
 Route::get('/infos', [InfoController::class, 'getAll']);
@@ -130,15 +133,15 @@ Route::delete('/infos/{info_id}', [InfoController::class, 'supprimerInfo']);
 // Info routes: Tested
 Route::get('/desigs-chambre', [TarifChambreController::class, 'getAll']);
 Route::post('/desigs-chambre', [TarifChambreController::class, 'ajouterDesiTarif']);
-Route::get('/desigs-chambre/{desigs_id}', [TarifChambreController::class, 'afficherDesiTarif']);
-Route::put('/desigs-chambre/{desigs_id}', [TarifChambreController::class, 'updateDesiTarif']);
-Route::delete('/desigs-chambre/{desigs_id}', [TarifChambreController::class, 'supprimerDesiTarif']);
+Route::get('/desigs-chambre/{tarifChambre}', [TarifChambreController::class, 'afficherDesiTarif'])->whereNumber('tarifChambre');
+Route::put('/desigs-chambre/{tarifChambre}', [TarifChambreController::class, 'updateDesiTarif'])->whereNumber('tarifChambre');
+Route::delete('/desigs-chambre/{tarifChambre}', [TarifChambreController::class, 'supprimerDesiTarif'])->whereNumber('tarifChambre');
 
 Route::get('/desigs-repas', [TarifRepasController::class, 'getAll']);
 Route::post('/desigs-repas', [TarifRepasController::class, 'ajouterDesiTarif']);
-Route::get('/desigs-repas/{desigs_id}', [TarifRepasController::class, 'afficherDesiTarif']);
-Route::put('/desigs-repas/{desigs_id}', [TarifRepasController::class, 'updateDesiTarif']);
-Route::delete('/desigs-repas/{desigs_id}', [TarifRepasController::class, 'supprimerDesiTarif']);
+Route::get('/desigs-repas/{tarifRepas}', [TarifRepasController::class, 'afficherDesiTarif'])->whereNumber('tarifRepas');
+Route::put('/desigs-repas/{tarifRepas}', [TarifRepasController::class, 'updateDesiTarif'])->whereNumber('tarifRepas');
+Route::delete('/desigs-repas/{tarifRepas}', [TarifRepasController::class, 'supprimerDesiTarif'])->whereNumber('tarifRepas');
 
 Route::get('/vues', [VueController::class, 'getAll']);
 Route::post('/vues', [VueController::class, 'ajouterVue']);
@@ -154,9 +157,9 @@ Route::delete('/etages/{etage}', [EtageController::class, 'supprimerEtage']);
 
 Route::get('/desigs-reduction', [TarifReductionController::class, 'getAll']);
 Route::post('/desigs-reduction', [TarifReductionController::class, 'ajouterDesiTarif']);
-Route::get('/desigs-reduction/{desigs_id}', [TarifReductionController::class, 'afficherDesiTarif']);
-Route::put('/desigs-reduction/{desigs_id}', [TarifReductionController::class, 'updateDesiTarif']);
-Route::delete('/desigs-reduction/{desigs_id}', [TarifReductionController::class, 'supprimerDesiTarif']);
+Route::get('/desigs-reduction/{tarifReduction}', [TarifReductionController::class, 'afficherDesiTarif'])->whereNumber('tarifReduction');
+Route::put('/desigs-reduction/{tarifReduction}', [TarifReductionController::class, 'updateDesiTarif'])->whereNumber('tarifReduction');
+Route::delete('/desigs-reduction/{tarifReduction}', [TarifReductionController::class, 'supprimerDesiTarif'])->whereNumber('tarifReduction');
 
 Route::get('clients_particulier/{clientId}/siteclients', [ClientParticulierController::class, 'siteclients']);
 Route::get('clients_particulier/{clientId}/bonslivraison', [ClientParticulierController::class, 'bonsLivraisonClient']);
@@ -262,18 +265,26 @@ Route::post('/maintenances/{id}', [MaintenanceRecordController::class, 'update']
 Route::delete('/maintenances/{id}', [MaintenanceRecordController::class, 'destroy']);
 
     // Routes pour les équipements
-    Route::apiResource('equipements', EquipementController::class);
     Route::get('/equipements/stats', [EquipementController::class, 'stats']);
     Route::get('/equipements/categories', [EquipementController::class, 'categories']);
+    Route::apiResource('equipements', EquipementController::class)
+        ->whereNumber('equipement');
+    Route::apiResource('emplacements', EmplacementController::class)
+        ->only(['index', 'store', 'update', 'destroy'])
+        ->whereNumber('emplacement');
 
 // EtatChambre routes
 Route::get('/etat-chambre', [EtatChambreController::class, 'index']);
 Route::post('/etat-chambre', [EtatChambreController::class, 'store']);
+Route::get('/etat-chambre/chambres-with-etat', [EtatChambreController::class, 'getChambresWithEtat']);
+Route::get('/etat-chambre/maintenance-types', [EtatChambreController::class, 'getMaintenanceTypes']);
 Route::get('/etat-chambre/{num_chambre}', [EtatChambreController::class, 'show']);
 Route::put('/etat-chambre/{num_chambre}', [EtatChambreController::class, 'update']);
 Route::delete('/etat-chambre/{num_chambre}', [EtatChambreController::class, 'destroy']);
-Route::get('/etat-chambre/chambres-with-etat', [EtatChambreController::class, 'getChambresWithEtat']);
-Route::get('/maintenance-types', [MaintenanceTypeController::class, 'index']);
+Route::apiResource('maintenance-types', MaintenanceTypeController::class)
+    ->whereNumber('maintenance_type');
+Route::apiResource('employes', EmployeController::class)
+    ->whereNumber('employe');
 
 // Remove the old reclamation routes and add the new grouped ones
 Route::prefix('reclamations')->group(function () {
@@ -290,20 +301,28 @@ Route::prefix('reclamations')->group(function () {
 });
 
 
-//Routes for Reservation
-Route::get('/reservations', [ReservationController::class, 'getAll']); 
-Route::post('/reservations', [ReservationController::class, 'ajouterReservation']); 
-Route::get('/reservations/{reservation_number}', [ReservationController::class, 'afficherReservation']); 
-//Route::put('/reservations/{reservation_number}', [ReservationController::class, 'updateReservation']); 
-//Route::delete('/reservations/{reservation_number}', [ReservationController::class, 'supprimerReservation']);
-Route::get('/available-rooms', [ReservationController::class, 'getAvailableRooms']);
-Route::get('/reservations', [ReservationController::class, 'getReservationsByDateRange']);
-Route::get('/reservations', [ReservationController::class, 'getAll']);
-Route::post('/reservations', [ReservationController::class, 'ajouterReservation']);
-//Route::put('/reservations/{id}', [ReservationController::class, 'updateReservation']);
-Route::delete('/reservations/{id}', [ReservationController::class, 'supprimerReservation']);
-Route::post('/reservations/calculate-tarif', [ReservationController::class, 'calculateTarif']);
-//Route::delete('reservations/{reservation_num}', [ReservationController::class, 'destroy']);
+// Reservation API. Static routes must stay before identifier routes.
+Route::get('/reservations/readiness', ReservationReadinessController::class);
+Route::get('/reservations/form-options', ReservationFormOptionsController::class);
+Route::get('/reservations/available-rooms', [ReservationController::class, 'availableRooms']);
+Route::post('/reservations/calculate-price', [ReservationController::class, 'calculatePrice']);
+Route::get('/reservations', [ReservationController::class, 'index']);
+Route::post('/reservations', [ReservationController::class, 'store']);
+Route::patch('/reservations/{reservation}/status', [ReservationController::class, 'updateStatus'])
+    ->whereNumber('reservation');
+Route::get('/reservations/{reservation}', [ReservationController::class, 'show'])
+    ->whereNumber('reservation');
+Route::put('/reservations/{reservation}', [ReservationController::class, 'update'])
+    ->whereNumber('reservation');
 
-// routes/api.php
-Route::put('/reservations/{reservation_num}', [ReservationController::class, 'update']);
+// Deprecated compatibility aliases retained until the Phase 3C frontend migration.
+Route::get('/available-rooms', [ReservationController::class, 'availableRooms']);
+Route::post('/reservations/calculate-tarif', [ReservationController::class, 'calculatePrice']);
+Route::delete('/reservations/{reservation}', [ReservationController::class, 'cancelFromDelete'])
+    ->whereNumber('reservation');
+Route::get('/reservations/{reservationReference}', [ReservationController::class, 'showByNumber'])
+    ->where('reservationReference', 'R[A-Za-z0-9]+');
+Route::put('/reservations/{reservationReference}', [ReservationController::class, 'updateByNumber'])
+    ->where('reservationReference', 'R[A-Za-z0-9]+');
+Route::delete('/reservations/{reservationReference}', [ReservationController::class, 'cancelByNumberFromDelete'])
+    ->where('reservationReference', 'R[A-Za-z0-9]+');

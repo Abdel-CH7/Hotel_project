@@ -2,25 +2,27 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasTariffPlanUsage;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-
 class TarifChambre extends Model
 {
-    protected $table = "tarifs_chambre";
-    protected $fillable = [
-        'designation',
-        'photo'
-    ];
+    use HasFactory, HasTariffPlanUsage;
 
-    public function tarif_actuel() {
-        return $this->hasMany(TarifActuel::class, "tarif_chambre_code");
+    protected $table = 'tarifs_chambre';
+
+    protected $fillable = ['designation', 'photo'];
+
+    protected $appends = ['usage'];
+
+    public function details()
+    {
+        return $this->hasMany(TarifChambreDetail::class, 'tarif_chambre_id');
     }
 
-    public function tarif_chambre() {
-        return $this->hasMany(TarifChambreDetail::class, 'tarif_chambre');
+    public function tariffPeriods()
+    {
+        return $this->hasMany(TarifActuel::class, 'tarif_chambre_id');
     }
-
-    use HasFactory;
 }

@@ -4,30 +4,23 @@ namespace App\Http\Controllers;
 
 use App\Models\MaintenanceType;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 
 class MaintenanceTypeController extends Controller
 {
     public function index()
     {
-        $types = MaintenanceType::all();
-        return response()->json(['types' => $types]);
+        return response()->json([
+            'success' => true,
+            'maintenance_types' => MaintenanceType::orderBy('code')->get(),
+        ]);
     }
 
     public function store(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'code' => 'required|string|unique:types_maintenance',
-            'types_maintenance' => 'required|string',
-            'description' => 'nullable|string'
-        ]);
+        $type = MaintenanceType::create($request->validate($this->rules()));
 
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
-        }
-
-        $type = MaintenanceType::create($request->all());
-        return response()->json(['type' => $type], 201);
+        return response()->json(['success' => true, 'type' => $type], 201);
     }
 
     public function show($id)
@@ -38,7 +31,7 @@ class MaintenanceTypeController extends Controller
             return response()->json(['message' => 'Type de maintenance non trouvé'], 404);
         }
 
-        return response()->json(['type' => $type]);
+        return response()->json(['success' => true, 'type' => $type]);
     }
 
     public function update(Request $request, $id)
@@ -49,18 +42,9 @@ class MaintenanceTypeController extends Controller
             return response()->json(['message' => 'Type de maintenance non trouvé'], 404);
         }
 
-        $validator = Validator::make($request->all(), [
-            'code' => 'sometimes|required|string|unique:types_maintenance,code,' . $id,
-            'types_maintenance' => 'sometimes|required|string',
-            'description' => 'nullable|string'
-        ]);
+        $type->update($request->validate($this->rules($type)));
 
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
-        }
-
-        $type->update($request->all());
-        return response()->json(['type' => $type]);
+        return response()->json(['success' => true, 'type' => $type->fresh()]);
     }
 
     public function destroy($id)
@@ -71,7 +55,34 @@ class MaintenanceTypeController extends Controller
             return response()->json(['message' => 'Type de maintenance non trouvé'], 404);
         }
 
+        if ($type->etatChambres()->exists()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ce type de maintenance ne peut pas être supprimé car il est affecté à un état de chambre.',
+            ], 409);
+        }
+
         $type->delete();
-        return response()->json(['message' => 'Type de maintenance supprimé avec succès']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Type de maintenance supprimé avec succès.',
+        ]);
     }
-} 
+
+    private function rules(?MaintenanceType $type = null): array
+    {
+        $required = $type ? 'sometimes' : 'required';
+
+        return [
+            'code' => [
+                $required,
+                'string',
+                'max:255',
+                Rule::unique('types_maintenance', 'code')->ignore($type?->id),
+            ],
+            'types_maintenance' => "{$required}|string|max:255",
+            'description' => 'nullable|string',
+        ];
+    }
+}

@@ -18,14 +18,25 @@ class TypeChambre extends Model
         "type_chambre",
         "nb_lit",
         "nb_salle",
+        "capacite_standard",
+        "lits_supplementaires_max",
         "commentaire",
     ];
-    public function chambres() {
-        return $this->hasMany(Chambre::class, 'type_chambre');
-    }
-    
 
-    public function tarif_chambre_detail() {
-        return $this->hasMany(TarifChambreDetail::class, "type_chambre");
+    protected $casts = [
+        'nb_lit' => 'integer',
+        'nb_salle' => 'integer',
+        'capacite_standard' => 'integer',
+        'lits_supplementaires_max' => 'integer',
+    ];
+
+    public function chambres()
+    {
+        return $this->hasMany(Chambre::class, 'type_chambre_id');
+    }
+
+    public function tarifChambreDetails()
+    {
+        return $this->hasMany(TarifChambreDetail::class, 'type_chambre_id');
     }
 }

@@ -19,6 +19,8 @@ class Equipement extends Model
         'date_fin_garantie',
         'fournisseur',
         'localisation',
+        'chambre_id',
+        'emplacement_id',
         'statut',
         'categorie_id',
         'prix_achat',
@@ -35,6 +37,16 @@ class Equipement extends Model
     public function categorie()
     {
         return $this->belongsTo(CategorieEquipement::class, 'categorie_id');
+    }
+
+    public function chambre()
+    {
+        return $this->belongsTo(Chambre::class);
+    }
+
+    public function emplacement()
+    {
+        return $this->belongsTo(Emplacement::class);
     }
 
     public function scopeDisponible($query)
