@@ -1,30 +1,33 @@
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import Swal from "sweetalert2";
 import { Form, Button, Modal, Carousel } from "react-bootstrap";
-import Navigation from "../Acceuil/Navigation";
-import PrintList from "./PrintList";
-import { highlightText } from '../utils/textUtils';
-import ExportPdfButton from "./exportToPdf";
-import "jspdf-autotable";
-import Search from "../Acceuil/Search";
+import {
+  getNumberSearchVariants,
+  highlightText,
+  matchesNormalizedSearch,
+} from '../utils/textUtils';
+import SearchWithExport from "../components/SearchWithExport";
+import ListFilterReset from "../components/ListFilterReset";
+import ListPagination from "../components/ListPagination";
+import ListState from "../components/ListState";
+import useListControls from "../components/useListControls";
+import {
+  exportToExcel as exportRowsToExcel,
+  exportToPdf as exportRowsToPdf,
+  printRows,
+} from "../utils/listExportUtils";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import PeopleIcon from "@mui/icons-material/People";
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
 import {
   faTrash,
-  faFileExcel,
   faPlus,
   faMinus,
   faCircleInfo,
   faSquarePlus,
   faEdit,
   faList,
-  faPrint,
-  faFilePdf,
 } from "@fortawesome/free-solid-svg-icons";
-import * as XLSX from "xlsx";
 import "../style.css";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import Box from "@mui/material/Box";
@@ -32,6 +35,37 @@ import { Fab } from "@mui/material";
 import { useOpen } from "../Acceuil/OpenProvider"; // Importer le hook personnalisé
 import { FaArrowLeft, FaArrowRight } from "react-icons/fa6";
 import allSectorsImage from "../assets/sectors/all.png";
+
+const CLIENT_COMPANY_EXPORT_COLUMNS = [
+  { key: "code", label: "Code" },
+  { key: "companyName", label: "Raison sociale" },
+  { key: "abbreviation", label: "Abréviation" },
+  { key: "ice", label: "ICE" },
+  { key: "address", label: "Adresse" },
+  { key: "phone", label: "Téléphone" },
+  { key: "city", label: "Ville" },
+  { key: "postalCode", label: "Code postal" },
+  { key: "zone", label: "Zone" },
+  { key: "region", label: "Région" },
+  { key: "category", label: "Catégorie" },
+  { key: "sector", label: "Secteur d’activité" },
+  { key: "paymentDeadline", label: "Échéance" },
+  { key: "creditLimit", label: "Montant plafond" },
+  { key: "paymentMethod", label: "Mode de paiement" },
+];
+
+const formatCompanyExportAmount = (value) => {
+  const numericValue = Number(value);
+
+  if (!Number.isFinite(numericValue)) return "";
+
+  const formattedValue = new Intl.NumberFormat("fr-FR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(numericValue);
+
+  return `${formattedValue.replace(/[\u202F\u00A0]/g, " ")} DH`;
+};
 
 //------------------------- CLIENT LIST---------------------//
 const ClientList = () => {
@@ -45,7 +79,7 @@ const ClientList = () => {
     logoP: null
   });
   const [modePaimant, setModePaimant] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState("");
 
 
   const [secteurClient, setSecteurClient] = useState([]);
@@ -68,7 +102,9 @@ const ClientList = () => {
 
   const [regionFilter, setRegionFilter] = useState('');
 const [zoneFilter, setZoneFilter] = useState('');
-const [villeFilter, setVilleFilter] = useState('');
+  const [villeFilter, setVilleFilter] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
   const [showForm, setShowForm] = useState(false);
   const [errorsCR, setErrorsCR] = useState({
@@ -132,19 +168,8 @@ const [villeFilter, setVilleFilter] = useState('');
 
   const [showAddMod, setShowAddMod] = useState(false); // Gère l'affichage du formulaire
 
-  //-------------------Pagination-----------------------/
-  const [rowsPerPage, setRowsPerPage] = useState(5);
-  const [page, setPage] = useState(0);
-  const [filteredclients, setFilteredclients] = useState([]);
-  // Pagination calculations
-  const indexOfLastClient = (page + 1) * rowsPerPage;
-  const indexOfFirstClient = indexOfLastClient - rowsPerPage;
-  const currentClients = clients.slice(indexOfFirstClient, indexOfLastClient);
   //-------------------Selected-----------------------/
   const [selectedItems, setSelectedItems] = useState([]);
-  const [selectAll, setSelectAll] = useState(false);
-  //-------------------Search-----------------------/
-  const [searchTerm, setSearchTerm] = useState("");
   const [selectedClientId, setSelectedClientId] = useState(null);
   //------------------------Site-Client---------------------
   const [showFormSC, setShowFormSC] = useState(false);
@@ -176,7 +201,6 @@ const [villeFilter, setVilleFilter] = useState('');
   const [expandedRowsContactSite, setExpandedRowsContactsite] = useState([]);
 
 
-  const [filteredsiteclients, setFilteredsiteclients] = useState([]);
   const { open } = useOpen();
   const { dynamicStyles } = useOpen();
   const [selectedProductsData, setSelectedProductsData] = useState([]);
@@ -184,12 +208,15 @@ const [villeFilter, setVilleFilter] = useState('');
 
 
   const fetchClients = async () => {
+    setLoading(true);
+    setLoadError("");
+
     try {
       const response = await axios.get("http://localhost:8000/api/all-data-client");
       const data = response.data;
   
       // Set the state for each category of data
-      setClients(data.clients);
+      setClients(data.clients || []);
       setUsers(data.users);
       setZones(data.zones);
       setSecteurClient(data.secteurClients);
@@ -205,13 +232,13 @@ const [villeFilter, setVilleFilter] = useState('');
       localStorage.setItem("regions", JSON.stringify(data.regions));
       localStorage.setItem("siteClients_societe", JSON.stringify(data.site_clients || []));
     } catch (error) {
-      if (error.response && error.response.status === 403) {
-        Swal.fire({
-          icon: "error",
-          title: "Accès refusé",
-          text: "Vous n'avez pas l'autorisation de voir la liste des Clients.",
-        });
-      }
+      setLoadError(
+        error.response?.status === 403
+          ? "Vous n'avez pas l'autorisation de voir la liste des Clients."
+          : error.response?.data?.message || "Impossible de charger les clients société."
+      );
+    } finally {
+      setLoading(false);
     }
   };
   
@@ -234,6 +261,7 @@ const [villeFilter, setVilleFilter] = useState('');
 
     if (!storedClients || !storedModes || !storedSecteurClients || !storedZones || !storedUsers || !storedRegions || !storedSiteClients) 
       fetchClients();
+    else setLoading(false);
   }, []);
 
 
@@ -258,27 +286,6 @@ const [villeFilter, setVilleFilter] = useState('');
         : [...prevExpandedRows, clientId]
     );
   };
-
-  //---------------------------------------------
-  useEffect(() => {
-    const filtered = clients.filter((client) =>
-      Object.values(client).some((value) => {
-        if (typeof value === "string") {
-          return value.toLowerCase().includes(searchTerm.toLowerCase());
-        } else if (typeof value === "number") {
-          return value.toString().includes(searchTerm.toLowerCase());
-        }
-        return false;
-      })
-    );
-
-    setFilteredclients(filtered);
-  }, [clients, searchTerm]);
-
-  const handleSearch = (term) => {
-    setSearchTerm(term);
-  };
-
 
   const handleChangeSC = (e) => {
     setFormDataSC({
@@ -923,26 +930,6 @@ const [villeFilter, setVilleFilter] = useState('');
     setEditingSiteClient(null); // Clear editing client
   };
 
-  //------------------------- CLIENT PAGINATION---------------------//
-
-  const handleChangePage = (event, newPage) => {
-    setPage(newPage);
-  };
-
-  const handleChangeRowsPerPage = (event) => {
-    const selectedRows = parseInt(event.target.value, 10);
-    setRowsPerPage(selectedRows);
-    localStorage.setItem('rowsPerPageClients', selectedRows);  // Store in localStorage
-    setPage(0);
-  };
-
-  useEffect(() => {
-    const savedRowsPerPage = localStorage.getItem('rowsPerPageClients');
-    if (savedRowsPerPage) {
-      setRowsPerPage(parseInt(savedRowsPerPage, 10));
-    }
-  }, []);
-
   //------------------------- CLIENT DELETE---------------------//
 
   const handleDelete = async (id) => {
@@ -1031,34 +1018,14 @@ const [villeFilter, setVilleFilter] = useState('');
 
 // --------------------------------------------------selectionner les checknox------------------------
 
-  // const handleSelectAllChange = () => {
-  //   setSelectAll(!selectAll);
-  //   if (selectAll) {
-  //     setSelectedItems([]);
-  //   } else {
-  //     setSelectedItems(clients?.map((client) => client.id));
-  //   }
-  // };
-
   const handleSelectAllChange = () => {
-    const newSelectAll = !selectAll;
-    setSelectAll(newSelectAll);
-  
-    // Récupérer uniquement les clients de la page actuelle
-    const clientsOnCurrentPage = filteredClients.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
-    
-    if (newSelectAll) {
-      // Ajouter uniquement les clients visibles
-      setSelectedItems(prevSelectedItems => [
-        ...prevSelectedItems,
-        ...clientsOnCurrentPage.map(client => client.id)
-      ]);
-    } else {
-      // Supprimer uniquement les clients de la page actuelle
-      setSelectedItems(prevSelectedItems =>
-        prevSelectedItems.filter(id => !clientsOnCurrentPage.some(client => client.id === id))
-      );
-    }
+    setSelectedItems((currentItems) => {
+      if (allVisibleClientsSelected) {
+        return currentItems.filter((id) => !visibleClientIds.includes(id));
+      }
+
+      return [...new Set([...currentItems, ...visibleClientIds])];
+    });
   };
 
 
@@ -1072,112 +1039,11 @@ const [villeFilter, setVilleFilter] = useState('');
 
 
   const handleCheckboxChange = (itemId) => {
-    let updatedSelectedItems = [...selectedItems];
-  
-    if (updatedSelectedItems.includes(itemId)) {
-      updatedSelectedItems = updatedSelectedItems.filter(id => id !== itemId);
-    } else {
-      updatedSelectedItems.push(itemId);
-    }
-  
-    setSelectedItems(updatedSelectedItems);
-  
-    // Vérifier si tous les éléments de la page sont sélectionnés
-    const clientsOnCurrentPage = filteredClients.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
-    setSelectAll(clientsOnCurrentPage.every(client => updatedSelectedItems.includes(client.id)));
-  };
-
-
-  const exportToExcel = () => {
-    const table = document.getElementById('clientsTable');
-    const workbook = XLSX.utils.table_to_book(table, { sheet: 'Clients' });
-    XLSX.writeFile(workbook, 'clients_table.xlsx');
-  };
-
-  
-  const exportToPDF = () => {
-    const doc = new jsPDF();
-    
-    // Manually adding HTML content
-    const title = 'Table  Clients';
-    doc.text(title, 14, 16);
-    
-    doc.autoTable({
-      head: [['Logo', 'Code', 'Raison Sociale', 'Téléphone', 'Ville', 'Zone', 'Région']],
-      body: filteredClients?.map(client => [
-        client.logoC ? { content: 'Logo', rowSpan: 1 } : '',
-        client.CodeClient || '',
-        client.raison_sociale || '',
-        client.tele || '',
-        client.ville || '',
-        client.zone?.zone || '',
-        client.region?.region || ''
-      ]),
-      startY: 20,
-      theme: 'grid',
-      styles: { fontSize: 8, overflow: 'linebreak' },
-      headStyles: { fillColor: '#007bff' }
-    });
-  
-    doc.save('clients_table.pdf');
-  };
-  
-
-  const printTable = () => {
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Client List</title>
-          <style>
-            table {
-              width: 100%;
-              border-collapse: collapse;
-            }
-            th, td {
-              border: 1px solid black;
-              padding: 8px;
-              text-align: left;
-            }
-            th {
-              background-color: #f2f2f2;
-            }
-          </style>
-        </head>
-        <body>
-          <h1>Client List</h1>
-          <table>
-            <thead>
-              <tr>
-                <th>Logo</th>
-                <th>Code</th>
-                <th>Raison Sociale</th>
-                <th>Téléphone</th>
-                <th>Ville</th>
-                <th>Zone</th>
-                <th>Région</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${filteredClients?.map(client => `
-                <tr>
-                  <td><img src="${client.logoC ? `http://localhost:8000/storage/${client.logoC}` : "http://localhost:8000/storage/default_user.png"}" loading="lazy" alt="Logo" style="width:50px; height:50px; border-radius:50%;" /></td>
-                  <td>${client.CodeClient || ''}</td>
-                  <td>${client.raison_sociale || ''}</td>
-                  <td>${client.tele || ''}</td>
-                  <td>${client.ville || ''}</td>
-                  <td>${client.zone?.zone || ''}</td>
-                  <td>${client.region?.region || ''}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </body>
-      </html>
-    `);
-  
-    printWindow.document.close();
-    printWindow.print();
+    setSelectedItems((currentItems) =>
+      currentItems.includes(itemId)
+        ? currentItems.filter((id) => id !== itemId)
+        : [...currentItems, itemId]
+    );
   };
   
   //------------------ Zone --------------------//
@@ -1492,41 +1358,170 @@ const handleInputChangeRep = (index, field, value) => {
 
 const handleRegionFilterChange = (e) => {
   setRegionFilter(e.target.value);
+  resetPage();
 };
 
 const handleZoneFilterChange = (e) => {
   setZoneFilter(e.target.value);
+  resetPage();
 };
 
 const handleVilleFilterChange = (e) => {
   setVilleFilter(e.target.value);
+  resetPage();
 };
-const filteredClients = clients.filter((client) => {
+
+const getPaymentMethodLabel = (client) =>
+  modePaimant.find((mode) => String(mode.id) === String(client?.mod_id))?.mode_paimants || "";
+
+const getSectorLabel = (client) =>
+  secteurClient.find((sector) => String(sector.id) === String(client?.secteur_id))?.secteurClient ||
+  client?.secteur?.secteurClient ||
+  "";
+
+const getRepresentativeLabel = (client) => {
+  const representatives = Array.isArray(client?.represantant) ? client.represantant : [];
+  const names = representatives
+    .map((representative) => {
+      const representativeId = representative.id_agent ?? representative.agent_id;
+      return (
+        agent.find((item) => String(item.id) === String(representativeId))?.NomAgent ||
+        representative.NomAgent ||
+        representative.nom ||
+        ""
+      );
+    })
+    .filter(Boolean);
+
+  if (names.length) return names.join(", ");
+
   return (
-    ((regionFilter ? client.region?.region === regionFilter : true) &&
-    (zoneFilter ? client.zone?.zone === zoneFilter : true) &&
-    (villeFilter ? client.ville === villeFilter : true) &&
-    (selectedCategory ? client.secteur_id
-      === selectedCategory : true)) &&
-      (
-        // (searchTerm ? client?.secteur?.secteurClient?.toLowerCase().startsWith(searchTerm.toLowerCase()) : true) ||
-        (searchTerm ? client?.zone?.zone?.toLowerCase().includes(searchTerm.toLowerCase()) : true) ||
-        (searchTerm ? client?.region?.region?.toLowerCase().includes(searchTerm.toLowerCase()) : true) ||
-        (searchTerm ? client?.ville?.toLowerCase().includes(searchTerm.toLowerCase()) : true) ||
-        (searchTerm ? client?.categorie?.toLowerCase().includes(searchTerm.toLowerCase()) : true) ||
-        (searchTerm ? client?.CodeClient?.toLowerCase().includes(searchTerm.toLowerCase()) : true) ||
-        (searchTerm ? client?.raison_sociale?.toLowerCase().includes(searchTerm.toLowerCase()) : true) ||
-        (searchTerm ? client?.ice?.toLowerCase().includes(searchTerm.toLowerCase()) : true) ||
-        (searchTerm ? client?.categorie?.toLowerCase().includes(searchTerm.toLowerCase()) : true) ||
-        (searchTerm ? client?.seince?.toLowerCase().includes(searchTerm.toLowerCase()) : true) ||
-        (searchTerm ? client?.abreviation?.toLowerCase().includes(searchTerm.toLowerCase()) : true) ||
-        (searchTerm ? client?.tele?.toLowerCase().includes(searchTerm.toLowerCase()) : true) ||
-        (searchTerm ? client?.code_postal?.toLowerCase().includes(searchTerm.toLowerCase()) : true) ||
-        (searchTerm ? client?.adresse?.toLowerCase().includes(searchTerm.toLowerCase()) : true) ||
-        (searchTerm ? modePaimant.find((agent)=>agent.id===client?.mod_id)?.mode_paimants.toLowerCase().includes(searchTerm.toLowerCase()) : true) ||
-        (searchTerm ? secteurClient.find((agent)=>agent.id===client?.secteur_id)?.secteurClient?.toLowerCase().includes(searchTerm.toLowerCase()) : true) 
-      )
+    agent.find((item) => String(item.id) === String(client?.last_represantant?.id_agent))?.NomAgent ||
+    client?.last_represantant?.NomAgent ||
+    ""
   );
+};
+
+const filterClients = useCallback((rows, currentSearchTerm) =>
+  rows.filter((client) => {
+    const matchesRegion = regionFilter
+      ? String(client.region?.region || "") === String(regionFilter)
+      : true;
+    const matchesZone = zoneFilter
+      ? String(client.zone?.zone || "") === String(zoneFilter)
+      : true;
+    const matchesCity = villeFilter
+      ? String(client.ville || "") === String(villeFilter)
+      : true;
+    const matchesSector = selectedCategory !== ""
+      ? String(client.secteur_id) === String(selectedCategory)
+      : true;
+    const matchesSearch = matchesNormalizedSearch(currentSearchTerm, [
+      client.CodeClient,
+      client.raison_sociale,
+      client.abreviation,
+      client.ice,
+      client.if,
+      client.IF,
+      client.identifiant_fiscal,
+      client.rc,
+      client.RC,
+      client.registre_commerce,
+      client.patente,
+      client.num_patente,
+      getRepresentativeLabel(client),
+      client.adresse,
+      client.tele,
+      client.ville,
+      client.code_postal,
+      client.zone?.zone,
+      client.region?.region,
+      client.categorie,
+      getSectorLabel(client),
+      getPaymentMethodLabel(client),
+      client.seince,
+      client.echeance,
+      client.delai_paiement,
+      getNumberSearchVariants(client.montant_plafond, "DH"),
+      client.nationalite,
+      client.pays,
+    ]);
+
+    return matchesRegion && matchesZone && matchesCity && matchesSector && matchesSearch;
+  }), [agent, modePaimant, regionFilter, secteurClient, selectedCategory, villeFilter, zoneFilter]);
+
+const {
+  searchTerm,
+  page,
+  rowsPerPage,
+  filteredRows: filteredClients,
+  visibleRows: visibleClients,
+  totalRows,
+  setSearchTerm,
+  setPage,
+  setRowsPerPage,
+  resetPage,
+} = useListControls({
+  allRows: clients,
+  filterRows: filterClients,
+  storageKey: "rowsPerPageClients",
+});
+
+const visibleClientIds = visibleClients.map((client) => client.id);
+const allVisibleClientsSelected =
+  visibleClientIds.length > 0 &&
+  visibleClientIds.every((id) => selectedItems.includes(id));
+const filtersActive = Boolean(
+  searchTerm || selectedCategory !== "" || regionFilter || zoneFilter || villeFilter
+);
+
+const resetFilters = useCallback(() => {
+  setSearchTerm("");
+  setSelectedCategory("");
+  setRegionFilter("");
+  setZoneFilter("");
+  setVilleFilter("");
+  resetPage();
+}, [resetPage, setSearchTerm]);
+
+const exportRows = useMemo(() => filteredClients.map((client) => ({
+  code: client.CodeClient || "",
+  companyName: client.raison_sociale || "",
+  abbreviation: client.abreviation || "",
+  ice: client.ice || "",
+  address: client.adresse || "",
+  phone: client.tele || "",
+  city: client.ville || "",
+  postalCode: client.code_postal || "",
+  zone: client.zone?.zone || "",
+  region: client.region?.region || "",
+  category: client.categorie || "",
+  sector: getSectorLabel(client),
+  paymentDeadline: client.seince ?? client.echeance ?? client.delai_paiement ?? "",
+  creditLimit: client.montant_plafond === null || client.montant_plafond === undefined || client.montant_plafond === ""
+    ? ""
+    : formatCompanyExportAmount(client.montant_plafond),
+  paymentMethod: getPaymentMethodLabel(client),
+})), [agent, filteredClients, modePaimant, secteurClient]);
+
+const exportToExcel = () => exportRowsToExcel({
+  rows: exportRows,
+  columns: CLIENT_COMPANY_EXPORT_COLUMNS,
+  sheetName: "Clients Société",
+  filename: "clients-societe.xlsx",
+});
+const exportToPDF = () => exportRowsToPdf({
+  rows: exportRows,
+  columns: CLIENT_COMPANY_EXPORT_COLUMNS,
+  title: "Liste des Clients Société",
+  filename: "clients-societe.pdf",
+  orientation: "landscape",
+});
+const printTable = () => printRows({
+  rows: exportRows,
+  columns: CLIENT_COMPANY_EXPORT_COLUMNS,
+  title: "Liste des Clients Société",
+  orientation: "landscape",
 });
 
 
@@ -1848,7 +1843,6 @@ const handleEditModP = (categorieId) => {
 };
 
 const [activeIndex, setActiveIndex] = useState(0);
-const [filtreclientBySect,setFiltreClientBySect] = useState([])
 const handleSelect = (selectedIndex) => {
   setActiveIndex(selectedIndex);
 };
@@ -1865,6 +1859,7 @@ const chunks = chunkArray(secteurClient, chunkSize);
 
 const handleCategoryFilterChange = (catId) => {
   setSelectedCategory(catId);
+  resetPage();
 };
 useEffect(() => {
 },[selectedProductsData])
@@ -1875,34 +1870,17 @@ useEffect(() => {
         <Box component="main" className="app-page clients-societe-page" sx={{ flexGrow: 1, p: 3, mt: 0 }}>
 
        
-          <div className="app-page-header">
-            <h1 className="app-page-title">Liste des Clients Société</h1>
-            <div className="app-toolbar">
-              <div className="app-search-box">
-                <Search onSearch={handleSearch} type="search" />
-              </div>
-
-
-              <div className="app-export-actions">
-              <FontAwesomeIcon
-    onClick={printTable}  
-    icon={faPrint}
-    className="app-action-icon is-muted"
-  />
-                  <FontAwesomeIcon
-      onClick={exportToPDF}
-            icon={faFilePdf}
-      className="app-action-icon is-danger"
-    />
-
-                <FontAwesomeIcon
-                  icon={faFileExcel}
-                  onClick={exportToExcel}
-                  className="app-action-icon is-success"
-                />
-              </div>
-            </div>
-          </div>
+          <SearchWithExport
+            Title="Liste des Clients Société"
+            searchValue={searchTerm}
+            onSearchChange={setSearchTerm}
+            printTable={printTable}
+            exportToPDF={exportToPDF}
+            exportToExcel={exportToExcel}
+            resultCount={totalRows}
+            loading={loading}
+            exportsDisabled={loading || totalRows === 0}
+          />
 
           {
           
@@ -1936,14 +1914,14 @@ useEffect(() => {
         {chunk?.map((category, index) => (
           <a href="#" className="mx-5" key={index}>
             <div 
-              className={`category-item ${selectedCategory === category.id ? 'active' : ''}`} 
+              className={`category-item ${String(selectedCategory) === String(category.id) ? 'active' : ''}`}
               onClick={() => handleCategoryFilterChange(category.id)}
             >
               <img
                 src={category.logoP ? `http://localhost:8000/storage/${category.logoP}` : "http://localhost:8000/storage/secteur-activite.webp"}
                 alt={category.secteurClient}
                 loading="lazy"
-                className={`rounded-circle category-img ${selectedCategory === category.id ? 'selected' : ''}`}
+                className={`rounded-circle category-img ${String(selectedCategory) === String(category.id) ? 'selected' : ''}`}
               />
               <p className="category-text">{category.secteurClient}</p>
             </div>
@@ -2010,7 +1988,7 @@ useEffect(() => {
   }
 </Form.Select>
 
-
+<ListFilterReset active={filtersActive} onReset={resetFilters} />
 
 </div>
 </div>
@@ -4164,6 +4142,16 @@ useEffect(() => {
 
               </Form>
             </div>
+            <ListState
+              loading={loading}
+              error={loadError}
+              allRowsCount={clients.length}
+              filteredRowsCount={totalRows}
+              emptyDataMessage="Aucun client société enregistré."
+              onRetry={fetchClients}
+              onResetFilters={resetFilters}
+            />
+            {!loading && !loadError && totalRows > 0 && (
             <div className="">
               <div
                 id="tableContainer"
@@ -4181,7 +4169,7 @@ useEffect(() => {
               
       </th>
       <th className="tableHead">
-        <input type="checkbox" checked={selectAll} onChange={handleSelectAllChange} />
+        <input type="checkbox" checked={allVisibleClientsSelected} onChange={handleSelectAllChange} />
       </th>
       <th className="tableHead">Logo</th>
       <th className="tableHead">Code</th>
@@ -4205,9 +4193,7 @@ useEffect(() => {
     </tr>
   </thead>
   <tbody className="text-center" style={{ backgroundColor: '#007bff' }}>
-    {filteredClients
-      .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-      ?.map((client) => {
+    {visibleClients.map((client) => {
         const rep =agent.find((agent)=>agent.id===client.last_represantant?.id_agent);
       return(
          <React.Fragment key={client.id}>
@@ -4247,13 +4233,13 @@ useEffect(() => {
             <td style={{ backgroundColor: "white" }}>{highlightText(client?.zone?.zone ||'', searchTerm)}</td>
             <td style={{ backgroundColor: "white" }}>{highlightText(client?.region?.region ||'', searchTerm)}</td>
             <td style={{ backgroundColor: "white" }}>{highlightText(client?.categorie ||'', searchTerm)}</td>
-            <td>{secteurClient.find((agent)=>agent.id===client?.secteur_id)?.secteurClient || ''}</td>
+            <td>{getSectorLabel(client)}</td>
  {/* <td style={{ backgroundColor: "white" }}>{highlightText(rep?.NomAgent || "", searchTerm) ||''}</td>      */}
        <td style={{ backgroundColor: "white" }}>{highlightText(client.seince ||'', searchTerm)}</td>
        <td style={{ backgroundColor: "white" }}>{highlightText(client.montant_plafond ||'', searchTerm)}</td>
        <td>
   {highlightText(
-    modePaimant.find((agent) => agent.id === client?.mod_id)?.mode_paimants,
+    getPaymentMethodLabel(client),
     searchTerm
   ) || ""}
 </td>
@@ -4499,56 +4485,17 @@ contact_site_clients
                     Supprimer selection
                   </Button>
 
-                  <div className="app-table-pagination">
-                    <span>Lignes par page:</span>
-
-                    <select
-                      value={rowsPerPage}
-                      onChange={(e) =>
-                        handleChangeRowsPerPage({
-                          target: { value: e.target.value },
-                        })
-                      }
-                    >
-                      {[5, 10, 15, 20, 25].map((value) => (
-                        <option key={value} value={value}>
-                          {value}
-                        </option>
-                      ))}
-                    </select>
-
-                    <span>
-                      {filteredClients.length > 0
-                        ? `${page * rowsPerPage + 1}-${Math.min(
-                            (page + 1) * rowsPerPage,
-                            filteredClients.length
-                          )} sur ${filteredClients.length}`
-                        : "0-0 sur 0"}
-                    </span>
-
-                    <button
-                      type="button"
-                      className="app-pagination-arrow"
-                      disabled={page === 0}
-                      onClick={(e) => handleChangePage(e, page - 1)}
-                      aria-label="Page précédente"
-                    >
-                      ‹
-                    </button>
-
-                    <button
-                      type="button"
-                      className="app-pagination-arrow"
-                      disabled={(page + 1) * rowsPerPage >= filteredClients.length}
-                      onClick={(e) => handleChangePage(e, page + 1)}
-                      aria-label="Page suivante"
-                    >
-                      ›
-                    </button>
-                  </div>
+                  <ListPagination
+                    page={page}
+                    rowsPerPage={rowsPerPage}
+                    totalRows={totalRows}
+                    onPageChange={setPage}
+                    onRowsPerPageChange={setRowsPerPage}
+                  />
                 </div>
               </div>
             </div>
+            )}
           </div>
         </Box>
       </Box>

@@ -7,8 +7,10 @@ const DynamicFilter = ({
   onFilterChange,
   onDateFilterChange,
   selectedDate,
+  values,
   onAddClick,
   addButtonLabel,
+  trailingControl,
 }) => {
   const handleFilterChange = (key, value) => {
     if (onFilterChange) {
@@ -18,6 +20,10 @@ const DynamicFilter = ({
 
   const formatSelectedDate = () => {
     if (!selectedDate) return "";
+
+    if (typeof selectedDate === "string") {
+      return selectedDate;
+    }
 
     if (selectedDate instanceof Date && !Number.isNaN(selectedDate.getTime())) {
       return selectedDate.toISOString().split("T")[0];
@@ -61,6 +67,7 @@ const DynamicFilter = ({
           return (
             <Form.Select
               key={index}
+              {...(values ? { value: values[filter.key] ?? "" } : {})}
               onChange={(e) => handleFilterChange(filter.key, e.target.value)}
               className="app-filter-select"
               title={filter.label}
@@ -75,6 +82,7 @@ const DynamicFilter = ({
             </Form.Select>
           );
         })}
+        {trailingControl}
       </div>
     </div>
   );

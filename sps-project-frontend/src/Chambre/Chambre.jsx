@@ -1,40 +1,56 @@
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import Swal from "sweetalert2";
 import { sanitizeInput } from '../utils/sanitizeInput';
 import { Form, Button, Modal, Carousel, Table } from "react-bootstrap";
-import Navigation from "../Acceuil/Navigation";
-import { highlightText } from '../utils/textUtils';
-import TablePagination from "@mui/material/TablePagination";
-import "jspdf-autotable";
-import Search from "../Acceuil/Search";
+import {
+  highlightText,
+  matchesNormalizedSearch,
+  normalizeSearchValue,
+} from '../utils/textUtils';
+import SearchWithExport from "../components/SearchWithExport";
+import ListFilterReset from "../components/ListFilterReset";
+import ListPagination from "../components/ListPagination";
+import ListState from "../components/ListState";
+import useListControls from "../components/useListControls";
+import {
+  exportToExcel as exportRowsToExcel,
+  exportToPdf as exportRowsToPdf,
+  printRows,
+} from "../utils/listExportUtils";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import PeopleIcon from "@mui/icons-material/People";
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
 import { storeDataInIndexedDB } from "../indexDB";
 import ExpandRTable from "../components/ExpandRTable";
 import allFilterImage from "../assets/sectors/all.png";
 
 import {
   faTrash,
-  faFileExcel,
   faPlus,
   faMinus,
   faCircleInfo,
   faSquarePlus,
   faEdit,
   faList,
-  faPrint,
-  faFilePdf,
 } from "@fortawesome/free-solid-svg-icons";
-import * as XLSX from "xlsx";
 import "../style.css";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import Box from "@mui/material/Box";
 import { Checkbox, Fab, Toolbar } from "@mui/material";
 import { useOpen } from "../Acceuil/OpenProvider"; // Importer le hook personnalisé
 import { FaArrowLeft, FaArrowRight } from "react-icons/fa6";
+
+const ROOM_EXPORT_COLUMNS = [
+  { key: "roomNumber", label: "Numéro de chambre" },
+  { key: "roomType", label: "Type de chambre" },
+  { key: "floor", label: "Étage" },
+  { key: "view", label: "Vue" },
+  { key: "beds", label: "Nombre de lits" },
+  { key: "bathrooms", label: "Nombre de salles de bain" },
+  { key: "airConditioning", label: "Climatisation" },
+  { key: "wifi", label: "Wi-Fi" },
+  { key: "comment", label: "Commentaire" },
+];
 
 //------------------------- Chambres ---------------------//
 const Chambre = () => {
@@ -65,7 +81,8 @@ const getStorageImageUrl = (photo, fallbackImage) => {
   const [chambres, setChambres] = useState([]);
   const [vueErrors, setVueErrors] = useState({ vue: "", photo: "", vueAdd: "" });
   const [typeErrors, setTypeErrors] = useState({
-    codeAdd: "", nb_litAdd: "", nb_salleAdd: "", type_chambreAdd: "", commentaireAdd: ""
+    codeAdd: "", nb_litAdd: "", nb_salleAdd: "", type_chambreAdd: "", commentaireAdd: "",
+    capacite_standardAdd: "", lits_supplementaires_maxAdd: ""
   });
   const [etageErrors, setEtageErrors] = useState({
   etage: "",
@@ -77,16 +94,24 @@ const getStorageImageUrl = (photo, fallbackImage) => {
   const [types, setTypes] = useState([]);
   const [selectedVue, setSelectedVue] = useState("");
   const [selectedEtage, setSelectedEtage] = useState("");
+  const [activeVueIndex, setActiveVueIndex] = useState(0);
+  const [activeEtageIndex, setActiveEtageIndex] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const emptyTypeChambre = {
   code: "",
   type_chambre: "",
   nb_lit: "",
   nb_salle: "",
+  capacite_standard: "",
+  lits_supplementaires_max: "",
   commentaire: "",
   codeAdd: "",
   type_chambreAdd: "",
   nb_litAdd: "",
   nb_salleAdd: "",
+  capacite_standardAdd: "",
+  lits_supplementaires_maxAdd: "0",
   commentaireAdd: "",
 };
   const [typeCreationMode, setTypeCreationMode] = useState("preset");
@@ -118,6 +143,9 @@ const getStorageImageUrl = (photo, fallbackImage) => {
   },
 };
   const [newTypeChambre, setNewTypeChambre] = useState(emptyTypeChambre);
+  const [reservationReadiness, setReservationReadiness] = useState(null);
+  const [readinessLoading, setReadinessLoading] = useState(true);
+  const [readinessError, setReadinessError] = useState("");
   const [submitted, setSubmitted] = useState(false);
 
   //---------------form-------------------//
@@ -153,19 +181,15 @@ const [typeFilter, setTypeFilter] = useState('');
   
   
   const [formData, setFormData] = useState({
-    type_chambre: "",
+    type_chambre_id: "",
     num_chambre: "",
     etage: "",
-    nb_lit: "",
-    nb_salle: "",
     climat: "",
     wifi: "",
     vue: "",
   });
   const [errors, setErrors] = useState({
-    type_chambre: "",
-    nb_lit: "",
-    nb_salle: "",
+    type_chambre_id: "",
     climat: "",
     wifi: "",
     vue: "",
@@ -194,18 +218,8 @@ const [typeFilter, setTypeFilter] = useState('');
 
   const [showAddMod, setShowAddMod] = useState(false); // Gère l'affichage du formulaire
 
-  //-------------------Pagination-----------------------/
-  const [rowsPerPage, setRowsPerPage] = useState(5);
-  const [page, setPage] = useState(0);
-  // Pagination calculations
-  const indexOfLastChambre = (page + 1) * rowsPerPage;
-  const indexOfFirstChambre = indexOfLastChambre - rowsPerPage;
-  const currentChambres = chambres?.slice(indexOfFirstChambre, indexOfLastChambre);
   //-------------------Selected-----------------------/
   const [selectedItems, setSelectedItems] = useState([]);
-  const [selectAll, setSelectAll] = useState(false);
-  //-------------------Search-----------------------/
-  const [searchTerm, setSearchTerm] = useState("");
   const [selectedClientId, setSelectedClientId] = useState(null);
   //------------------------Site-Client---------------------
   const [showFormSC, setShowFormSC] = useState(false);
@@ -226,6 +240,9 @@ const [typeFilter, setTypeFilter] = useState('');
 
 
   const fetchChambres = async () => {
+    setLoading(true);
+    setLoadError("");
+
     try {
     
       // Now, fetch actual application data
@@ -239,13 +256,35 @@ const [typeFilter, setTypeFilter] = useState('');
   
     } catch (error) {
       console.error("Error fetching data:", error);
+      setLoadError(
+        error.response?.data?.message || "Impossible de charger la liste des chambres."
+      );
+    } finally {
+      setLoading(false);
     }
   };
+
+  const fetchReservationReadiness = async () => {
+    setReadinessLoading(true);
+    setReadinessError("");
+
+    try {
+      const response = await axios.get("http://localhost:8000/api/reservations/readiness");
+      setReservationReadiness(response.data?.data || null);
+    } catch (error) {
+      console.error("Error fetching reservation readiness:", error);
+      setReadinessError("Le diagnostic de préparation des réservations est indisponible.");
+    } finally {
+      setReadinessLoading(false);
+    }
+  };
+
   useEffect(() => {
     // Check if data exists in local storage and set the state variables accordingly
 
 
       fetchChambres();
+      fetchReservationReadiness();
     
   }, []);
 
@@ -273,21 +312,13 @@ const [typeFilter, setTypeFilter] = useState('');
   };
   //---------------------------------------------
 
-  const handleSearch = (term) => {
-    setSearchTerm(term);
-  };
-
 const handleChange = (e) => {
   const { name, value, type, files } = e.target;
 
-  if (name === "type_chambre") {
-    const selectedType = types.find((type) => String(type.id) === String(value));
-
+  if (name === "type_chambre_id") {
     setFormData((prev) => ({
       ...prev,
-      type_chambre: value,
-      nb_lit: selectedType ? selectedType.nb_lit : "",
-      nb_salle: selectedType ? selectedType.nb_salle : "",
+      type_chambre_id: value,
     }));
 
     return;
@@ -313,11 +344,9 @@ const handleChange = (e) => {
   
     // Update formData with the chambre's data to fill the form inputs
     setFormData({
-      type_chambre: chambre.type_chambre?.id || chambre.type_chambres?.id || chambre.type_chambre || '',
+      type_chambre_id: chambre.type_chambre_id || chambre.type_chambre?.id || '',
       num_chambre: chambre.num_chambre,
       etage: chambre.etage_id,
-      nb_lit: chambre.nb_lit,
-      nb_salle: chambre.nb_salle,
       climat: (chambre.climat === true || chambre.climat === 1) ? 'oui' : (chambre.climat === false || chambre.climat === 0 ? 'non' : (chambre.climat || '')),
       wifi: (chambre.wifi === true || chambre.wifi === 1) ? 'oui' : (chambre.wifi === false || chambre.wifi === 0 ? 'non' : (chambre.wifi || '')),
       vue: chambre.vue_id,
@@ -335,10 +364,8 @@ const handleChange = (e) => {
     if (!submitted) {
       // Clear all errors if the form has not been submitted yet.
       setErrors({
-        type_chambre: "",
+        type_chambre_id: "",
         etage: "",
-        nb_lit: "",
-        nb_salle: "",
         climat: "",
         wifi: "",
         vue: "",
@@ -350,7 +377,9 @@ const handleChange = (e) => {
         nb_litAdd: "",
         nb_salleAdd: "",
         type_chambreAdd: "",
-        commentaireAdd: ""
+        commentaireAdd: "",
+        capacite_standardAdd: "",
+        lits_supplementaires_maxAdd: ""
       });
     } else {
       const validateData = () => {
@@ -369,9 +398,7 @@ const handleChange = (e) => {
               sanitizeInput(chambre.num_chambre) === sanitizeInput(formData.num_chambre)
           ) &&
             sanitizeInput(formData.num_chambre) !== sanitizeInput(editingChambre?.num_chambre));
-        newErrors.type_chambre = formData.type_chambre === "";
-        newErrors.nb_salle = formData.nb_salle === "";
-        newErrors.nb_lit = formData.nb_lit === "";
+        newErrors.type_chambre_id = formData.type_chambre_id === "";
         newErrors.wifi = formData.wifi === "";
         newErrors.climat = formData.climat === "";
         // Vue Validation
@@ -441,32 +468,14 @@ const handleSubmit = async (e) => {
       : "http://localhost:8000/api/chambres";
   const method = editingChambre ? "put" : "post";
 
-  let requestData;
-
-  if (editingChambre) {
-    requestData ={
-    type_chambre: formData.type_chambre,
+  const requestData = {
+    type_chambre_id: formData.type_chambre_id,
     num_chambre: formData.num_chambre,
     etage_id: formData.etage,
-    nb_lit: formData.nb_lit,
-    nb_salle: formData.nb_salle,
     climat: formData.climat,
     wifi: formData.wifi,
     vue_id: formData.vue,
-    }
-  }
-  else {
-  const formDatad = new FormData();
-  formDatad.append("type_chambre", formData.type_chambre);
-  formDatad.append("num_chambre", formData.num_chambre);
-  formDatad.append("etage_id", formData.etage);
-  formDatad.append("nb_lit", formData.nb_lit);
-  formDatad.append("nb_salle", formData.nb_salle);
-  formDatad.append("climat", formData.climat);
-  formDatad.append("wifi", formData.wifi);
-  formDatad.append("vue_id", formData.vue);
-  requestData = formDatad;
-  }
+  };
 
   try {
       const response = await axios({
@@ -485,20 +494,16 @@ const handleSubmit = async (e) => {
           });
           // Reset form and errors, but keep the form open with the new data
           setFormData({
-              type_chambre: "",
+              type_chambre_id: "",
               num_chambre: "",
               etage: "",
-              nb_lit: "",
-              nb_salle: "",
               climat: "",
               wifi: "",
               vue: "",
           });
           setErrors({
-              type_chambre: "",
+              type_chambre_id: "",
               etage: "",
-              nb_lit: "",
-              nb_salle: "",
               climat: "",
               wifi: "",
               vue: "",
@@ -511,19 +516,34 @@ const handleSubmit = async (e) => {
           // Do not close the form here if you want to keep it open
       }
   } catch (error) {
-      if (error.response) {
-          // Handle error
+      if (error.response?.status === 422) {
+          const backendErrors = Object.fromEntries(
+            Object.entries(error.response.data.errors || {}).map(([field, messages]) => [
+              field,
+              Array.isArray(messages) ? messages[0] : messages,
+            ])
+          );
+          setErrors((currentErrors) => ({ ...currentErrors, ...backendErrors }));
+          Swal.fire({
+            icon: "error",
+            title: "Erreur de validation",
+            text: Object.values(backendErrors)[0] || "Veuillez vérifier les champs du formulaire.",
+          });
+          return;
       }
-      setTimeout(() => {
-          setErrors({});
-      }, 3000);
+
+      Swal.fire({
+        icon: "error",
+        title: "Erreur",
+        text: error.response?.data?.message || "Impossible d'enregistrer cette chambre.",
+      });
   }
 };
 
 
 // Update deletion handler to use chambre.id instead of num_chambre
 
-const handleDelete = (num_chambre) => {
+const handleDelete = (roomId) => {
   Swal.fire({
     title: "Êtes-vous sûr de vouloir supprimer cette chambre ?",
     showDenyButton: true,
@@ -539,7 +559,7 @@ const handleDelete = (num_chambre) => {
   }).then((result) => {
     if (result.isConfirmed) {
       axios
-        .delete(`http://localhost:8000/api/chambres/${num_chambre}`)
+        .delete(`http://localhost:8000/api/chambres/${roomId}`)
         .then(() => {
           fetchChambres();
           Swal.fire({
@@ -549,15 +569,11 @@ const handleDelete = (num_chambre) => {
           });
         })
         .catch((error) => {
-          if (error.response && error.response.status === 400) {
-            Swal.fire({
-              icon: "error",
-              title: "Erreur",
-              text: error.response.data.error,
-            });
-          } else {
-            console.error("Une erreur s'est produite :", error);
-          }
+          Swal.fire({
+            icon: "error",
+            title: "Erreur",
+            text: error.response?.data?.message || "Impossible de supprimer cette chambre.",
+          });
         });
     }
   });
@@ -572,8 +588,8 @@ const handleDeleteSelected = () => {
   }).then((result) => {
     if (result.isConfirmed) {
       Promise.all(
-        selectedItems.map((num_chambre) =>
-          axios.delete(`http://localhost:8000/api/chambres/${num_chambre}`)
+        selectedItems.map((roomId) =>
+          axios.delete(`http://localhost:8000/api/chambres/${roomId}`)
         )
       )
         .then(() => {
@@ -583,32 +599,16 @@ const handleDeleteSelected = () => {
         })
         .catch((error) => {
           console.error("Erreur lors de la suppression de la chambre:", error);
-          Swal.fire("Erreur!", "Échec de la suppression.", "error");
+          Swal.fire(
+            "Erreur!",
+            error.response?.data?.message || "Échec de la suppression.",
+            "error"
+          );
         });
     }
   });
 };
 
-
-  //------------------------- CLIENT PAGINATION---------------------//
-
-  const handleChangePage = (event, newPage) => {
-    setPage(newPage);
-  };
-
-  const handleChangeRowsPerPage = (event) => {
-    const selectedRows = parseInt(event.target.value, 10);
-    setRowsPerPage(selectedRows);
-    localStorage.setItem('rowsPerPageChambres', selectedRows);
-    setPage(0);
-  };
-
-  useEffect(() => {
-    const savedRowsPerPage = localStorage.getItem('rowsPerPageChambres');
-    if (savedRowsPerPage) {
-      setRowsPerPage(parseInt(savedRowsPerPage, 10));
-    }
-  }, []);
 
   //------------------------- CLIENT DELETE---------------------//
 
@@ -617,121 +617,21 @@ const handleDeleteSelected = () => {
 
 
   const handleSelectAllChange = () => {
-    setSelectAll(!selectAll);
-    if (selectAll) {
-      setSelectedItems([]);
-    } else {
-      // Use num_chambre so that deletion endpoint receives the proper identifier
-      setSelectedItems(chambres?.map((chambre) => chambre.num_chambre));
-    }
-  };
-  
-  const handleCheckboxChange = (num_chambre) => {
-    if (selectedItems.includes(num_chambre)) {
-      setSelectedItems(selectedItems.filter((value) => value !== num_chambre));
-    } else {
-      setSelectedItems([...selectedItems, num_chambre]);
-    }
-  };
-  
+    setSelectedItems((currentItems) => {
+      if (allVisibleRoomsSelected) {
+        return currentItems.filter((id) => !visibleRoomIds.includes(id));
+      }
 
-  const exportToExcel = () => {
-    const table = document.getElementById('chambresTable');
-    const workbook = XLSX.utils.table_to_book(table, { sheet: 'Chambres' });
-    XLSX.writeFile(workbook, 'chambres_table.xlsx');
-  };
-
-  
-  const exportToPDF = () => {
-    const doc = new jsPDF();
-    
-    // Manually adding HTML content
-    const title = 'Table Chambres';
-    doc.text(title, 14, 16);
-    
-    doc.autoTable({
-      head: [['Code Chambre', 'Type', 'Etage', 'Nombre de lit', 'Nombre de salle', "Climat", "Wifi", "Vue"]],
-      body: filteredChambres?.map(chambre => [
-        chambre.num_chambre ? { content: 'Code Chambre', rowSpan: 1 } : '',
-        chambre.type_chambre || '',
-        chambre.etage.etage || '',
-        chambre.nb_lit || '',
-        chambre.nb_salle || '',
-        chambre.climat || '',
-        chambre.wifi || '',
-        chambre.vue.vue || '',
-
-      ]),
-      startY: 20,
-      theme: 'grid',
-      styles: { fontSize: 8, overflow: 'linebreak' },
-      headStyles: { fillColor: '#007bff' }
+      return [...new Set([...currentItems, ...visibleRoomIds])];
     });
-  
-    doc.save('chambres_table.pdf');
   };
   
-
-  const printTable = () => {
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Chambre List</title>
-          <style>
-            table {
-              width: 100%;
-              border-collapse: collapse;
-            }
-            th, td {
-              border: 1px solid black;
-              padding: 8px;
-              text-align: left;
-            }
-            th {
-              background-color: #f2f2f2;
-            }
-          </style>
-        </head>
-        <body>
-          <h1>Chambre List</h1>
-          <table>
-            <thead>
-              <tr>
-                <th>Code Chambre</th>
-                <th>Type</th>
-                <th>Etage</th>
-                <th>Nombre de list</th>
-                <th>Nombre de salle</th>
-                <th>Climat</th>
-                <th>Wifi</th>
-                <th>Vue</th>
-
-
-              </tr>
-            </thead>
-            <tbody>
-              ${filteredChambres?.map(chambre => `
-                <tr>
-                  <td>${chambre.num_chambre || ''}</td>
-                  <td>${chambre.type_chambre || ''}</td>
-                  <td>${chambre.etage.etage || ''}</td>
-                  <td>${chambre.nb_lit || ''}</td>
-                  <td>${chambre.nb_salle || ''}</td>
-                  <td>${chambre.climat  || ''}</td>
-                  <td>${chambre.wifi || ''}</td>
-                  <td>${chambre.vue.vue || ''}</td>
-
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </body>
-      </html>
-    `);
-  
-    printWindow.document.close();
-    printWindow.print();
+  const handleCheckboxChange = (roomId) => {
+    setSelectedItems((currentItems) =>
+      currentItems.includes(roomId)
+        ? currentItems.filter((value) => value !== roomId)
+        : [...currentItems, roomId]
+    );
   };
   
   //------------------ Zone --------------------//
@@ -951,31 +851,28 @@ const handleInputChangeRep = (index, field, value) => {
 
 const handleTypeFilterChange = (e) => {
   setTypeFilter(e.target.value);
+  resetPage();
 };
 
-
-const normalizeSearchValue = (value) =>
-  String(value ?? "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim();
-
-const getRoomTypeName = (chambre) => {
+const getRoomTypeRecord = (chambre) => {
   if (chambre.type_chambre && typeof chambre.type_chambre === "object") {
-    return chambre.type_chambre.type_chambre || "";
+    return chambre.type_chambre;
   }
 
-  if (chambre.type_chambres && typeof chambre.type_chambres === "object") {
-    return chambre.type_chambres.type_chambre || "";
-  }
-
-  const typeId = chambre.type_chambre_id || chambre.type_chambre;
-
-  return (
-    types.find((type) => String(type.id) === String(typeId))?.type_chambre || ""
-  );
+  return types.find((type) => String(type.id) === String(chambre.type_chambre_id)) || null;
 };
+
+const getRoomTypeName = (chambre) => getRoomTypeRecord(chambre)?.type_chambre || "";
+
+const getRoomBedCount = (chambre) =>
+  chambre.nb_lit ?? chambre.type_chambre?.nb_lit ?? "";
+
+const getRoomBathroomCount = (chambre) =>
+  chambre.nb_salle ?? chambre.type_chambre?.nb_salle ?? "";
+
+const selectedFormType = types.find(
+  (type) => String(type.id) === String(formData.type_chambre_id)
+);
 
 const getRoomEtageName = (chambre) => {
   if (chambre.etage && typeof chambre.etage === "object") {
@@ -1027,20 +924,22 @@ const formatOuiNon = (value) => {
   return String(value ?? "");
 };
 
-const normalizedSearchTerm = normalizeSearchValue(searchTerm);
-
-const filteredChambres = (Array.isArray(chambres) ? chambres : []).filter(
-  (chambre) => {
+const filterRooms = useCallback((rows, currentSearchTerm) =>
+  rows.filter((chambre) => {
+    const roomType = getRoomTypeRecord(chambre);
     const roomTypeName = getRoomTypeName(chambre);
     const roomEtageName = getRoomEtageName(chambre);
     const roomVueName = getRoomVueName(chambre);
     const roomClimat = formatOuiNon(chambre.climat);
     const roomWifi = formatOuiNon(chambre.wifi);
+    const standardCapacity = roomType?.capacite_standard ?? chambre.capacite_standard ?? "";
+    const extraCapacity = roomType?.lits_supplementaires_max ?? chambre.lits_supplementaires_max ?? "";
+    const maximumCapacity = standardCapacity !== "" && extraCapacity !== ""
+      ? Number(standardCapacity) + Number(extraCapacity)
+      : "";
 
     const matchesType = typeFilter
-      ? normalizeSearchValue(roomTypeName) === normalizeSearchValue(typeFilter) ||
-        String(chambre.type_chambre?.id || chambre.type_chambre_id || chambre.type_chambre) ===
-          String(typeFilter)
+      ? String(chambre.type_chambre_id ?? roomType?.id ?? "") === String(typeFilter)
       : true;
 
     const matchesVue = selectedVue
@@ -1051,24 +950,97 @@ const filteredChambres = (Array.isArray(chambres) ? chambres : []).filter(
       ? String(chambre.etage?.id || chambre.etage_id || chambre.etage) === String(selectedEtage)
       : true;
 
-    const matchesSearch =
-      !normalizedSearchTerm ||
-      [
+    const matchesSearch = matchesNormalizedSearch(currentSearchTerm, [
         chambre.num_chambre,
+        roomType?.code,
         roomTypeName,
         roomEtageName,
         roomVueName,
-        chambre.nb_lit,
-        chambre.nb_salle,
+        getRoomBedCount(chambre),
+        getRoomBathroomCount(chambre),
+        standardCapacity,
+        maximumCapacity,
         roomClimat,
+        `Climatisation ${roomClimat}`,
         roomWifi,
-      ].some((value) =>
-        normalizeSearchValue(value).includes(normalizedSearchTerm)
-      );
+        `Wi-Fi ${roomWifi}`,
+        chambre.statut,
+        chambre.status,
+        chambre.commentaire,
+        chambre.description,
+        roomType?.commentaire,
+      ]);
 
     return matchesType && matchesVue && matchesEtage && matchesSearch;
-  }
-);
+  }), [etages, selectedEtage, selectedVue, typeFilter, types, vues]);
+
+const {
+  searchTerm,
+  page,
+  rowsPerPage,
+  filteredRows: filteredChambres,
+  visibleRows: visibleChambres,
+  totalRows,
+  setSearchTerm,
+  setPage,
+  setRowsPerPage,
+  resetPage,
+} = useListControls({
+  allRows: Array.isArray(chambres) ? chambres : [],
+  filterRows: filterRooms,
+  storageKey: "rowsPerPageChambres",
+});
+
+const visibleRoomIds = visibleChambres.map((chambre) => chambre.id);
+const allVisibleRoomsSelected =
+  visibleRoomIds.length > 0 && visibleRoomIds.every((id) => selectedItems.includes(id));
+const filtersActive = Boolean(searchTerm || typeFilter || selectedVue || selectedEtage);
+
+const resetFilters = useCallback(() => {
+  setSearchTerm("");
+  setTypeFilter("");
+  setSelectedVue("");
+  setSelectedEtage("");
+  setActiveVueIndex(0);
+  setActiveEtageIndex(0);
+  resetPage();
+}, [resetPage, setSearchTerm]);
+
+const exportRows = useMemo(() => filteredChambres.map((chambre) => {
+  const roomType = getRoomTypeRecord(chambre);
+
+  return {
+    roomNumber: chambre.num_chambre || "",
+    roomType: getRoomTypeName(chambre),
+    floor: getRoomEtageName(chambre),
+    view: getRoomVueName(chambre),
+    beds: getRoomBedCount(chambre),
+    bathrooms: getRoomBathroomCount(chambre),
+    airConditioning: formatOuiNon(chambre.climat),
+    wifi: formatOuiNon(chambre.wifi),
+    comment: chambre.commentaire ?? chambre.description ?? roomType?.commentaire ?? "",
+  };
+}), [etages, filteredChambres, types, vues]);
+
+const exportToExcel = () => exportRowsToExcel({
+  rows: exportRows,
+  columns: ROOM_EXPORT_COLUMNS,
+  sheetName: "Chambres",
+  filename: "chambres.xlsx",
+});
+const exportToPDF = () => exportRowsToPdf({
+  rows: exportRows,
+  columns: ROOM_EXPORT_COLUMNS,
+  title: "Liste des Chambres",
+  filename: "chambres.pdf",
+  orientation: "landscape",
+});
+const printTable = () => printRows({
+  rows: exportRows,
+  columns: ROOM_EXPORT_COLUMNS,
+  title: "Liste des Chambres",
+  orientation: "landscape",
+});
 const handleDeleteType = async (categorieId) => {
   try {
     await axios.delete(`http://localhost:8000/api/types-chambre/${categorieId}`);
@@ -1092,9 +1064,6 @@ const handleDeleteType = async (categorieId) => {
   }
 };
 
-const [activeVueIndex, setActiveVueIndex] = useState(0);
-const [activeEtageIndex, setActiveEtageIndex] = useState(0);
-const [filtreclientBySect,setFiltreClientBySect] = useState([])
 const handleVueSelect = (selectedIndex) => {
   setActiveVueIndex(selectedIndex);
 };const handleEtageSelect = (selectedIndex) => {
@@ -1114,12 +1083,12 @@ const chunks1 = chunkArray(etages, chunkSize);
 
 const handleVueFilterChange = (vueId) => {
   setSelectedVue(vueId);
-  setPage(0);
+  resetPage();
 };
 
 const handleEtageFilterChange = (etageId) => {
   setSelectedEtage(etageId);
-  setPage(0);
+  resetPage();
 };
 
 const handleShowFormButtonClick = () => {
@@ -1136,20 +1105,16 @@ const closeForm = () => {
   setTableContainerStyle({ marginRight: "0" });
   setShowForm(false); // Hide the form
   setFormData({
-    type_chambre: "",
+    type_chambre_id: "",
     num_chambre: "",
     etage: "",
-    nb_lit: "",
-    nb_salle: "",
     climat: "",
     wifi: "",
     vue: "",
   });
   setErrors({
-    type_chambre: "",
+    type_chambre_id: "",
     etage: "",
-    nb_lit: "",
-    nb_salle: "",
     climat: "",
     wifi: "",
     vue: "",
@@ -1607,6 +1572,8 @@ const resetAddTypeChambreForm = () => {
     nb_litAdd: "",
     nb_salleAdd: "",
     commentaireAdd: "",
+    capacite_standardAdd: "",
+    lits_supplementaires_maxAdd: "",
   });
 };
 const validateAddTypeChambre = () => {
@@ -1638,6 +1605,25 @@ const validateAddTypeChambre = () => {
     errors.nb_salleAdd = "Le nombre de salles doit être un nombre entier supérieur ou égal à 1.";
   }
 
+  const capaciteStandard = Number(newTypeChambre.capacite_standardAdd);
+  if (
+    newTypeChambre.capacite_standardAdd === "" ||
+    !Number.isInteger(capaciteStandard) ||
+    capaciteStandard < 1 ||
+    capaciteStandard > 3
+  ) {
+    errors.capacite_standardAdd = "La capacité standard doit être un entier compris entre 1 et 3.";
+  }
+
+  const litsSupplementaires = Number(newTypeChambre.lits_supplementaires_maxAdd);
+  if (
+    newTypeChambre.lits_supplementaires_maxAdd === "" ||
+    !Number.isInteger(litsSupplementaires) ||
+    litsSupplementaires < 0
+  ) {
+    errors.lits_supplementaires_maxAdd = "Le nombre de lits supplémentaires doit être un entier positif ou nul.";
+  }
+
   return errors;
 };
 const handlePresetTypeChange = (value) => {
@@ -1648,6 +1634,8 @@ const handlePresetTypeChange = (value) => {
     type_chambreAdd: value,
     nb_litAdd: preset ? String(preset.nb_lit) : "",
     nb_salleAdd: preset ? String(preset.nb_salle) : "",
+    capacite_standardAdd: "",
+    lits_supplementaires_maxAdd: "0",
     commentaireAdd: preset ? preset.commentaire : "",
   }));
 };
@@ -1672,6 +1660,8 @@ const handleAddTypeChambre = async () => {
       type_chambre: newTypeChambre.type_chambreAdd.trim(),
       nb_lit: Number(newTypeChambre.nb_litAdd),
       nb_salle: Number(newTypeChambre.nb_salleAdd),
+      capacite_standard: Number(newTypeChambre.capacite_standardAdd),
+      lits_supplementaires_max: Number(newTypeChambre.lits_supplementaires_maxAdd),
       commentaire: newTypeChambre.commentaireAdd?.trim() || null,
     };
 
@@ -1684,6 +1674,7 @@ const handleAddTypeChambre = async () => {
 
     if (response.status === 201) {
       await fetchChambres();
+      await fetchReservationReadiness();
 
       Swal.fire({
         icon: "success",
@@ -1699,6 +1690,23 @@ const handleAddTypeChambre = async () => {
 
     if (error.response?.status === 422) {
       const validationErrors = error.response.data.errors || {};
+      const fieldMap = {
+        code: "codeAdd",
+        type_chambre: "type_chambreAdd",
+        nb_lit: "nb_litAdd",
+        nb_salle: "nb_salleAdd",
+        capacite_standard: "capacite_standardAdd",
+        lits_supplementaires_max: "lits_supplementaires_maxAdd",
+        commentaire: "commentaireAdd",
+      };
+      const mappedErrors = Object.entries(validationErrors).reduce((result, [field, messages]) => {
+        const targetField = fieldMap[field];
+        if (targetField) {
+          result[targetField] = Array.isArray(messages) ? messages[0] : messages;
+        }
+        return result;
+      }, {});
+      setTypeErrors((currentErrors) => ({ ...currentErrors, ...mappedErrors }));
       const messages = Object.values(validationErrors).flat();
 
       Swal.fire({
@@ -1729,52 +1737,111 @@ const handleDeleteTypeChambre = async (categorieId) => {
     Swal.fire({
       icon: "success",
       title: "Succès!",
-      text: "Tarif Chambre supprimée avec succès.",
+      text: "Type de chambre supprimé avec succès.",
     });
-    await fetchChambres(); // Refresh categories after adding
+    await fetchChambres();
 
   } catch (error) {
     console.error("Error deleting categorie:", error);
     Swal.fire({
       icon: "error",
       title: "Erreur!",
-      text: "Échec de la suppression du chambre.",
+      text: error.response?.data?.message || "Échec de la suppression du type de chambre.",
     });
   }
 };
 const handleEditTypeChambre
 = (categorieId) => {
   setEditingType(categorieId);
-  setNewTypeChambre(categorieId);
+  setNewTypeChambre({
+    ...emptyTypeChambre,
+    ...categorieId,
+    capacite_standard: categorieId.capacite_standard ?? "",
+    lits_supplementaires_max: categorieId.lits_supplementaires_max ?? "",
+  });
   setTypeErrors({...typeErrors, 
     codeAdd: "",
     type_chambreAdd: "",
     nb_litAdd: "",
     nb_salleAdd: "",
     commentaireAdd: "",
+    capacite_standard: "",
+    lits_supplementaires_max: "",
+    capacite_standardAdd: "",
+    lits_supplementaires_maxAdd: "",
   })
   setCategorie(categorieId.id)
   setShowEditModal(true);
 };
 const handleSaveTypeChambre = async () => {
   try {
-    const hasErrors = Object.values(typeErrors).some(error => error === true);
-      if (hasErrors) {
-        alert(JSON.stringify(typeErrors))
-        return;
+    const validationErrors = {};
+    const capacityValue = newTypeChambre.capacite_standard;
+    const extraBedsValue = newTypeChambre.lits_supplementaires_max;
+    const hadCapacity = editingType?.capacite_standard !== null && editingType?.capacite_standard !== undefined;
+    const hadExtraBeds = editingType?.lits_supplementaires_max !== null && editingType?.lits_supplementaires_max !== undefined;
+
+    if (capacityValue === "" && hadCapacity) {
+      validationErrors.capacite_standard = "La capacité standard configurée ne peut pas être supprimée.";
+    } else if (capacityValue !== "") {
+      const parsedCapacity = Number(capacityValue);
+      if (!Number.isInteger(parsedCapacity) || parsedCapacity < 1 || parsedCapacity > 3) {
+        validationErrors.capacite_standard = "La capacité standard doit être un entier compris entre 1 et 3.";
       }
-    await axios.put(`http://localhost:8000/api/types-chambre/${categorieId}`, newTypeChambre);
+    }
+
+    if (extraBedsValue === "" && hadExtraBeds) {
+      validationErrors.lits_supplementaires_max = "La valeur configurée ne peut pas être supprimée.";
+    } else if (extraBedsValue !== "") {
+      const parsedExtraBeds = Number(extraBedsValue);
+      if (!Number.isInteger(parsedExtraBeds) || parsedExtraBeds < 0) {
+        validationErrors.lits_supplementaires_max = "Le nombre de lits supplémentaires doit être un entier positif ou nul.";
+      }
+    }
+
+    if (Object.keys(validationErrors).length > 0) {
+      setTypeErrors((currentErrors) => ({ ...currentErrors, ...validationErrors }));
+      return;
+    }
+
+    const payload = {
+      code: newTypeChambre.code?.trim(),
+      type_chambre: newTypeChambre.type_chambre?.trim(),
+      nb_lit: Number(newTypeChambre.nb_lit),
+      nb_salle: Number(newTypeChambre.nb_salle),
+      capacite_standard: capacityValue === "" ? null : Number(capacityValue),
+      lits_supplementaires_max: extraBedsValue === "" ? null : Number(extraBedsValue),
+      commentaire: newTypeChambre.commentaire?.trim() || null,
+    };
+
+    await axios.put(`http://localhost:8000/api/types-chambre/${categorieId}`, payload);
     await fetchChambres(); // Refresh categories after adding
+    await fetchReservationReadiness();
     setShowEditModal(false);
     setSelectedCategoryId([])
     // Fermer le modal
             Swal.fire({
         icon: "success",
         title: "Succès!",
-        text: "Tarif Chambre modifiée avec succès.",
+        text: "Type de chambre modifié avec succès.",
       });
   } catch (error) {
     console.error("Erreur lors de la modification de la catégorie :", error);
+    if (error.response?.status === 422) {
+      const backendErrors = error.response.data?.errors || {};
+      const mappedErrors = Object.entries(backendErrors).reduce((result, [field, messages]) => {
+        result[field] = Array.isArray(messages) ? messages[0] : messages;
+        return result;
+      }, {});
+      setTypeErrors((currentErrors) => ({ ...currentErrors, ...mappedErrors }));
+      return;
+    }
+
+    Swal.fire({
+      icon: "error",
+      title: "Erreur!",
+      text: error.response?.data?.message || "Impossible de modifier le type de chambre.",
+    });
   }
 };
 const closeTypeForm = () => {
@@ -1792,6 +1859,10 @@ const closeTypeForm = () => {
     nb_litAdd: "",
     nb_salleAdd: "",
     commentaireAdd: "",
+    capacite_standard: "",
+    lits_supplementaires_max: "",
+    capacite_standardAdd: "",
+    lits_supplementaires_maxAdd: "",
   })
 }
 
@@ -1801,6 +1872,33 @@ useEffect(() => {
       etageAdd: ""
     });
 },[showEditModalEtage])
+
+const isTypeReservationReady = (type) => {
+  const capacity = Number(type?.capacite_standard);
+  const extraBeds = Number(type?.lits_supplementaires_max);
+
+  return type?.capacite_standard !== null &&
+    type?.capacite_standard !== undefined &&
+    Number.isInteger(capacity) &&
+    capacity >= 1 &&
+    capacity <= 3 &&
+    type?.lits_supplementaires_max !== null &&
+    type?.lits_supplementaires_max !== undefined &&
+    Number.isInteger(extraBeds) &&
+    extraBeds >= 0;
+};
+
+const openTypeFromReadiness = (typeId) => {
+  const roomType = types.find((type) => Number(type.id) === Number(typeId));
+
+  if (roomType) {
+    handleEditTypeChambre(roomType);
+    return;
+  }
+
+  resetAddTypeChambreForm();
+  setShowAddCategory(true);
+};
 
 // Define table columns (customize render as needed)
 const columns = [
@@ -1832,13 +1930,13 @@ const columns = [
     key: "nb_lit",
     label: "Nombre de lit",
     width: 140,
-    render: (item) => highlightText(item.nb_lit, searchTerm),
+    render: (item) => highlightText(getRoomBedCount(item), searchTerm),
   },
   {
     key: "nb_salle",
     label: "Nombre de Salle",
     width: 160,
-    render: (item) => highlightText(item.nb_salle, searchTerm),
+    render: (item) => highlightText(getRoomBathroomCount(item), searchTerm),
   },
   {
     key: "climat",
@@ -1859,34 +1957,74 @@ const columns = [
         <Box component="main" className="app-page chambre-page" sx={{ flexGrow: 1, p: 3, mt: 0 }}>
 
        
-          <div className="app-page-header">
-            <h1 className="app-page-title">Liste des Chambres</h1> 
-            <div className="app-toolbar">
-              <div className="app-search-box">
-                <Search onSearch={handleSearch} type="search" />
+          <SearchWithExport
+            Title="Liste des Chambres"
+            searchValue={searchTerm}
+            onSearchChange={setSearchTerm}
+            printTable={printTable}
+            exportToPDF={exportToPDF}
+            exportToExcel={exportToExcel}
+            resultCount={totalRows}
+            loading={loading}
+            exportsDisabled={loading || totalRows === 0}
+          />
+
+          <section className={`app-card app-section chambre-readiness ${reservationReadiness?.ready ? "is-ready" : "is-warning"}`}>
+            <div className="chambre-readiness-header">
+              <div>
+                <h2>Préparation des réservations</h2>
+                <p>
+                  {readinessLoading
+                    ? "Vérification de la configuration en cours..."
+                    : reservationReadiness?.ready
+                      ? "Prêt pour les réservations"
+                      : "Configuration incomplète"}
+                </p>
               </div>
-
-
-              <div className="app-export-actions">
-              <FontAwesomeIcon
-    className="app-action-icon is-muted me-2"
-    onClick={printTable}
-    icon={faPrint}
-  />
-                  <FontAwesomeIcon
-      className="app-action-icon is-danger"
-      onClick={exportToPDF}
-            icon={faFilePdf}
-    />
-
-                <FontAwesomeIcon
-                  icon={faFileExcel}
-                  onClick={exportToExcel}
-                  className="app-action-icon is-success"
-                />
-              </div>
+              {!readinessLoading && !readinessError && (
+                <span className={`app-status-badge ${reservationReadiness?.ready ? "is-success" : "is-warning"}`}>
+                  {reservationReadiness?.ready ? "Prêt" : "À compléter"}
+                </span>
+              )}
             </div>
-          </div>
+
+            {readinessError && <p className="chambre-readiness-error">{readinessError}</p>}
+
+            {!readinessLoading && !readinessError && !reservationReadiness?.ready && (
+              <div className="chambre-readiness-content">
+                {(reservationReadiness?.room_types?.issues || []).map((roomTypeIssue) => (
+                  <div className="chambre-readiness-issue" key={`room-type-${roomTypeIssue.type_chambre_id}`}>
+                    <div>
+                      <strong>{roomTypeIssue.type_chambre}</strong>
+                      <span>{roomTypeIssue.rooms_count} chambre(s)</span>
+                      <p>{roomTypeIssue.issues?.map((issue) => issue.message).join(" ")}</p>
+                    </div>
+                    <button
+                      type="button"
+                      className="app-secondary-button"
+                      onClick={() => openTypeFromReadiness(roomTypeIssue.type_chambre_id)}
+                    >
+                      Configurer le type de chambre
+                    </button>
+                  </div>
+                ))}
+
+                {(reservationReadiness?.tariff_coverage?.issues || []).slice(0, 5).map((issue, index) => (
+                  <div className="chambre-readiness-issue" key={`${issue.code}-${issue.tarif_actuel_id || "none"}-${issue.type_chambre_id || "none"}-${index}`}>
+                    <div>
+                      <strong>{issue.periode || "Périodes tarifaires"}</strong>
+                      <p>{issue.message}</p>
+                    </div>
+                  </div>
+                ))}
+
+                <div className="chambre-readiness-actions">
+                  <a className="app-secondary-button" href="/tarifs_chambre">Créer un nouveau plan tarifaire</a>
+                  <a className="app-secondary-button" href="/tarifs_actuel">Préparer une période tarifaire</a>
+                </div>
+              </div>
+            )}
+          </section>
 
           
             <div className="app-filter-grid app-section">
@@ -2056,7 +2194,7 @@ const columns = [
 
 
 <div className="container-fluid px-0">
-            <div className="app-add-row">
+            <div className="app-controls-row">
              
               <a
                 onClick={handleShowFormButtonClick}
@@ -2070,6 +2208,22 @@ const columns = [
                 Ajouter Chambre
               </a>
 
+              <div className="app-filter-controls">
+                <Form.Select
+                  className="app-filter-select"
+                  value={typeFilter}
+                  onChange={handleTypeFilterChange}
+                  aria-label="Filtrer par type de chambre"
+                >
+                  <option value="">Tous les types</option>
+                  {types.map((type) => (
+                    <option key={type.id} value={type.id}>
+                      {type.type_chambre}
+                    </option>
+                  ))}
+                </Form.Select>
+                <ListFilterReset active={filtersActive} onReset={resetFilters} />
+              </div>
             </div>
           
 
@@ -2085,7 +2239,7 @@ const columns = [
                 <Form.Group className="col-md-6 mb-3" controlId="num_chambre">
                   <Form.Label>Numero de Chambre</Form.Label>
                   <Form.Control
-                    type="number"
+                    type="text"
                     name="num_chambre"
                     isInvalid={submitted && !!errors.num_chambre}
                     value={formData.num_chambre}
@@ -2096,7 +2250,7 @@ const columns = [
                   </Form.Control.Feedback>
                 </Form.Group>
 
-                <Form.Group className="col-md-6 mb-3" controlId="type_chambre">
+                <Form.Group className="col-md-6 mb-3" controlId="type_chambre_id">
                   <div className="d-flex align-items-center">
                     <FontAwesomeIcon
                       icon={faPlus}
@@ -2110,9 +2264,9 @@ const columns = [
                     <Form.Label>Type</Form.Label>
                   </div>
                   <Form.Select
-                    name="type_chambre"
-                    isInvalid={submitted && !!errors.type_chambre}
-                    value={formData.type_chambre}
+                    name="type_chambre_id"
+                    isInvalid={submitted && !!errors.type_chambre_id}
+                    value={formData.type_chambre_id}
                     onChange={handleChange}
                   >
                     <option value="">Sélectionner Type</option>
@@ -2123,7 +2277,7 @@ const columns = [
                     ))}
                   </Form.Select>
                   <Form.Control.Feedback type="invalid">
-                    {errors.type_chambre}
+                    {errors.type_chambre_id}
                   </Form.Control.Feedback>
                 </Form.Group>
               </div>
@@ -2649,6 +2803,48 @@ const columns = [
                 onChange={(e) => setNewTypeChambre({ ...newTypeChambre, nb_salle: e.target.value })}
               />
             </Form.Group>
+            <Form.Group className="mt-3">
+              <Form.Label>Capacité standard</Form.Label>
+              <Form.Control
+                type="number"
+                min="1"
+                max="3"
+                name="capacite_standard"
+                isInvalid={!!typeErrors.capacite_standard}
+                value={newTypeChambre.capacite_standard}
+                onChange={(e) => {
+                  setNewTypeChambre({ ...newTypeChambre, capacite_standard: e.target.value });
+                  setTypeErrors((currentErrors) => ({ ...currentErrors, capacite_standard: "" }));
+                }}
+              />
+              <Form.Text>Nombre de personnes couvertes par le tarif normal de la chambre.</Form.Text>
+              <Form.Control.Feedback type="invalid">
+                {typeErrors.capacite_standard}
+              </Form.Control.Feedback>
+            </Form.Group>
+            <Form.Group className="mt-3">
+              <Form.Label>Lits supplémentaires maximum</Form.Label>
+              <Form.Control
+                type="number"
+                min="0"
+                name="lits_supplementaires_max"
+                isInvalid={!!typeErrors.lits_supplementaires_max}
+                value={newTypeChambre.lits_supplementaires_max}
+                onChange={(e) => {
+                  setNewTypeChambre({ ...newTypeChambre, lits_supplementaires_max: e.target.value });
+                  setTypeErrors((currentErrors) => ({ ...currentErrors, lits_supplementaires_max: "" }));
+                }}
+              />
+              <Form.Text>Nombre maximal de personnes supplémentaires pouvant être hébergées.</Form.Text>
+              <Form.Control.Feedback type="invalid">
+                {typeErrors.lits_supplementaires_max}
+              </Form.Control.Feedback>
+            </Form.Group>
+            {!isTypeReservationReady(newTypeChambre) && (
+              <div className="type-capacity-warning" role="alert">
+                Ce type hérité n’est pas encore prêt pour la tarification des réservations. Complétez les deux valeurs ci-dessus.
+              </div>
+            )}
             <Form.Group>
               <Form.Label>Commentaire</Form.Label>
               <Form.Control
@@ -2702,6 +2898,8 @@ const columns = [
         type_chambreAdd: "",
         nb_litAdd: "",
         nb_salleAdd: "",
+        capacite_standardAdd: "",
+        lits_supplementaires_maxAdd: "0",
         commentaireAdd: "",
       }));
     }}
@@ -2804,6 +3002,49 @@ const columns = [
   {typeErrors.nb_salleAdd}
 </Form.Control.Feedback>
             </Form.Group>
+            <Form.Group className="mt-3">
+              <Form.Label>Capacité standard</Form.Label>
+              <Form.Control
+                type="number"
+                min="1"
+                max="3"
+                required
+                value={newTypeChambre.capacite_standardAdd}
+                isInvalid={!!typeErrors.capacite_standardAdd}
+                onChange={(e) => {
+                  setNewTypeChambre({
+                    ...newTypeChambre,
+                    capacite_standardAdd: e.target.value,
+                  });
+                  setTypeErrors((currentErrors) => ({ ...currentErrors, capacite_standardAdd: "" }));
+                }}
+              />
+              <Form.Text>Nombre de personnes couvertes par le tarif normal de la chambre.</Form.Text>
+              <Form.Control.Feedback type="invalid">
+                {typeErrors.capacite_standardAdd}
+              </Form.Control.Feedback>
+            </Form.Group>
+            <Form.Group className="mt-3">
+              <Form.Label>Lits supplémentaires maximum</Form.Label>
+              <Form.Control
+                type="number"
+                min="0"
+                required
+                value={newTypeChambre.lits_supplementaires_maxAdd}
+                isInvalid={!!typeErrors.lits_supplementaires_maxAdd}
+                onChange={(e) => {
+                  setNewTypeChambre({
+                    ...newTypeChambre,
+                    lits_supplementaires_maxAdd: e.target.value,
+                  });
+                  setTypeErrors((currentErrors) => ({ ...currentErrors, lits_supplementaires_maxAdd: "" }));
+                }}
+              />
+              <Form.Text>Nombre maximal de personnes supplémentaires pouvant être hébergées.</Form.Text>
+              <Form.Control.Feedback type="invalid">
+                {typeErrors.lits_supplementaires_maxAdd}
+              </Form.Control.Feedback>
+            </Form.Group>
             
             <Form.Group>
               <Form.Label>Commentaire</Form.Label>
@@ -2830,17 +3071,28 @@ const columns = [
                   <th>Type Chambre</th>
                   <th>Nombre de Lit</th>
                   <th>Nombre de Salle</th>
+                  <th>Capacité</th>
+                  <th>Lits supplémentaires</th>
                   <th>Commentaire</th>
                   <th>Action</th>
                 </tr>
               </thead>
               <tbody>
                 {types?.map(categ => (
-                  <tr>
+                  <tr key={categ.id}>
                     <td>{categ.code}</td>
-                    <td>{categ.type_chambre}</td>
+                    <td>
+                      <span>{categ.type_chambre}</span>
+                      {!isTypeReservationReady(categ) && (
+                        <span className="app-status-badge is-warning type-readiness-badge">
+                          Non prêt
+                        </span>
+                      )}
+                    </td>
                     <td>{categ.nb_lit}</td>
                     <td>{categ.nb_salle}</td>
+                    <td>{categ.capacite_standard ?? "Non configurée"}</td>
+                    <td>{categ.lits_supplementaires_max ?? "Non configuré"}</td>
                     <td>{categ.commentaire}</td>
                     <td>
                    
@@ -2897,41 +3149,21 @@ const columns = [
 
 <div className="row">
                 <Form.Group className="col-md-6 mb-3" controlId="nb_salle">
-                  <Form.Label>Nombre de Salle</Form.Label>
-                  <Form.Select
-                    name="nb_salle"
-                    isInvalid={submitted && !!errors.nb_salle}
-                    value={formData.nb_salle}
-                    onChange={handleChange}
-                    readOnly
-                  >
-                    <option value="">Nombre de Salle</option>
-                    {Array.from({ length: 7 }, (_, i) => (
-                      <option key={i} value={i + 1}>{i + 1}</option>
-                    ))}
-                  </Form.Select>
-                  <Form.Control.Feedback type="invalid">
-                    {errors.nb_salle}
-                  </Form.Control.Feedback>
+                  <Form.Label>Nombre de salles — défini par le type</Form.Label>
+                  <Form.Control
+                    type="text"
+                    value={selectedFormType?.nb_salle ?? ""}
+                    disabled
+                  />
                 </Form.Group>
 
 <Form.Group className="col-md-6 mb-3" controlId="nb_lit">
-                  <Form.Label>Nombre de Lit</Form.Label>
-                  <Form.Select
-                    name="nb_lit"
-                    isInvalid={submitted && !!errors.nb_lit}
-                    value={formData.nb_lit}
-                    onChange={handleChange}
-                    readOnly
-                  >
-                    <option value="">Nombre de Lit</option>
-                    {Array.from({ length: 7 }, (_, i) => (
-                      <option key={i} value={i + 1}>{i + 1}</option>
-                    ))}
-                  </Form.Select>
-                  <Form.Control.Feedback type="invalid">
-                    {errors.nb_lit}
-                  </Form.Control.Feedback>
+                  <Form.Label>Nombre de lits — défini par le type</Form.Label>
+                  <Form.Control
+                    type="text"
+                    value={selectedFormType?.nb_lit ?? ""}
+                    disabled
+                  />
                 </Form.Group>
               </div>
 
@@ -3009,6 +3241,16 @@ const columns = [
 
         </div>
             
+        <ListState
+          loading={loading}
+          error={loadError}
+          allRowsCount={chambres.length}
+          filteredRowsCount={totalRows}
+          emptyDataMessage="Aucune chambre enregistrée."
+          onRetry={fetchChambres}
+          onResetFilters={resetFilters}
+        />
+        {!loading && !loadError && totalRows > 0 && (
         <div>
           <div
             id="tableContainer"
@@ -3018,10 +3260,10 @@ const columns = [
             <ExpandRTable
             columns={columns}
             data={chambres}
-            filteredData={filteredChambres}
+            filteredData={visibleChambres}
             searchTerm={searchTerm}
             highlightText={highlightText}
-            selectAll={selectedItems.length === filteredChambres.length}
+            selectAll={allVisibleRoomsSelected}
             selectedItems={selectedItems}
             handleSelectAllChange={handleSelectAllChange}
             handleCheckboxChange={handleCheckboxChange}
@@ -3030,18 +3272,27 @@ const columns = [
             handleDeleteSelected={handleDeleteSelected}
             rowsPerPage={rowsPerPage}
             page={page}
-            handleChangePage={handleChangePage}
-            handleChangeRowsPerPage={handleChangeRowsPerPage}
             expandedRows={expandedRows}
             toggleRowExpansion={toggleRow}
             renderExpandedRow={(item) => <></>}
             renderCustomActions={null}
             uiVariant="app"
+            externalPagination
+            paginationComponent={(
+              <ListPagination
+                page={page}
+                rowsPerPage={rowsPerPage}
+                totalRows={totalRows}
+                onPageChange={setPage}
+                onRowsPerPageChange={setRowsPerPage}
+              />
+            )}
           />
     </div>
  
               
         </div>
+        )}
       </div>
            
     </Box>

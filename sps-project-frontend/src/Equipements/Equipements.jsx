@@ -1,99 +1,225 @@
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import Swal from "sweetalert2";
 import { Form, Button, Modal } from "react-bootstrap";
-import { highlightText } from '../utils/textUtils';
+import {
+  formatFrenchDate,
+  formatFrenchNumber,
+  highlightText,
+  normalizeSearchValue,
+} from '../utils/textUtils';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-
 import {
   faTrash,
-  faFileExcel,
   faPlus,
   faEdit,
-  faFilePdf,
-  faPrint,faTools, faCheckCircle, faWrench, faTimesCircle 
+  faTools,
+  faCheckCircle,
+  faWrench,
+  faTimesCircle,
 } from "@fortawesome/free-solid-svg-icons";
-import * as XLSX from "xlsx";
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
 import SearchWithExport from "../components/SearchWithExport";
+import ListFilterReset from "../components/ListFilterReset";
+import ListPagination from "../components/ListPagination";
+import ListState from "../components/ListState";
+import useListControls from "../components/useListControls";
+import {
+  exportToExcel as exportRowsToExcel,
+  exportToPdf as exportRowsToPdf,
+  printRows,
+} from "../utils/listExportUtils";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import Box from "@mui/material/Box";
 import { useOpen } from "../Acceuil/OpenProvider";
 import "../style.css";
 
+const createEmptyEquipmentForm = () => ({
+  nom: "",
+  numero_serie: "",
+  modele: "",
+  marque: "",
+  date_acquisition: "",
+  date_fin_garantie: "",
+  fournisseur: "",
+  statut: "disponible",
+  categorie_id: "",
+  chambre_id: "",
+  emplacement_id: "",
+  prix_achat: "",
+  notes: "",
+  document: null,
+});
+
+const createEmptyEmplacementForm = () => ({
+  id: null,
+  nom: "",
+  type: "",
+  description: "",
+});
+
+const getEquipmentStatusLabel = (status) => {
+  if (status === "disponible") return "En service";
+  if (status === "en_maintenance") return "En maintenance";
+  return "Hors service";
+};
+
+const getEquipmentLocationLabel = (equipement) => {
+  if (equipement?.chambre?.num_chambre) {
+    return `Chambre ${equipement.chambre.num_chambre}`;
+  }
+
+  return (
+    equipement?.emplacement?.nom ||
+    equipement?.localisation ||
+    "Non affecté"
+  );
+};
+
+const getWarrantyDisplay = (dateFinGarantie) => {
+  if (!dateFinGarantie) {
+    return {
+      label: "Non renseignée",
+      className: "is-neutral",
+      title: "Date de fin de garantie non renseignée",
+    };
+  }
+
+  const dateValue = String(dateFinGarantie).split("T")[0];
+  const [year, month, day] = dateValue.split("-").map(Number);
+  const warrantyEnd = new Date(year, month - 1, day);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  if (Number.isNaN(warrantyEnd.getTime())) {
+    return {
+      label: "Non renseignée",
+      className: "is-neutral",
+      title: "Date de fin de garantie invalide",
+    };
+  }
+
+  const remainingDays = Math.ceil(
+    (warrantyEnd.getTime() - today.getTime()) / 86400000
+  );
+  const title = `Fin de garantie : ${warrantyEnd.toLocaleDateString("fr-FR")}`;
+
+  if (remainingDays < 0) {
+    return { label: "Expirée", className: "is-danger", title };
+  }
+
+  if (remainingDays <= 30) {
+    return {
+      label: `Expire dans ${remainingDays} j`,
+      className: "is-warning",
+      title,
+    };
+  }
+
+  return { label: "Sous garantie", className: "is-success", title };
+};
+
+const EQUIPMENT_EXPORT_COLUMNS = [
+  { key: "name", label: "Nom" },
+  { key: "serial", label: "N° Série" },
+  { key: "brandModel", label: "Marque / Modèle" },
+  { key: "category", label: "Catégorie" },
+  { key: "location", label: "Localisation" },
+  { key: "status", label: "Statut" },
+  { key: "acquisitionDate", label: "Date acquisition" },
+  { key: "warrantyEnd", label: "Fin garantie" },
+  { key: "supplier", label: "Fournisseur" },
+  { key: "purchasePrice", label: "Prix d'achat" },
+];
+
 const GestionEquipements = () => {
   const API_URL = import.meta.env.VITE_API_URL;
+  const STORAGE_URL =
+    import.meta.env.VITE_API_URL_BASE_IMAGE ||
+    `${(API_URL || "").replace(/\/api\/?$/, "")}/storage`;
+
+  const getEquipmentRequestConfig = () => {
+    const token = localStorage.getItem("token");
+
+    return {
+      headers: {
+        Accept: "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    };
+  };
+
+  const getDocumentUrl = (path) => {
+    if (!path) return "";
+
+    const documentPath = String(path);
+    if (/^(https?:|blob:|data:)/i.test(documentPath)) {
+      return documentPath;
+    }
+
+    const cleanPath = documentPath
+      .replace(/^\/+/, "")
+      .replace(/^storage\//, "");
+
+    const cleanStorageUrl = String(
+  STORAGE_URL || ""
+).replace(/\/+$/, "");
+
+return `${cleanStorageUrl}/${cleanPath}`;
+  };
+
+  const formatDateForInput = (value) =>
+    value ? String(value).split("T")[0] : "";
   const [equipements, setEquipements] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [chambres, setChambres] = useState([]);
+  const [emplacements, setEmplacements] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedStatus, setSelectedStatus] = useState(null);
-  const [searchTerm, setSearchTerm] = useState("");
   const [stats, setStats] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   
   // Form states
-  const [formData, setFormData] = useState({
-    nom: "",
-    numero_serie: "",
-    modele: "",
-    marque: "",
-    date_acquisition: "",
-    date_fin_garantie: "",
-    fournisseur: "",
-    localisation: "",
-    statut: "disponible",
-    categorie_id: "",
-    prix_achat: "",
-    notes: "",
-    document: null
-  });
+  const [formData, setFormData] = useState(createEmptyEquipmentForm);
+  const [locationType, setLocationType] = useState("");
   
   const [errors, setErrors] = useState({});
   const [editingEquipement, setEditingEquipement] = useState(null);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   
-  // Pagination
-  const [rowsPerPage, setRowsPerPage] = useState(5);
-  const [page, setPage] = useState(0);
-  
   // Selection
   const [selectedItems, setSelectedItems] = useState([]);
-  const [selectAll, setSelectAll] = useState(false);
   
   // UI states
   const [formContainerStyle, setFormContainerStyle] = useState({ right: "-100%" });
+  const [showEmplacementModal, setShowEmplacementModal] = useState(false);
+  const [emplacementForm, setEmplacementForm] = useState(
+    createEmptyEmplacementForm
+  );
+  const [emplacementErrors, setEmplacementErrors] = useState({});
   
   const { dynamicStyles } = useOpen();
 
   // Fetch data
   const fetchEquipements = async () => {
+    setLoading(true);
+    setLoadError("");
+
     try {
-      const token = localStorage.getItem('token');
-      console.log('Token:', token); // Log the token
-
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
-      const response = await axios.get(`${API_URL}/equipements`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await axios.get(
+        `${API_URL}/equipements`,
+        getEquipmentRequestConfig()
+      );
 
       if (response.data && response.data.equipements) {
         setEquipements(response.data.equipements.data || []);
         setCategories(response.data.categories || []);
+        setChambres(response.data.chambres || []);
+        setEmplacements(response.data.emplacements || []);
         setStats(response.data.stats || {});
       } else {
         console.error("Format de réponse inattendu:", response.data);
-        Swal.fire({
-          icon: "error",
-          title: "Erreur",
-          text: "Format de réponse inattendu de l'API"
-        });
+        setLoadError("Format de réponse inattendu de l'API.");
       }
     } catch (error) {
       console.error("Erreur détaillée:", {
@@ -104,21 +230,15 @@ const GestionEquipements = () => {
       });
 
       let errorMessage = "Impossible de charger les équipements";
-      if (error.message === 'No authentication token found') {
-        errorMessage = "Veuillez vous connecter pour accéder aux équipements";
-      } else if (error.response?.status === 401) {
+      if (error.response?.status === 401) {
         errorMessage = "Session expirée. Veuillez vous reconnecter.";
-        // Optionally, redirect to login
-        window.location.href = '/login';
       } else if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
       }
 
-      Swal.fire({
-        icon: "error",
-        title: "Erreur",
-        text: errorMessage
-      });
+      setLoadError(errorMessage);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -127,23 +247,118 @@ const GestionEquipements = () => {
   }, []);
 
   // Form handlers
-  const handleChange = (e) => {
-    const { name, value, files } = e.target;
-    setFormData({
-      ...formData,
-      [name]: files ? files[0] : value
+const handleChange = (e) => {
+  const {
+    name,
+    value,
+    type,
+    files,
+  } = e.target;
+
+  const nextValue =
+    type === "file"
+      ? files?.[0] || null
+      : value;
+
+  const nextFormData = {
+    ...formData,
+    [name]: nextValue,
+  };
+
+  if (name === "chambre_id") {
+    nextFormData.emplacement_id = "";
+  } else if (name === "emplacement_id") {
+    nextFormData.chambre_id = "";
+  }
+
+  setFormData(nextFormData);
+
+  setErrors((currentErrors) => {
+    const nextErrors = {
+      ...currentErrors,
+    };
+
+    delete nextErrors[name];
+
+    if (name === "chambre_id" || name === "emplacement_id") {
+      delete nextErrors.location_type;
+      delete nextErrors.chambre_id;
+      delete nextErrors.emplacement_id;
+    }
+
+    if (
+      name === "date_acquisition" ||
+      name === "date_fin_garantie"
+    ) {
+      if (
+        nextFormData.date_acquisition &&
+        nextFormData.date_fin_garantie &&
+        nextFormData.date_fin_garantie <
+          nextFormData.date_acquisition
+      ) {
+        nextErrors.date_fin_garantie =
+          "La date de fin de garantie doit être postérieure ou égale à la date d'acquisition.";
+      } else {
+        delete nextErrors.date_fin_garantie;
+      }
+    }
+
+    return nextErrors;
+  });
+};
+
+  const handleLocationTypeChange = (event) => {
+    setLocationType(event.target.value);
+    setFormData((currentFormData) => ({
+      ...currentFormData,
+      chambre_id: "",
+      emplacement_id: "",
+    }));
+    setErrors((currentErrors) => {
+      const nextErrors = { ...currentErrors };
+      delete nextErrors.location_type;
+      delete nextErrors.chambre_id;
+      delete nextErrors.emplacement_id;
+      return nextErrors;
     });
   };
 
   const validateForm = () => {
     const newErrors = {};
-    if (!formData.nom.trim()) newErrors.nom = true;
-    if (!formData.numero_serie.trim()) newErrors.numero_serie = true;
-    if (!formData.modele.trim()) newErrors.modele = true;
-    if (!formData.marque.trim()) newErrors.marque = true;
-    if (!formData.date_acquisition) newErrors.date_acquisition = true;
-    if (!formData.localisation.trim()) newErrors.localisation = true;
-    if (!formData.categorie_id) newErrors.categorie_id = true;
+    if (!formData.nom.trim()) newErrors.nom = "Le nom est obligatoire.";
+    if (!formData.numero_serie.trim()) {
+      newErrors.numero_serie = "Le numéro de série est obligatoire.";
+    }
+    if (!formData.modele.trim()) newErrors.modele = "Le modèle est obligatoire.";
+    if (!formData.marque.trim()) newErrors.marque = "La marque est obligatoire.";
+    if (!formData.date_acquisition) {
+      newErrors.date_acquisition = "La date d'acquisition est obligatoire.";
+    }
+    if (!locationType) {
+      newErrors.location_type = "Le type de localisation est obligatoire.";
+    } else if (locationType === "chambre" && !formData.chambre_id) {
+      newErrors.chambre_id = "La chambre est obligatoire.";
+    } else if (locationType === "emplacement" && !formData.emplacement_id) {
+      newErrors.emplacement_id = "L'emplacement est obligatoire.";
+    }
+    if (!formData.categorie_id) {
+      newErrors.categorie_id = "La catégorie est obligatoire.";
+    }
+    if (
+      formData.date_acquisition &&
+      formData.date_fin_garantie &&
+      formData.date_fin_garantie < formData.date_acquisition
+    ) {
+      newErrors.date_fin_garantie =
+        "La date de fin de garantie doit être postérieure ou égale à la date d'acquisition.";
+    }
+    if (
+      formData.prix_achat !== "" &&
+      (Number.isNaN(Number(formData.prix_achat)) || Number(formData.prix_achat) < 0)
+    ) {
+      newErrors.prix_achat =
+        "Le prix d'achat doit être un nombre positif ou nul.";
+    }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -163,18 +378,33 @@ const GestionEquipements = () => {
     }
 
     const formDataToSend = new FormData();
-    for (const key in formData) {
-      if (formData[key] !== null && formData[key] !== undefined) {
-        formDataToSend.append(key, formData[key]);
+    Object.entries(formData).forEach(([key, value]) => {
+      if (key === "document") {
+        if (value instanceof File) {
+          formDataToSend.append(key, value);
+        }
+        return;
       }
-    }
+
+      if (value !== null && value !== undefined) {
+        formDataToSend.append(key, value);
+      }
+    });
 
     try {
       if (editingEquipement) {
         formDataToSend.append('_method', 'PUT');
-        await axios.post(`${API_URL}/equipements/${editingEquipement.id}`, formDataToSend);
+        await axios.post(
+          `${API_URL}/equipements/${editingEquipement.id}`,
+          formDataToSend,
+          getEquipmentRequestConfig()
+        );
       } else {
-        await axios.post(`${API_URL}/equipements`, formDataToSend);
+        await axios.post(
+          `${API_URL}/equipements`,
+          formDataToSend,
+          getEquipmentRequestConfig()
+        );
       }
 
       Swal.fire({
@@ -187,6 +417,26 @@ const GestionEquipements = () => {
       fetchEquipements();
     } catch (error) {
       console.error("Erreur lors de la soumission:", error);
+
+      if (error.response?.status === 422 && error.response?.data?.errors) {
+        const backendErrors = Object.fromEntries(
+          Object.entries(error.response.data.errors).map(([field, messages]) => [
+            field,
+            Array.isArray(messages) ? messages[0] : String(messages),
+          ])
+        );
+        const firstError = Object.values(backendErrors)[0];
+
+        setErrors(backendErrors);
+        setHasSubmitted(true);
+        Swal.fire({
+          icon: "error",
+          title: "Erreur de validation",
+          text: firstError || "Veuillez vérifier les informations saisies.",
+        });
+        return;
+      }
+
       Swal.fire({
         icon: "error",
         title: "Erreur",
@@ -198,20 +448,30 @@ const GestionEquipements = () => {
   const handleEdit = (equipement) => {
     setEditingEquipement(equipement);
     setFormData({
-      nom: equipement.nom,
-      numero_serie: equipement.numero_serie,
-      modele: equipement.modele,
-      marque: equipement.marque,
-      date_acquisition: equipement.date_acquisition.split('T')[0],
-      date_fin_garantie: equipement.date_fin_garantie?.split('T')[0] || "",
-      fournisseur: equipement.fournisseur,
-      localisation: equipement.localisation,
+      nom: equipement.nom ?? "",
+      numero_serie: equipement.numero_serie ?? "",
+      modele: equipement.modele ?? "",
+      marque: equipement.marque ?? "",
+      date_acquisition: formatDateForInput(equipement.date_acquisition),
+      date_fin_garantie: formatDateForInput(equipement.date_fin_garantie),
+      fournisseur: equipement.fournisseur ?? "",
       statut: equipement.statut,
-      categorie_id: equipement.categorie_id,
-      prix_achat: equipement.prix_achat,
-      notes: equipement.notes,
+      categorie_id: equipement.categorie_id ?? "",
+      chambre_id: equipement.chambre_id ?? "",
+      emplacement_id: equipement.emplacement_id ?? "",
+      prix_achat: equipement.prix_achat ?? "",
+      notes: equipement.notes ?? "",
       document: null
     });
+    setLocationType(
+      equipement.chambre_id
+        ? "chambre"
+        : equipement.emplacement_id
+        ? "emplacement"
+        : ""
+    );
+    setErrors({});
+    setHasSubmitted(false);
     setFormContainerStyle({ right: "0" });
   };    
 
@@ -225,9 +485,15 @@ const GestionEquipements = () => {
       cancelButtonText: "Annuler"
     }).then((result) => {
       if (result.isConfirmed) {
-        axios.delete(`${API_URL}/equipements/${equipement}`)
+        axios.delete(
+          `${API_URL}/equipements/${equipement}`,
+          getEquipmentRequestConfig()
+        )
           .then(() => {
             fetchEquipements();
+            setSelectedItems((currentItems) =>
+              currentItems.filter((id) => id !== equipement)
+            );
             Swal.fire("Supprimé!", "L'équipement a été supprimé.", "success");
           })
           .catch((error) => {
@@ -238,238 +504,362 @@ const GestionEquipements = () => {
     });
   };
 
-  const handleDeleteSelected = () => {
-    if (selectedItems.length === 0) return;
+const handleDeleteSelected = async () => {
+  if (selectedItems.length === 0) {
+    return;
+  }
 
+  const result = await Swal.fire({
+    title: "Confirmer la suppression",
+    text: `Êtes-vous sûr de vouloir supprimer ${selectedItems.length} équipement(s) ?`,
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonText: "Oui, supprimer",
+    cancelButtonText: "Annuler",
+  });
+
+  if (!result.isConfirmed) {
+    return;
+  }
+
+  const idsToDelete = [...selectedItems];
+
+  const results = await Promise.allSettled(
+    idsToDelete.map((id) =>
+      axios.delete(
+        `${API_URL}/equipements/${id}`,
+        getEquipmentRequestConfig()
+      )
+    )
+  );
+
+  const deletedIds = idsToDelete.filter(
+    (_, index) =>
+      results[index].status === "fulfilled"
+  );
+
+  const failedCount =
+    results.length - deletedIds.length;
+
+  await fetchEquipements();
+
+  setSelectedItems((currentItems) =>
+    currentItems.filter(
+      (id) => !deletedIds.includes(id)
+    )
+  );
+
+  if (failedCount > 0) {
     Swal.fire({
-      title: "Confirmer la suppression",
-      text: `Êtes-vous sûr de vouloir supprimer ${selectedItems.length} équipement(s) ?`,
       icon: "warning",
-      showCancelButton: true,
-      confirmButtonText: "Oui, supprimer",
-      cancelButtonText: "Annuler"
-    }).then((result) => {
-      if (result.isConfirmed) {
-        const deletePromises = selectedItems.map(id => 
-          axios.delete(`${API_URL}/equipements/${id}`)
-        );
-
-        Promise.all(deletePromises)
-          .then(() => {
-            fetchEquipements();
-            setSelectedItems([]);
-            Swal.fire("Supprimé!", "Les équipements ont été supprimés.", "success");
-          })
-          .catch((error) => {
-            console.error("Erreur lors de la suppression:", error);
-            Swal.fire("Erreur!", error.response?.data?.message || "La suppression a échoué.", "error");
-          });
-      }
+      title: "Suppression partielle",
+      text: `${deletedIds.length} équipement(s) supprimé(s), ${failedCount} échec(s).`,
     });
-  };
 
+    return;
+  }
+
+  Swal.fire(
+    "Supprimé!",
+    "Les équipements ont été supprimés.",
+    "success"
+  );
+};
   const closeForm = () => {
     setFormContainerStyle({ right: "-100%" });
     setEditingEquipement(null);
-    setSelectedItems([]); // Désélectionne toutes les cases
-    setFormData({
-      nom: "",
-      numero_serie: "",
-      modele: "",
-      marque: "",
-      date_acquisition: "",
-      date_fin_garantie: "",
-      fournisseur: "",
-      localisation: "",
-      statut: "disponible",
-      categorie_id: "",
-      prix_achat: "",
-      notes: "",
-      document: null
-    });
+    setFormData(createEmptyEquipmentForm());
+    setLocationType("");
     setErrors({});
     setHasSubmitted(false);
   };
 
 const handleShowForm = () => {
   setEditingEquipement(null);
-  setSelectedItems([]);
-  setFormData({
-    nom: "",
-    numero_serie: "",
-    modele: "",
-    marque: "",
-    date_acquisition: "",
-    date_fin_garantie: "",
-    fournisseur: "",
-    localisation: "",
-    statut: "disponible",
-    categorie_id: "",
-    prix_achat: "",
-    notes: "",
-    document: null,
-  });
+  setFormData(createEmptyEquipmentForm());
+  setLocationType("");
   setErrors({});
   setHasSubmitted(false);
   setFormContainerStyle({ right: "0" });
 };
   // Selection handlers
-  const handleSelectAllChange = () => {
-    setSelectAll(!selectAll);
-    if (!selectAll) {
-      setSelectedItems(equipements.map(e => e.id));
-    } else {
-      setSelectedItems([]);
-    }
-  };
-
   const handleCheckboxChange = (id) => {
-    const newSelected = selectedItems.includes(id)
-      ? selectedItems.filter(item => item !== id)
-      : [...selectedItems, id];
-    setSelectedItems(newSelected);
-    
-    if (newSelected.length === 1) {
-      const selectedEq = equipements.find(e => e.id === newSelected[0]);
-      if (selectedEq) {
-        handleEdit(selectedEq);
+    setSelectedItems((currentItems) =>
+      currentItems.includes(id)
+        ? currentItems.filter((item) => item !== id)
+        : [...currentItems, id]
+    );
+  };
+
+  const handleStatusFilterChange = (event) => {
+    setSelectedStatus(event.target.value || null);
+    resetPage();
+  };
+
+  const handleCategoryFilterChange = (event) => {
+    setSelectedCategory(event.target.value || null);
+    resetPage();
+  };
+
+  const openEmplacementModal = () => {
+    setEmplacementForm(createEmptyEmplacementForm());
+    setEmplacementErrors({});
+    setShowEmplacementModal(true);
+  };
+
+  const closeEmplacementModal = () => {
+    setShowEmplacementModal(false);
+    setEmplacementForm(createEmptyEmplacementForm());
+    setEmplacementErrors({});
+  };
+
+  const handleEmplacementFormChange = (event) => {
+    const { name, value } = event.target;
+    setEmplacementForm((currentForm) => ({
+      ...currentForm,
+      [name]: value,
+    }));
+    setEmplacementErrors((currentErrors) => {
+      const nextErrors = { ...currentErrors };
+      delete nextErrors[name];
+      return nextErrors;
+    });
+  };
+
+  const handleEditEmplacement = (emplacement) => {
+    setEmplacementForm({
+      id: emplacement.id,
+      nom: emplacement.nom ?? "",
+      type: emplacement.type ?? "",
+      description: emplacement.description ?? "",
+    });
+    setEmplacementErrors({});
+  };
+
+  const handleEmplacementSubmit = async (event) => {
+    event.preventDefault();
+
+    if (!emplacementForm.nom.trim()) {
+      setEmplacementErrors({ nom: "Le nom est obligatoire." });
+      return;
+    }
+
+    const payload = {
+      nom: emplacementForm.nom,
+      type: emplacementForm.type || null,
+      description: emplacementForm.description || null,
+    };
+
+    try {
+      const response = emplacementForm.id
+        ? await axios.put(
+            `${API_URL}/emplacements/${emplacementForm.id}`,
+            payload,
+            getEquipmentRequestConfig()
+          )
+        : await axios.post(
+            `${API_URL}/emplacements`,
+            payload,
+            getEquipmentRequestConfig()
+          );
+
+      await fetchEquipements();
+
+      if (!emplacementForm.id && response.data?.emplacement?.id) {
+        setLocationType("emplacement");
+        setFormData((currentFormData) => ({
+          ...currentFormData,
+          chambre_id: "",
+          emplacement_id: response.data.emplacement.id,
+        }));
       }
-    } else if (newSelected.length === 0) {
-      closeForm();
+
+      setEmplacementForm(createEmptyEmplacementForm());
+      setEmplacementErrors({});
+      Swal.fire({
+        icon: "success",
+        title: "Succès",
+        text: `Emplacement ${emplacementForm.id ? "modifié" : "ajouté"} avec succès.`,
+      });
+    } catch (error) {
+      if (error.response?.status === 422 && error.response?.data?.errors) {
+        const backendErrors = Object.fromEntries(
+          Object.entries(error.response.data.errors).map(([field, messages]) => [
+            field,
+            Array.isArray(messages) ? messages[0] : String(messages),
+          ])
+        );
+        setEmplacementErrors(backendErrors);
+        return;
+      }
+
+      Swal.fire({
+        icon: "error",
+        title: "Erreur",
+        text:
+          error.response?.data?.message ||
+          "Impossible d'enregistrer l'emplacement.",
+      });
     }
   };
 
-  // Pagination handlers
-  const handleChangePage = (event, newPage) => {
-    setPage(newPage);
-  };
-
-  const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
-
-  // Export functions
-  const exportToExcel = () => {
-    const data = filteredEquipements.map(equipement => ({
-      "Nom": equipement.nom,
-      "N° Série": equipement.numero_serie,
-      "Modèle": equipement.modele,
-      "Marque": equipement.marque,
-      "Catégorie": equipement.categorie?.nom || '',
-      "Localisation": equipement.localisation,
-      "Statut": equipement.statut,
-      "Date acquisition": equipement.date_acquisition,
-      "Fin garantie": equipement.date_fin_garantie || "",
-      "Fournisseur": equipement.fournisseur,
-      "Prix d'achat": equipement.prix_achat
-    }));
-
-    const worksheet = XLSX.utils.json_to_sheet(data);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Équipements");
-    XLSX.writeFile(workbook, "equipements.xlsx");
-  };
-
-  const exportToPDF = () => {
-    const doc = new jsPDF();
-    doc.text("Liste des équipements", 14, 16);
-    
-    const headers = [["Nom", "N° Série", "Modèle", "Localisation","Catégorie" , "Statut"]];
-    const data = filteredEquipements.map(equipement => [
-      equipement.nom,
-      equipement.numero_serie,
-      equipement.modele,
-      equipement.localisation,
-      equipement.categorie.nom,
-      equipement.statut === 'disponible' ? 'Disponible' : 
-      equipement.statut === 'en_maintenance' ? 'En maintenance' : 'Hors service'
-    ]);
-
-    doc.autoTable({
-      head: headers,
-      body: data,
-      startY: 20,
-      theme: "grid",
-      headStyles: { fillColor: [41, 128, 185] }
+  const handleDeleteEmplacement = async (emplacement) => {
+    const result = await Swal.fire({
+      title: "Confirmer la suppression",
+      text: `Supprimer l'emplacement « ${emplacement.nom} » ?`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Oui, supprimer",
+      cancelButtonText: "Annuler",
     });
 
-    doc.save("equipements.pdf");
+    if (!result.isConfirmed) return;
+
+    try {
+      await axios.delete(
+        `${API_URL}/emplacements/${emplacement.id}`,
+        getEquipmentRequestConfig()
+      );
+      await fetchEquipements();
+
+      if (String(formData.emplacement_id) === String(emplacement.id)) {
+        setFormData((currentFormData) => ({
+          ...currentFormData,
+          emplacement_id: "",
+        }));
+      }
+
+      if (emplacementForm.id === emplacement.id) {
+        setEmplacementForm(createEmptyEmplacementForm());
+      }
+
+      Swal.fire("Supprimé!", "L'emplacement a été supprimé.", "success");
+    } catch (error) {
+      Swal.fire({
+        icon: "error",
+        title: error.response?.status === 409 ? "Suppression impossible" : "Erreur",
+        text:
+          error.response?.data?.message ||
+          "Impossible de supprimer l'emplacement.",
+      });
+    }
   };
 
-  const printTable = () => {
-    const printWindow = window.open('', '_blank');
-    const tableContent = document.getElementById('equipementsTable').outerHTML;
-    
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Liste des équipements</title>
-          <style>
-            table { width: 100%; border-collapse: collapse; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background-color: #f2f2f2; }
-            .badge-success { background-color: #28a745; color: white; padding: 3px 6px; border-radius: 3px; }
-            .badge-warning { background-color: #ffc107; color: black; padding: 3px 6px; border-radius: 3px; }
-            .badge-danger { background-color: #dc3545; color: white; padding: 3px 6px; border-radius: 3px; }
-          </style>
-        </head>
-        <body>
-          <h1>Liste des équipements</h1>
-          <table>
-            <thead>
-              <tr>
-                <th>Nom</th>
-                <th>N° Série</th>
-                <th>Modèle</th>
-                <th>Localisation</th>
-                <th>Catégorie</th>
-                <th>Statut</th>
-              </tr>
-            </thead>
-             <tbody>
-              ${filteredEquipements?.map(equipements => `
-                <tr>
-                  <td>${equipements?.nom || ''}</td>
-                  <td>${equipements.numero_serie || ''}</td>
-                  <td>${equipements.modele || ''}</td>
-                  <td>${equipements.localisation || ''}</td>
-                  <td>${equipements?.categorie?.nom|| ''}</td>
-                  <td>${equipements?.statut || ''}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-            </table>
-        </body>
-      </html>
-    `);
-    
-    printWindow.document.close();
-    printWindow.print();
+  const filterEquipements = useCallback(
+    (rows, currentSearchTerm) => {
+      const normalizedSearch = normalizeSearchValue(currentSearchTerm);
+
+      return rows.filter((equipement) => {
+        const matchesSearch = [
+          equipement.nom,
+          equipement.numero_serie,
+          equipement.marque,
+          equipement.modele,
+          equipement.categorie?.nom,
+          getEquipmentLocationLabel(equipement),
+          getEquipmentStatusLabel(equipement.statut),
+          equipement.fournisseur,
+        ].some((value) =>
+          normalizeSearchValue(value).includes(normalizedSearch)
+        );
+        const matchesCategory = selectedCategory
+          ? String(equipement.categorie_id) === String(selectedCategory)
+          : true;
+        const matchesStatus = selectedStatus
+          ? String(equipement.statut) === String(selectedStatus)
+          : true;
+
+        return matchesSearch && matchesCategory && matchesStatus;
+      });
+    },
+    [selectedCategory, selectedStatus]
+  );
+
+  const {
+    searchTerm,
+    page,
+    rowsPerPage,
+    filteredRows: filteredEquipements,
+    visibleRows: visibleEquipements,
+    totalRows,
+    setSearchTerm,
+    setPage,
+    setRowsPerPage,
+    resetPage,
+  } = useListControls({
+    allRows: equipements,
+    filterRows: filterEquipements,
+    storageKey: "rowsPerPageEquipements",
+  });
+
+  const filtersActive = Boolean(
+    searchTerm || selectedCategory || selectedStatus
+  );
+  const resetFilters = useCallback(() => {
+    setSearchTerm("");
+    setSelectedCategory(null);
+    setSelectedStatus(null);
+    resetPage();
+  }, [resetPage, setSearchTerm]);
+
+  const exportRows = useMemo(
+    () =>
+      filteredEquipements.map((equipement) => ({
+        name: equipement.nom || "",
+        serial: equipement.numero_serie || "",
+        brandModel: `${equipement.marque || ""} — ${equipement.modele || ""}`,
+        category: equipement.categorie?.nom || "",
+        location: getEquipmentLocationLabel(equipement),
+        status: getEquipmentStatusLabel(equipement.statut),
+        acquisitionDate: formatFrenchDate(equipement.date_acquisition),
+        warrantyEnd: formatFrenchDate(equipement.date_fin_garantie),
+        supplier: equipement.fournisseur || "",
+        purchasePrice: formatFrenchNumber(equipement.prix_achat, "DH"),
+      })),
+    [filteredEquipements]
+  );
+
+  const exportToExcel = () =>
+    exportRowsToExcel({
+      rows: exportRows,
+      columns: EQUIPMENT_EXPORT_COLUMNS,
+      sheetName: "Équipements",
+      filename: "equipements.xlsx",
+    });
+  const exportToPDF = () =>
+    exportRowsToPdf({
+      rows: exportRows,
+      columns: EQUIPMENT_EXPORT_COLUMNS,
+      title: "Gestion des Équipements",
+      filename: "equipements.pdf",
+      orientation: "landscape",
+    });
+  const printTable = () =>
+    printRows({
+      rows: exportRows,
+      columns: EQUIPMENT_EXPORT_COLUMNS,
+      title: "Gestion des Équipements",
+      orientation: "landscape",
+    });
+
+  const visibleEquipmentIds = visibleEquipements.map(
+    (equipement) => equipement.id
+  );
+  const areAllVisibleEquipmentsSelected =
+    visibleEquipmentIds.length > 0 &&
+    visibleEquipmentIds.every((id) => selectedItems.includes(id));
+
+  const handleSelectAllChange = () => {
+    setSelectedItems((currentItems) => {
+      if (areAllVisibleEquipmentsSelected) {
+        return currentItems.filter(
+          (id) => !visibleEquipmentIds.includes(id)
+        );
+      }
+
+      return [...new Set([...currentItems, ...visibleEquipmentIds])];
+    });
   };
-
-  // Filter equipements
-  const filteredEquipements = Array.isArray(equipements) 
-  ? equipements.filter(equipement => {
-      const matchesSearch = 
-        equipement.nom?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        equipement.numero_serie?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        equipement.modele?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        equipement.localisation?.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      const matchesCategory = selectedCategory 
-        ? equipement.categorie_id == selectedCategory 
-        : true;
-
-      const matchesStatus = selectedStatus
-        ? equipement.statut === selectedStatus
-        : true;
-      
-      return matchesSearch && matchesCategory && matchesStatus;
-    })
-  : [];
-
-
 
   return (
     <ThemeProvider theme={createTheme()}>
@@ -477,14 +867,15 @@ const handleShowForm = () => {
         <Box component="main" className="app-page equipements-page" sx={{ flexGrow: 1, p: 3, mt: 0 }}>
 
           <SearchWithExport
-            onSearch={setSearchTerm}
+            searchValue={searchTerm}
+            onSearchChange={setSearchTerm}
             exportToExcel={exportToExcel}
             exportToPDF={exportToPDF}
             printTable={printTable}
-            categories={equipements}
-            selectedCategory={selectedCategory}
-            handleCategoryFilterChange={setSelectedCategory}
             Title="Gestion des Équipements"
+            resultCount={totalRows}
+            loading={loading}
+            exportsDisabled={loading || totalRows === 0}
           />
 
           
@@ -500,7 +891,7 @@ const handleShowForm = () => {
       icon: faTools,
     },
     {
-      title: "Disponibles",
+      title: "En service",
       value: stats.disponible || 0,
       color: "#28a745",
       icon: faCheckCircle,
@@ -557,11 +948,11 @@ const handleShowForm = () => {
     <Form.Select
       aria-label="Filtrer par statut"
       value={selectedStatus || ""}
-      onChange={(e) => setSelectedStatus(e.target.value || null)}
+      onChange={handleStatusFilterChange}
       className="app-filter-select"
     >
       <option value="">Tous les statuts</option>
-      <option value="disponible">Disponible</option>
+      <option value="disponible">En service</option>
       <option value="en_maintenance">En maintenance</option>
       <option value="hors_service">Hors service</option>
     </Form.Select>
@@ -569,7 +960,7 @@ const handleShowForm = () => {
     <Form.Select
       aria-label="Filtrer par catégorie"
       value={selectedCategory || ""}
-      onChange={(e) => setSelectedCategory(e.target.value || null)}
+      onChange={handleCategoryFilterChange}
       className="app-filter-select"
     >
       <option value="">Toutes les catégories</option>
@@ -579,6 +970,8 @@ const handleShowForm = () => {
         </option>
       ))}
     </Form.Select>
+
+    <ListFilterReset active={filtersActive} onReset={resetFilters} />
   </div>
 </div>
 
@@ -592,7 +985,7 @@ const handleShowForm = () => {
     maxWidth: "100%",
   }}
 >
-  <Form onSubmit={handleSubmit}>
+  <Form onSubmit={handleSubmit} noValidate>
     <h4 className="app-form-drawer-title">
       {editingEquipement ? "Modifier" : "Ajouter"} un Équipement
     </h4>
@@ -609,7 +1002,7 @@ const handleShowForm = () => {
         />
         {hasSubmitted && errors.nom && (
           <Form.Control.Feedback type="invalid">
-            Required
+            {errors.nom}
           </Form.Control.Feedback>
         )}
       </Form.Group>
@@ -625,7 +1018,7 @@ const handleShowForm = () => {
         />
         {hasSubmitted && errors.numero_serie && (
           <Form.Control.Feedback type="invalid">
-            Required
+            {errors.numero_serie}
           </Form.Control.Feedback>
         )}
       </Form.Group>
@@ -641,7 +1034,7 @@ const handleShowForm = () => {
         />
         {hasSubmitted && errors.modele && (
           <Form.Control.Feedback type="invalid">
-            Required
+            {errors.modele}
           </Form.Control.Feedback>
         )}
       </Form.Group>
@@ -657,7 +1050,7 @@ const handleShowForm = () => {
         />
         {hasSubmitted && errors.marque && (
           <Form.Control.Feedback type="invalid">
-            Required
+            {errors.marque}
           </Form.Control.Feedback>
         )}
       </Form.Group>
@@ -679,7 +1072,7 @@ const handleShowForm = () => {
         </Form.Select>
         {hasSubmitted && errors.categorie_id && (
           <Form.Control.Feedback type="invalid">
-            Required
+            {errors.categorie_id}
           </Form.Control.Feedback>
         )}
       </Form.Group>
@@ -691,27 +1084,84 @@ const handleShowForm = () => {
           value={formData.statut}
           onChange={handleChange}
         >
-          <option value="disponible">Disponible</option>
+          <option value="disponible">En service</option>
           <option value="en_maintenance">En maintenance</option>
           <option value="hors_service">Hors service</option>
         </Form.Select>
       </Form.Group>
 
       <Form.Group className="col-md-6">
-        <Form.Label>Localisation *</Form.Label>
-        <Form.Control
-          type="text"
-          name="localisation"
-          value={formData.localisation}
-          isInvalid={hasSubmitted && errors.localisation}
-          onChange={handleChange}
-        />
-        {hasSubmitted && errors.localisation && (
+        <Form.Label>Type de localisation *</Form.Label>
+        <Form.Select
+          value={locationType}
+          onChange={handleLocationTypeChange}
+          isInvalid={hasSubmitted && Boolean(errors.location_type)}
+        >
+          <option value="">Sélectionner un type</option>
+          <option value="chambre">Chambre</option>
+          <option value="emplacement">Espace / emplacement</option>
+        </Form.Select>
+        {hasSubmitted && errors.location_type && (
           <Form.Control.Feedback type="invalid">
-            Required
+            {errors.location_type}
           </Form.Control.Feedback>
         )}
       </Form.Group>
+
+      {locationType === "chambre" && (
+        <Form.Group className="col-md-6">
+          <Form.Label>Chambre *</Form.Label>
+          <Form.Select
+            name="chambre_id"
+            value={formData.chambre_id}
+            onChange={handleChange}
+            isInvalid={hasSubmitted && Boolean(errors.chambre_id)}
+          >
+            <option value="">Sélectionner une chambre</option>
+            {chambres.map((chambre) => (
+              <option key={chambre.id} value={chambre.id}>
+                Chambre {chambre.num_chambre}
+              </option>
+            ))}
+          </Form.Select>
+          {hasSubmitted && errors.chambre_id && (
+            <Form.Control.Feedback type="invalid">
+              {errors.chambre_id}
+            </Form.Control.Feedback>
+          )}
+        </Form.Group>
+      )}
+
+      {locationType === "emplacement" && (
+        <Form.Group className="col-md-6">
+          <Form.Label>Emplacement *</Form.Label>
+          <Form.Select
+            name="emplacement_id"
+            value={formData.emplacement_id}
+            onChange={handleChange}
+            isInvalid={hasSubmitted && Boolean(errors.emplacement_id)}
+          >
+            <option value="">Sélectionner un emplacement</option>
+            {emplacements.map((emplacement) => (
+              <option key={emplacement.id} value={emplacement.id}>
+                {emplacement.nom}
+              </option>
+            ))}
+          </Form.Select>
+          {hasSubmitted && errors.emplacement_id && (
+            <Form.Control.Feedback type="invalid">
+              {errors.emplacement_id}
+            </Form.Control.Feedback>
+          )}
+          <Button
+            type="button"
+            className="app-secondary-button mt-2"
+            onClick={openEmplacementModal}
+          >
+            Gérer les emplacements
+          </Button>
+        </Form.Group>
+      )}
 
       <Form.Group className="col-md-6">
         <Form.Label>Date acquisition *</Form.Label>
@@ -724,7 +1174,7 @@ const handleShowForm = () => {
         />
         {hasSubmitted && errors.date_acquisition && (
           <Form.Control.Feedback type="invalid">
-            Required
+            {errors.date_acquisition}
           </Form.Control.Feedback>
         )}
       </Form.Group>
@@ -735,8 +1185,15 @@ const handleShowForm = () => {
           type="date"
           name="date_fin_garantie"
           value={formData.date_fin_garantie}
+          min={formData.date_acquisition || undefined}
+          isInvalid={hasSubmitted && Boolean(errors.date_fin_garantie)}
           onChange={handleChange}
         />
+        {hasSubmitted && errors.date_fin_garantie && (
+          <Form.Control.Feedback type="invalid">
+            {errors.date_fin_garantie}
+          </Form.Control.Feedback>
+        )}
       </Form.Group>
 
       <Form.Group className="col-md-6">
@@ -756,9 +1213,15 @@ const handleShowForm = () => {
           name="prix_achat"
           value={formData.prix_achat}
           onChange={handleChange}
+          isInvalid={hasSubmitted && Boolean(errors.prix_achat)}
           min="0"
           step="0.01"
         />
+        {hasSubmitted && errors.prix_achat && (
+          <Form.Control.Feedback type="invalid">
+            {errors.prix_achat}
+          </Form.Control.Feedback>
+        )}
       </Form.Group>
 
       <Form.Group className="col-md-6">
@@ -767,8 +1230,25 @@ const handleShowForm = () => {
           type="file"
           name="document"
           onChange={handleChange}
-          accept=".pdf,.jpg,.png"
+          accept=".pdf,.jpg,.jpeg,.png"
+          isInvalid={hasSubmitted && Boolean(errors.document)}
         />
+        {editingEquipement?.document_path && (
+          <div className="small mt-1">
+            <a
+              href={getDocumentUrl(editingEquipement.document_path)}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Document actuel
+            </a>
+          </div>
+        )}
+        {hasSubmitted && errors.document && (
+          <Form.Control.Feedback type="invalid">
+            {errors.document}
+          </Form.Control.Feedback>
+        )}
       </Form.Group>
 
       <Form.Group className="col-12">
@@ -798,146 +1278,318 @@ const handleShowForm = () => {
     </div>
   </Form>
 </div>
-          {/* Table Container */}
-{/* Table Container */}
-<div className="app-section">
-  <div id="tableContainer" className="app-table-wrapper">
-    <table id="equipementsTable" className="table table-bordered app-table mb-0">
-      <thead className="text-center">
-        <tr>
-          <th>
-            <input
-              type="checkbox"
-              checked={selectAll}
-              onChange={handleSelectAllChange}
-            />
-          </th>
-          <th>Nom</th>
-          <th>N° Série</th>
-          <th>Modèle</th>
-          <th>Localisation</th>
-          <th>Catégorie</th>
-          <th>Statut</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
 
-      <tbody className="text-center">
-        {filteredEquipements
-          .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-          .map((equipement) => (
-            <tr key={equipement.id}>
-              <td>
-                <input
-                  type="checkbox"
-                  checked={selectedItems.includes(equipement.id)}
-                  onChange={() => handleCheckboxChange(equipement.id)}
-                />
-              </td>
+<Modal
+  show={showEmplacementModal}
+  onHide={closeEmplacementModal}
+  size="lg"
+  centered
+>
+  <Modal.Header closeButton>
+    <Modal.Title>Gérer les emplacements</Modal.Title>
+  </Modal.Header>
+  <Modal.Body>
+    <Form onSubmit={handleEmplacementSubmit} noValidate>
+      <div className="row g-3">
+        <Form.Group className="col-md-6">
+          <Form.Label>Nom *</Form.Label>
+          <Form.Control
+            name="nom"
+            value={emplacementForm.nom}
+            onChange={handleEmplacementFormChange}
+            isInvalid={Boolean(emplacementErrors.nom)}
+          />
+          {emplacementErrors.nom && (
+            <Form.Control.Feedback type="invalid">
+              {emplacementErrors.nom}
+            </Form.Control.Feedback>
+          )}
+        </Form.Group>
 
-              <td>{highlightText(equipement.nom, searchTerm)}</td>
-              <td>{highlightText(equipement.numero_serie, searchTerm)}</td>
-              <td>{highlightText(equipement.modele, searchTerm)}</td>
-              <td>{highlightText(equipement.localisation, searchTerm)}</td>
-              <td>{equipement.categorie?.nom || ""}</td>
+        <Form.Group className="col-md-6">
+          <Form.Label>Type</Form.Label>
+          <Form.Control
+            name="type"
+            value={emplacementForm.type}
+            onChange={handleEmplacementFormChange}
+            isInvalid={Boolean(emplacementErrors.type)}
+          />
+          {emplacementErrors.type && (
+            <Form.Control.Feedback type="invalid">
+              {emplacementErrors.type}
+            </Form.Control.Feedback>
+          )}
+        </Form.Group>
 
-              <td>
-                <span
-                  className={`app-status-badge ${
-  equipement.statut === "disponible"
-    ? "is-success"
-    : equipement.statut === "en_maintenance"
-    ? "is-warning"
-    : "is-danger"
-}`}
-                >
-                  {equipement.statut === "disponible"
-                    ? "Disponible"
-                    : equipement.statut === "en_maintenance"
-                    ? "En maintenance"
-                    : "Hors service"}
-                </span>
-              </td>
+        <Form.Group className="col-12">
+          <Form.Label>Description</Form.Label>
+          <Form.Control
+            as="textarea"
+            rows={2}
+            name="description"
+            value={emplacementForm.description}
+            onChange={handleEmplacementFormChange}
+            isInvalid={Boolean(emplacementErrors.description)}
+          />
+          {emplacementErrors.description && (
+            <Form.Control.Feedback type="invalid">
+              {emplacementErrors.description}
+            </Form.Control.Feedback>
+          )}
+        </Form.Group>
+      </div>
 
-              <td style={{ whiteSpace: "nowrap" }}>
-                <div className="d-flex align-items-center justify-content-center">
+      <div className="app-form-actions">
+        <Button type="submit" className="app-primary-button">
+          {emplacementForm.id ? "Modifier" : "Ajouter"}
+        </Button>
+        {emplacementForm.id && (
+          <Button
+            type="button"
+            className="app-secondary-button"
+            onClick={() => {
+              setEmplacementForm(createEmptyEmplacementForm());
+              setEmplacementErrors({});
+            }}
+          >
+            Annuler la modification
+          </Button>
+        )}
+      </div>
+    </Form>
+
+    <div className="app-table-wrapper mt-3">
+      <table className="table table-bordered app-table mb-0">
+        <thead>
+          <tr>
+            <th>Nom</th>
+            <th>Type</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {emplacements.length > 0 ? (
+            emplacements.map((emplacement) => (
+              <tr key={emplacement.id}>
+                <td>{emplacement.nom}</td>
+                <td>{emplacement.type || "—"}</td>
+                <td style={{ whiteSpace: "nowrap" }}>
                   <FontAwesomeIcon
-                    onClick={() => handleEdit(equipement)}
                     icon={faEdit}
                     className="app-table-action is-edit"
+                    title="Modifier"
+                    onClick={() => handleEditEmplacement(emplacement)}
                   />
-
                   <FontAwesomeIcon
-                    onClick={() => handleDelete(equipement.id)}
                     icon={faTrash}
                     className="app-table-action is-delete"
+                    title="Supprimer"
+                    onClick={() => handleDeleteEmplacement(emplacement)}
                   />
-                </div>
-              </td>
+                </td>
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td colSpan={3}>Aucun emplacement disponible</td>
             </tr>
-          ))}
-      </tbody>
-    </table>
-  </div>
-
-  <div className="app-table-footer">
+          )}
+        </tbody>
+      </table>
+    </div>
+  </Modal.Body>
+  <Modal.Footer>
     <Button
       type="button"
-      className="app-danger-button"
-      onClick={handleDeleteSelected}
-      disabled={selectedItems.length === 0}
+      className="app-secondary-button"
+      onClick={closeEmplacementModal}
     >
-      <FontAwesomeIcon icon={faTrash} />
-      Supprimer sélectionnés
+      Fermer
     </Button>
-
-    <div className="app-table-pagination">
-      <span>Lignes par page:</span>
-
-      <select
-        value={rowsPerPage}
-        onChange={(e) =>
-          handleChangeRowsPerPage({
-            target: { value: e.target.value },
-          })
-        }
+  </Modal.Footer>
+</Modal>
+          {/* Table Container */}
+{/* Table Container */}
+<ListState
+  loading={loading}
+  error={loadError}
+  allRowsCount={equipements.length}
+  filteredRowsCount={totalRows}
+  emptyDataMessage="Aucun équipement enregistré."
+  onRetry={fetchEquipements}
+  onResetFilters={resetFilters}
+/>
+{!loading && !loadError && totalRows > 0 && (
+<div className="app-section">
+  <div
+    id="tableContainer"
+    className="app-table-wrapper"
+  >
+    <div className="app-table-scroll">
+      <table
+        id="equipementsTable"
+        className="table table-bordered app-table mb-0"
       >
-        {[5, 10, 15, 20, 25].map((value) => (
-          <option key={value} value={value}>
-            {value}
-          </option>
-        ))}
-      </select>
+        <thead className="text-center">
+          <tr>
+            <th>
+              <input
+                type="checkbox"
+                checked={areAllVisibleEquipmentsSelected}
+                disabled={visibleEquipmentIds.length === 0}
+                aria-label="Sélectionner les équipements visibles"
+                onChange={handleSelectAllChange}
+              />
+            </th>
 
-      <span>
-        {filteredEquipements.length > 0
-          ? `${page * rowsPerPage + 1}-${Math.min(
-              (page + 1) * rowsPerPage,
-              filteredEquipements.length
-            )} sur ${filteredEquipements.length}`
-          : "0-0 sur 0"}
-      </span>
+            <th>Nom</th>
+            <th>N° Série</th>
+            <th>Marque / Modèle</th>
+            <th>Localisation</th>
+            <th>Catégorie</th>
+            <th>Statut</th>
+            <th>Garantie</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
 
-      <button
+        <tbody className="text-center">
+          {visibleEquipements.length > 0 ? (
+            visibleEquipements.map((equipement) => {
+              const warranty = getWarrantyDisplay(
+                equipement.date_fin_garantie
+              );
+
+              return (
+                <tr key={equipement.id}>
+                <td>
+                  <input
+                    type="checkbox"
+                    checked={selectedItems.includes(
+                      equipement.id
+                    )}
+                    onChange={() =>
+                      handleCheckboxChange(
+                        equipement.id
+                      )
+                    }
+                  />
+                </td>
+
+                <td>
+                  {highlightText(
+                    equipement.nom,
+                    searchTerm
+                  )}
+                </td>
+
+                <td>
+                  {highlightText(
+                    equipement.numero_serie,
+                    searchTerm
+                  )}
+                </td>
+
+                <td>
+                  {highlightText(
+                    equipement.marque,
+                    searchTerm
+                  )}
+                  {" — "}
+                  {highlightText(equipement.modele, searchTerm)}
+                </td>
+
+                <td>
+                  {highlightText(
+                    getEquipmentLocationLabel(equipement),
+                    searchTerm
+                  )}
+                </td>
+
+                <td>
+                  {equipement.categorie?.nom || ""}
+                </td>
+
+                <td>
+                  <span
+                    className={`app-status-badge ${
+                      equipement.statut ===
+                      "disponible"
+                        ? "is-success"
+                        : equipement.statut ===
+                          "en_maintenance"
+                        ? "is-warning"
+                        : "is-danger"
+                    }`}
+                  >
+                    {getEquipmentStatusLabel(equipement.statut)}
+                  </span>
+                </td>
+
+                <td>
+                  <span
+                    className={`app-status-badge ${warranty.className}`}
+                    title={warranty.title}
+                  >
+                    {warranty.label}
+                  </span>
+                </td>
+
+                <td style={{ whiteSpace: "nowrap" }}>
+                  <div className="d-flex align-items-center justify-content-center">
+                    <FontAwesomeIcon
+                      onClick={() =>
+                        handleEdit(equipement)
+                      }
+                      icon={faEdit}
+                      className="app-table-action is-edit"
+                    />
+
+                    <FontAwesomeIcon
+                      onClick={() =>
+                        handleDelete(equipement.id)
+                      }
+                      icon={faTrash}
+                      className="app-table-action is-delete"
+                    />
+                  </div>
+                </td>
+                </tr>
+              );
+            })
+          ) : (
+            <tr>
+              <td colSpan={9}>
+                Aucun équipement disponible
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+
+    <div className="app-table-footer">
+      <Button
         type="button"
-        className="app-pagination-arrow"
-        disabled={page === 0}
-        onClick={(e) => handleChangePage(e, page - 1)}
+        className="app-danger-button"
+        onClick={handleDeleteSelected}
+        disabled={selectedItems.length === 0}
       >
-        ‹
-      </button>
+        <FontAwesomeIcon icon={faTrash} />
+        Supprimer sélectionnés
+      </Button>
 
-      <button
-        type="button"
-        className="app-pagination-arrow"
-        disabled={(page + 1) * rowsPerPage >= filteredEquipements.length}
-        onClick={(e) => handleChangePage(e, page + 1)}
-      >
-        ›
-      </button>
+      <ListPagination
+        page={page}
+        rowsPerPage={rowsPerPage}
+        totalRows={totalRows}
+        onPageChange={setPage}
+        onRowsPerPageChange={setRowsPerPage}
+      />
     </div>
   </div>
 </div>
+)}
     </Box>
   </Box>
 </ThemeProvider>

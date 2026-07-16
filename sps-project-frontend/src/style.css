@@ -443,6 +443,88 @@ table thead th {
   color: #15803d;
 }
 
+.app-action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.app-action-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+
+.app-action-button:disabled .app-action-icon {
+  cursor: not-allowed;
+}
+
+.app-action-button:not(:disabled) .app-action-icon {
+  cursor: pointer;
+}
+
+.app-result-count {
+  color: #64748b;
+  font-size: 0.86rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.app-filter-reset {
+  min-height: 40px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+  color: #475569;
+  padding: 8px 14px;
+  font-weight: 600;
+}
+
+.app-filter-reset:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.app-filter-reset:not(:disabled):hover {
+  border-color: #00afaa;
+  color: #007f7b;
+}
+
+.app-list-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 86px;
+  margin: 0 0 18px;
+  color: #475569;
+  text-align: center;
+}
+
+.app-list-state.is-error {
+  justify-content: space-between;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  background: #fef2f2;
+  margin-bottom: 18px;
+  padding: 12px 16px;
+  color: #991b1b;
+}
+
+@media (max-width: 640px) {
+  .app-result-count {
+    width: 100%;
+  }
+
+  .app-list-state,
+  .app-list-state.is-error {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
 .app-card {
   background: #fff;
   border: 1px solid #e5e7eb;
@@ -537,6 +619,18 @@ table thead th {
   border-radius: 8px;
   box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08);
   box-sizing: border-box;
+}
+.app-table-scroll {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: visible;
+  box-sizing: border-box;
+  -webkit-overflow-scrolling: touch;
+}
+.equipements-page .app-table-wrapper {
+  overflow: hidden;
 }
 
 .app-form-drawer {
@@ -718,6 +812,8 @@ table thead th {
   color: #c7c7c7;
   cursor: not-allowed;
 }
+
+
 
 
 
@@ -1048,6 +1144,224 @@ body .swal2-container {
   color: #00afaa;
 }
 
+.equipements-page .app-status-badge.is-neutral {
+  background: rgba(100, 116, 139, 0.12);
+  color: #64748b;
+}
+
+/* Etat des Chambres */
+.etat-chambre-page .app-table {
+  min-width: 920px;
+  table-layout: fixed;
+}
+
+.etat-chambre-page .app-table th:last-child,
+.etat-chambre-page .app-table td:last-child {
+  width: 92px;
+  text-align: center;
+}
+
+.etat-chambre-page .app-table-action.is-success {
+  color: #15803d;
+}
+
+.etat-chambre-maintenance-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.etat-chambre-maintenance-cell strong {
+  display: block;
+}
+
+.etat-chambre-maintenance-period {
+  display: block;
+  color: #64748b;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.etat-chambre-comment {
+  display: block;
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.etat-chambre-field-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.etat-chambre-field-heading .form-label {
+  margin-bottom: 0;
+}
+
+.etat-chambre-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #007bff;
+  cursor: pointer;
+}
+
+.etat-chambre-icon-button.is-delete {
+  color: #dc2626;
+}
+
+.etat-chambre-icon-button.is-success {
+  color: #15803d;
+}
+
+.etat-chambre-icon-button.is-warning {
+  color: #b77900;
+}
+
+.etat-chambre-label-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  margin-right: 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #007bff;
+  cursor: pointer;
+}
+
+.etat-chambre-date-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: min(180px, 100%);
+  margin: 0;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.etat-chambre-date-filter .app-filter-select {
+  width: 100%;
+}
+.etat-chambre-page .app-filter-controls {
+  align-items: flex-end;
+}
+
+
+
+
+
+.etat-chambre-page .app-table-wrapper {
+  overflow: hidden;
+}
+
+.app-table-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  white-space: nowrap;
+}
+
+.app-table-actions .app-table-action {
+  width: 16px;
+  height: 16px;
+  margin-right: 0;
+  flex: 0 0 auto;
+}
+
+
+.etat-chambre-page
+  .app-filter-controls.etat-chambre-filter-controls {
+  display: grid;
+  grid-template-columns:
+    repeat(5, minmax(160px, 1fr));
+  align-items: flex-end !important;
+  gap: 12px;
+  width: min(1180px, 100%);
+  flex: 0 1 1180px;
+  margin-left: auto;
+}
+
+.etat-chambre-filter-reset {
+  display: flex;
+  align-items: flex-end;
+  align-self: flex-end;
+}
+
+.etat-chambre-filter-reset .app-filter-reset {
+  min-height: 36px;
+}
+
+.reclamation-page .app-filter-controls > .app-filter-reset {
+  flex: 0 0 auto;
+  min-height: 36px;
+}
+
+.etat-chambre-filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  margin: 0;
+}
+
+.etat-chambre-filter-field > span {
+  min-height: 16px;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+}
+
+.etat-chambre-filter-field
+  .app-filter-select {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+}
+
+@media (max-width: 1200px) {
+  .etat-chambre-page
+    .app-filter-controls.etat-chambre-filter-controls {
+    grid-template-columns:
+      repeat(3, minmax(160px, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .etat-chambre-page
+    .app-filter-controls.etat-chambre-filter-controls {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .reclamation-page .app-filter-controls > .app-filter-reset {
+    width: 100%;
+  }
+}
+
+@media (max-width: 520px) {
+  .etat-chambre-page
+    .app-filter-controls.etat-chambre-filter-controls {
+    grid-template-columns: 1fr;
+  }
+}
+
+
 /* Clients Particulier - Enfants table inside drawer */
 .clients-enfants-table-wrapper {
   width: 100%;
@@ -1093,6 +1407,350 @@ body .swal2-container {
 
 .clients-enfants-table .clients-enfant-age {
   width: 14%;
+}
+
+/* Tariff plans and normalized detail pages. */
+.tariff-page {
+  overflow-x: hidden;
+}
+
+.tariff-page .app-add-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.tariff-plan-controls {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.tariff-plan-filter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.tariff-plan-label {
+  margin: 0;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.tariff-plan-filter .app-filter-select {
+  min-width: 240px;
+}
+
+.tariff-plan-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.tariff-action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.tariff-action-button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.tariff-action-button .app-table-action {
+  margin: 0;
+}
+
+.tariff-plan-usage {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 26px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.tariff-plan-usage.is-unused {
+  background: #e5e7eb;
+  color: #475569;
+}
+
+.tariff-plan-usage.is-draft {
+  background: #fff4d6;
+  color: #8a5a00;
+}
+
+.tariff-plan-usage.is-active {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.tariff-plan-usage.is-archive {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.tariff-plan-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.tariff-plan-form .app-form-actions {
+  margin: 0;
+}
+
+.tariff-form-drawer {
+  width: min(560px, 100vw) !important;
+  max-width: 100vw;
+}
+
+.tariff-form-hint {
+  margin: -8px 0 20px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.tariff-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.tariff-form-wide {
+  grid-column: 1 / -1;
+}
+
+.tariff-table-wrapper {
+  overflow-x: auto;
+}
+
+.tarif-chambre-page .tariff-table-wrapper .app-table {
+  min-width: 920px;
+}
+
+.tarif-repas-page .tariff-table-wrapper .app-table {
+  min-width: 620px;
+}
+
+.tarif-reduction-page .tariff-table-wrapper .app-table {
+  min-width: 720px;
+}
+
+.tariff-period-controls {
+  align-items: flex-end;
+}
+
+.tariff-period-filters {
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.app-page .app-filter-controls.tariff-period-filters {
+  align-items: flex-end !important;
+}
+
+.tariff-period-reset {
+  display: flex;
+  align-items: flex-end;
+  align-self: flex-end;
+}
+
+.tariff-period-filters .form-label {
+  display: block;
+  margin-bottom: 4px;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.tariff-period-filters .form-control,
+.tariff-period-filters .form-select {
+  min-width: 150px;
+}
+
+.tariff-period-drawer {
+  width: min(620px, 100vw) !important;
+}
+
+.tariff-period-table {
+  min-width: 1120px;
+}
+
+.tariff-status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 76px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.tariff-status-badge.is-brouillon {
+  background: #fff4d6;
+  color: #8a5a00;
+}
+
+.tariff-status-badge.is-actif {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.tariff-status-badge.is-archive {
+  background: #e5e7eb;
+  color: #4b5563;
+}
+
+.tariff-period-detail-row > td {
+  padding: 0 !important;
+  background: #f8fafc !important;
+}
+
+.tariff-period-details {
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+}
+
+.tariff-period-details section {
+  min-width: 0;
+}
+
+.tariff-period-details h3 {
+  margin: 0 0 8px;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.tariff-period-details .app-table-wrapper {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.tariff-period-details .app-table {
+  min-width: 520px;
+  margin: 0;
+}
+
+.tariff-empty-detail {
+  margin: 0;
+  padding: 12px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+  color: #64748b;
+}
+
+.tariff-loading,
+.tariff-api-message {
+  margin-bottom: 16px;
+}
+
+.tariff-loading {
+  color: #475569;
+  text-align: center;
+}
+
+.tariff-type-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.tariff-type-form .app-form-actions {
+  grid-column: 1 / -1;
+  justify-content: flex-start;
+  margin-top: 0;
+}
+
+.tariff-modal-table {
+  max-height: 360px;
+  overflow: auto;
+}
+
+@media (max-width: 768px) {
+  .tariff-form-grid,
+  .tariff-type-form,
+  .tariff-plan-form {
+    grid-template-columns: 1fr;
+  }
+
+  .tariff-plan-controls,
+  .tariff-plan-filter,
+  .tariff-plan-buttons {
+    width: 100%;
+    align-items: stretch;
+  }
+
+  .tariff-plan-filter,
+  .tariff-plan-buttons {
+    flex-direction: column;
+  }
+
+  .tariff-plan-filter .app-filter-select,
+  .tariff-plan-buttons > * {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .tariff-form-wide,
+  .tariff-type-form .app-form-actions {
+    grid-column: auto;
+  }
+
+  .tariff-page .app-table-pagination {
+    width: 100%;
+    margin-left: 0;
+    flex-wrap: wrap;
+  }
+
+  .tariff-period-controls,
+  .tariff-period-filters {
+    align-items: stretch;
+  }
+
+  .app-page .app-filter-controls.tariff-period-filters {
+    align-items: stretch !important;
+  }
+
+  .tariff-period-reset {
+    width: 100%;
+  }
+
+  .tariff-period-filters,
+  .tariff-period-filters .form-group,
+  .tariff-period-filters .form-control,
+  .tariff-period-filters .form-select {
+    width: 100%;
+  }
+
+  .tariff-period-filters .form-control,
+  .tariff-period-filters .form-select {
+    min-width: 0;
+  }
 }
 
 .clients-enfants-table .clients-enfant-action {
@@ -1266,4 +1924,107 @@ body .swal2-container {
   vertical-align: middle;
   white-space: normal !important;
   overflow-wrap: anywhere;
+}
+
+/* Chambre reservation readiness */
+.chambre-page .chambre-readiness {
+  border-left: 4px solid #d59a00;
+  padding: 16px 18px;
+}
+
+.chambre-page .chambre-readiness.is-ready {
+  border-left-color: #15803d;
+}
+
+.chambre-page .chambre-readiness-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.chambre-page .chambre-readiness-header h2 {
+  margin: 0;
+  color: #111827;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.chambre-page .chambre-readiness-header p,
+.chambre-page .chambre-readiness-issue p {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.chambre-page .chambre-readiness-content {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.chambre-page .chambre-readiness-issue {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 10px;
+}
+
+.chambre-page .chambre-readiness-issue strong {
+  color: #334155;
+  font-size: 13px;
+}
+
+.chambre-page .chambre-readiness-issue span {
+  margin-left: 8px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.chambre-page .chambre-readiness-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.chambre-page .chambre-readiness-actions a {
+  text-decoration: none;
+}
+
+.chambre-page .chambre-readiness-error {
+  margin: 12px 0 0;
+  color: #b91c1c;
+  font-size: 13px;
+}
+
+.chambre-page .type-capacity-warning {
+  margin-top: 14px;
+  border: 1px solid #f3cf75;
+  border-radius: 6px;
+  background: #fff8e6;
+  padding: 10px 12px;
+  color: #8a5a00;
+  font-size: 13px;
+}
+
+.chambre-page .type-readiness-badge {
+  display: block;
+  width: fit-content;
+  margin-top: 5px;
+}
+
+@media (max-width: 700px) {
+  .chambre-page .chambre-readiness-header,
+  .chambre-page .chambre-readiness-issue {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .chambre-page .chambre-readiness-actions .app-secondary-button,
+  .chambre-page .chambre-readiness-issue .app-secondary-button {
+    width: 100%;
+  }
 }

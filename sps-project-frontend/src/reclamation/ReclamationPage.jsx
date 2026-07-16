@@ -4,32 +4,50 @@ import Swal from "sweetalert2";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import Box from "@mui/material/Box";
 import { useOpen } from "../Acceuil/OpenProvider";
-import SearchWithExportCarousel from "../components/SearchWithExportCarousel";
-import jsPDF from "jspdf";
-import "jspdf-autotable"; // Import the autoTable plugin
-import * as XLSX from "xlsx";
+import SearchWithExport from "../components/SearchWithExport";
+import ListFilterReset from "../components/ListFilterReset";
+import ListPagination from "../components/ListPagination";
+import ListState from "../components/ListState";
+import useListControls from "../components/useListControls";
+import {
+  exportToExcel as exportRowsToExcel,
+  exportToPdf as exportRowsToPdf,
+  printRows,
+} from "../utils/listExportUtils";
 import { openDB } from "idb"; // ✅ IndexedDB Library
 import ExpandRTable from "../components/ExpandRTable";
-import { highlightText } from "../utils/textUtils";
+import {
+  getDateSearchVariants,
+  highlightText,
+  matchesNormalizedSearch,
+} from "../utils/textUtils";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faChevronDown } from "@fortawesome/free-solid-svg-icons"; // If using dropdown icons
 import DynamicFilter from "../components/DynamicFilter";
 import { Form, Button, Modal, Carousel } from "react-bootstrap";
+import { FaArrowLeft, FaArrowRight } from "react-icons/fa";
 import "../style.css";
 import {
   faTrash,
-  faFileExcel,
   faPlus,
   faMinus,
   faCircleInfo,
   faSquarePlus,
   faEdit,
   faList,
-  faPrint,
-  faFilePdf,
 } from "@fortawesome/free-solid-svg-icons";
 
 import departmentFallbackImage from "../assets/departments/default.png";
+import allFilterImage from "../assets/sectors/all.png";
+
+const RECLAMATION_EXPORT_COLUMNS = [
+  { key: "type", label: "Type de réclamation" },
+  { key: "date", label: "Date" },
+  { key: "channel", label: "Réclamé à travers" },
+  { key: "department", label: "Département affecté" },
+  { key: "status", label: "Statut" },
+  { key: "response", label: "Réponse" },
+];
 
 
 
@@ -98,14 +116,13 @@ const getDepartmentImageUrl = (
 const ReclamationPage = () => {
   const { dynamicStyles } = useOpen();
   const [reclamations, setReclamations] = useState([]);
-  const [filteredReclamations, setFilteredReclamations] = useState([]);
-  const [searchTerm, setSearchTerm] = useState("");
   const [departments, setDepartments] = useState([]);
   const [selectedDepartment, setSelectedDepartment] = useState(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [expandedRows, setExpandedRows] = useState({});
   const [selectedItems, setSelectedItems] = useState([]);
-  const [selectAll, setSelectAll] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [historique, setHistorique] = useState([]);
   const [historiqueData, setHistoriqueData] = useState([]); // ✅ Define state
   const [editingReclamation, setEditingReclamation] = useState(null);
@@ -144,10 +161,8 @@ const ReclamationPage = () => {
     designation: "",
     photo: "",
   });
-  const [rowsPerPage, setRowsPerPage] = useState(5);  // Default to 5 rows per page
-  const [page, setPage] = useState(0);  // Start at page 0
   const [selectedStatus, setSelectedStatus] = useState("");
-  const [selectedDate, setSelectedDate] = useState(null); // ✅ Track selected date
+  const [selectedDate, setSelectedDate] = useState(""); // ✅ Track selected date
 
 
   // ✅ Load Cached Data from IndexedDB
@@ -161,7 +176,6 @@ const ReclamationPage = () => {
     if (cachedDepartments.length > 0) setDepartments(cachedDepartments);
     if (cachedReclamations.length > 0) {
       setReclamations(cachedReclamations);
-      setFilteredReclamations(cachedReclamations);
     }
     if (cachedHistorique.length > 0) setHistorique(cachedHistorique);
   
@@ -176,6 +190,8 @@ const ReclamationPage = () => {
   // ✅ Fetch all data simultaneously for faster load
   const fetchData = useCallback(async () => {
     try {
+      setLoading(true);
+      setLoadError("");
       console.log("🚀 Fetching data from API...");
   
       const [deptResponse, recResponse] = await Promise.all([
@@ -205,14 +221,13 @@ const ReclamationPage = () => {
     id: dept.id,
     designation: dept.nom,
     photo: dept.photo || null,
-  }));
+      }));
       setDepartments(formattedDepartments);
       await db.clear("departments");
       formattedDepartments.forEach((dept) => db.put("departments", dept));
   
       // ✅ Store Reclamations & Historique
       setReclamations(recResponse.data);
-      setFilteredReclamations(recResponse.data);
       await db.clear("reclamations");
       await db.clear("reclamation_historique");
   
@@ -231,7 +246,13 @@ const ReclamationPage = () => {
       console.log("✅ Historique stored in IndexedDB:", allHistorique);
     } catch (error) {
       console.error("❌ Fetch error:", error.response?.status, error.response?.data);
-      Swal.fire("Erreur!", `Échec du chargement des données: ${error.message}`, "error");
+      setLoadError(
+        error.response?.data?.message ||
+          error.message ||
+          "Échec du chargement des réclamations."
+      );
+    } finally {
+      setLoading(false);
     }
   }, []);
   
@@ -261,54 +282,70 @@ const ReclamationPage = () => {
   // ✅ Pre-chunk departments before rendering to avoid delays
   const chunks = useMemo(() => chunkArray(departments, 9), [departments]);
 
-  const normalizeSearchValue = (value) =>
-  String(value ?? "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim();
+const normalizeReclamationDate = (value) => {
+  const text = String(value ?? "").trim();
+  const isoMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const frenchMatch = text.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  const parts = isoMatch
+    ? [isoMatch[1], isoMatch[2], isoMatch[3]]
+    : frenchMatch
+      ? [frenchMatch[3], frenchMatch[2], frenchMatch[1]]
+      : null;
 
-const formatReclamationDate = (date) => {
-  if (!date) return "";
+  if (!parts) return "";
 
-  const parsedDate = new Date(date);
+  const [yearText, monthText, dayText] = parts;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const isLeapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const daysPerMonth = [31, isLeapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
-  if (Number.isNaN(parsedDate.getTime())) {
-    return String(date);
+  if (month < 1 || month > 12 || day < 1 || day > daysPerMonth[month - 1]) {
+    return "";
   }
 
-  return parsedDate.toLocaleDateString("fr-FR");
+  return `${yearText}-${monthText}-${dayText}`;
 };
 
-const getReclamationISODate = (date) => {
-  if (!date) return "";
+const formatReclamationDate = (date) => {
+  const normalizedDate = normalizeReclamationDate(date);
+  if (!normalizedDate) return "";
 
-  return String(date).split("T")[0];
+  const [year, month, day] = normalizedDate.split("-");
+  return `${day}/${month}/${year}`;
 };
 
-  // ✅ Optimized filtering logic
-useEffect(() => {
-  const normalizedSearchTerm = normalizeSearchValue(searchTerm);
+const getReclamationISODate = (date) => normalizeReclamationDate(date);
 
-  setFilteredReclamations(
-    (Array.isArray(reclamations) ? reclamations : []).filter((rec) => {
+const getReclamationDepartmentLabel = (reclamation) =>
+  reclamation.departement?.nom ||
+  reclamation.departement?.designation ||
+  departments.find(
+    (department) =>
+      String(department.id) ===
+      String(reclamation.departement?.id || reclamation.departement_id)
+  )?.designation ||
+  reclamation.departement_affecte ||
+  "Non spécifié";
+
+const filterReclamations = useCallback(
+  (rows, currentSearchTerm) =>
+    rows.filter((rec) => {
       const formattedDate = formatReclamationDate(rec.date);
       const isoDate = getReclamationISODate(rec.date);
-
-      const matchesSearch =
-        !normalizedSearchTerm ||
-        [
+      const departmentLabel = getReclamationDepartmentLabel(rec);
+      const matchesSearch = matchesNormalizedSearch(currentSearchTerm, [
           rec.type_reclamation,
           formattedDate,
           isoDate,
+          getDateSearchVariants(rec.date),
           rec.reclamer_a_travers,
-          rec.departement?.nom,
+          departmentLabel,
           rec.departement_affecte,
           rec.suivi,
           rec.reponse,
-        ].some((field) =>
-          normalizeSearchValue(field).includes(normalizedSearchTerm)
-        );
+        ]);
 
       const matchesDepartment = selectedDepartment?.id
         ? String(rec.departement?.id || rec.departement_id) ===
@@ -319,18 +356,33 @@ useEffect(() => {
         ? rec.suivi === selectedStatus
         : true;
 
-      const selectedDateString = selectedDate
-        ? selectedDate.toISOString().split("T")[0]
-        : "";
+      const selectedDateString = normalizeReclamationDate(selectedDate);
 
       const matchesDate = selectedDateString
         ? isoDate === selectedDateString
         : true;
 
       return matchesSearch && matchesDepartment && matchesStatus && matchesDate;
-    })
-  );
-}, [reclamations, searchTerm, selectedDepartment, selectedStatus, selectedDate]);  
+    }),
+  [departments, selectedDate, selectedDepartment, selectedStatus]
+);
+
+const {
+  searchTerm,
+  page,
+  rowsPerPage,
+  filteredRows: filteredReclamations,
+  visibleRows: visibleReclamations,
+  totalRows,
+  setSearchTerm,
+  setPage,
+  setRowsPerPage,
+  resetPage,
+} = useListControls({
+  allRows: Array.isArray(reclamations) ? reclamations : [],
+  filterRows: filterReclamations,
+  storageKey: "rowsPerPageReclamations",
+});
   
   
   
@@ -413,108 +465,43 @@ const handleEditDepartment = async () => {
 
 
 
-  // ✅ Export Data Optimization
-  const exportData = useMemo(
+  const exportRows = useMemo(
     () =>
-      filteredReclamations.map((rec) => ({
-        Type: rec.type_reclamation,
-        "Réclamé à travers": rec.reclamer_a_travers,
-        Département: rec.departement_affecte,
-        Status: rec.suivi,
-        Réponse: rec.reponse,
-        Date: new Date(rec.date).toLocaleDateString("fr-FR"), // ✅ Include date
+      filteredReclamations.map((reclamation) => ({
+        type: reclamation.type_reclamation || "",
+        date: formatReclamationDate(reclamation.date),
+        channel: reclamation.reclamer_a_travers || "",
+        department: getReclamationDepartmentLabel(reclamation),
+        status: reclamation.suivi || "",
+        response: reclamation.reponse || "",
       })),
-    [filteredReclamations]
+    [departments, filteredReclamations]
   );
-  
 
-  // ✅ Export Handlers
-  const exportToPDF = useCallback(() => {
-    const doc = new jsPDF();
-    console.log("Exporting data to PDF..."); // Add this to check if the function is triggered
-  
-    doc.autoTable({
-      head: [["Type", "Réclamé à travers", "Département","Date", "Status", "Réponse"]],
-      body: exportData.map((item) => [
-        item.Type,
-        item["Réclamé à travers"],
-        item["Département"],
-        item.Date,
-        item.Status,
-        item.Réponse,
-      ]),
+  const exportToExcel = () =>
+    exportRowsToExcel({
+      rows: exportRows,
+      columns: RECLAMATION_EXPORT_COLUMNS,
+      sheetName: "Réclamations",
+      filename: "reclamations.xlsx",
     });
-  
-    console.log("PDF generated..."); // Check if the PDF is being generated
-    doc.save("reclamations.pdf");
-  }, [exportData]);
-  
-  
 
+  const exportToPDF = () =>
+    exportRowsToPdf({
+      rows: exportRows,
+      columns: RECLAMATION_EXPORT_COLUMNS,
+      title: "Liste des Réclamations",
+      filename: "reclamations.pdf",
+      orientation: "landscape",
+    });
 
-  const exportToExcel = useCallback(() => {
-    const worksheet = XLSX.utils.json_to_sheet(exportData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Réclamations");
-    XLSX.writeFile(workbook, "reclamations.xlsx");
-  }, [exportData]);
-
-
-
-  const printTable = () => {
-    const printWindow = window.open('',);
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Liste des Réclamations</title>
-          <style>
-            table {
-              width: 100%;
-              border-collapse: collapse;
-            }
-            th, td {
-              border: 1px solid black;
-              padding: 8px;
-              text-align: left;
-            }
-            th {
-              background-color: #f2f2f2;
-            }
-          </style>
-        </head>
-        <body>
-          <h1>Liste des Réclamations</h1>
-          <table>
-            <thead>
-              <tr>
-                <th>Type de Réclamation</th>
-                <th>Date</th>
-                <th>Réclamé à travers</th>
-                <th>Département Affecté</th>
-                <th>Status</th>
-                <th>Réponse</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${filteredReclamations?.map(reclamation => `
-                <tr>
-                  <td>${reclamation.type_reclamation || ''}</td>
-                  <td>${reclamation.date ? new Date(reclamation.date).toLocaleDateString("fr-FR") : ''}</td>
-                  <td>${reclamation.reclamer_a_travers || ''}</td>
-                  <td>${reclamation.departement?.nom || 'Non spécifié'}</td>
-                  <td>${reclamation.suivi || ''}</td>
-                  <td>${reclamation.reponse || ''}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </body>
-      </html>
-    `);
-
-    printWindow.document.close();
-    printWindow.print();
-  };
+  const printTable = () =>
+    printRows({
+      rows: exportRows,
+      columns: RECLAMATION_EXPORT_COLUMNS,
+      title: "Liste des Réclamations",
+      orientation: "landscape",
+    });
 
   // table parts
 const columns = [
@@ -769,7 +756,7 @@ const handleCategoryFilterChange = (
     departmentId === undefined
   ) {
     setSelectedDepartment(null);
-    setPage(0);
+    resetPage();
     return;
   }
 
@@ -779,7 +766,7 @@ const handleCategoryFilterChange = (
   );
 
   setSelectedDepartment(selectedDept || null);
-  setPage(0);
+  resetPage();
 };
 
 
@@ -797,17 +784,33 @@ if (key === "departement_affecte") {
   );
 
   setSelectedDepartment(selectedDept || null);
-  setPage(0);
 }
   if (key === "suivi") {
     setSelectedStatus(value); // ✅ Track the selected status
   }
+  resetPage();
 };
 
 
 const handleDateFilterChange = (dateString) => {
-  setSelectedDate(dateString ? new Date(`${dateString}T00:00:00`) : null);
+  setSelectedDate(normalizeReclamationDate(dateString));
+  resetPage();
 };
+
+const filtersActive = Boolean(
+  searchTerm || selectedDepartment || selectedStatus || selectedDate
+);
+
+const resetFilters = useCallback(() => {
+  setSearchTerm("");
+  setSelectedDepartment(null);
+  setSelectedStatus("");
+  setSelectedDate("");
+  setActiveIndex(0);
+  resetPage();
+}, [resetPage, setSearchTerm]);
+
+const selectedDateValue = selectedDate;
 
 
 
@@ -844,13 +847,19 @@ const closeForm = () => {
   });
 };  
 
+  const visibleReclamationIds = visibleReclamations.map(
+    (reclamation) => reclamation.id
+  );
+  const allVisibleReclamationsSelected =
+    visibleReclamationIds.length > 0 &&
+    visibleReclamationIds.every((id) => selectedItems.includes(id));
+
   const handleSelectAllChange = () => {
-    if (selectAll) {
-      setSelectedItems([]);
-    } else {
-      setSelectedItems(reclamations.map((rec) => rec.id));
-    }
-    setSelectAll(!selectAll);
+    setSelectedItems((currentItems) =>
+      allVisibleReclamationsSelected
+        ? currentItems.filter((id) => !visibleReclamationIds.includes(id))
+        : [...new Set([...currentItems, ...visibleReclamationIds])]
+    );
   };
   
   const handleCheckboxChange = (id) => {
@@ -1061,45 +1070,100 @@ const closeEditDepartmentModal = () => {
 }; 
   
 
-const handleChangePage = (event, newPage) => {
-  setPage(newPage);  // Update page number
-};
-
-const handleChangeRowsPerPage = (event) => {
-  setRowsPerPage(parseInt(event.target.value, 10));  // Update rows per page
-  setPage(0);  // Reset to first page when rows per page change
-};
-
-  
-  
   return (
     <ThemeProvider theme={createTheme()}>
       <Box sx={{ ...dynamicStyles }}>
         <Box component="main" className="app-page reclamation-page" sx={{ flexGrow: 1, p: 3, mt: 0 }}>
-<SearchWithExportCarousel
-  onSearch={setSearchTerm}
+<SearchWithExport
+  Title="Liste des Réclamations"
+  searchValue={searchTerm}
+  onSearchChange={setSearchTerm}
   exportToExcel={exportToExcel}
   exportToPDF={exportToPDF}
   printTable={printTable}
-  categories={departments}
-  selectedCategory={selectedDepartment?.id ?? ""}
-  handleCategoryFilterChange={
-    handleCategoryFilterChange
-  }
-  activeIndex={activeIndex}
-  handleSelect={setActiveIndex}
-  chunks={chunks}
-  subtitle="Départements"
-  Title="Liste des Réclamations"
-  fallbackImage={departmentFallbackImage}
+  resultCount={totalRows}
+  loading={loading}
+  exportsDisabled={loading || totalRows === 0}
 />
+<div className="app-section">
+  <div className="app-card app-filter-card">
+    <h5 className="app-filter-title">Départements</h5>
+    <div className="bgSecteur app-filter-carousel">
+      <Carousel
+        activeIndex={activeIndex}
+        onSelect={setActiveIndex}
+        interval={null}
+        nextIcon={<FaArrowRight className="app-carousel-arrow-icon" />}
+        prevIcon={<FaArrowLeft className="app-carousel-arrow-icon" />}
+      >
+        {chunks.map((chunk, chunkIndex) => (
+          <Carousel.Item key={chunkIndex}>
+            <div className="app-carousel-strip">
+              <a href="#" onClick={(event) => event.preventDefault()}>
+                <div
+                  className={`category-item ${!selectedDepartment ? "active" : ""}`}
+                  onClick={() => handleCategoryFilterChange("")}
+                >
+                  <img
+                    src={allFilterImage}
+                    alt="Tous les départements"
+                    loading="lazy"
+                    className={`rounded-circle category-img ${!selectedDepartment ? "selected" : ""}`}
+                  />
+                  <p className="category-text">Tout</p>
+                </div>
+              </a>
+
+              {chunk.map((department) => {
+                const isSelected =
+                  String(selectedDepartment?.id || "") === String(department.id);
+
+                return (
+                  <a
+                    href="#"
+                    className="mx-5"
+                    key={department.id}
+                    onClick={(event) => event.preventDefault()}
+                  >
+                    <div
+                      className={`category-item ${isSelected ? "active" : ""}`}
+                      onClick={() => handleCategoryFilterChange(department.id)}
+                    >
+                      <img
+                        src={getDepartmentImageUrl(department.photo)}
+                        alt={department.designation}
+                        loading="lazy"
+                        className={`rounded-circle category-img ${isSelected ? "selected" : ""}`}
+                      />
+                      <p className="category-text">{department.designation}</p>
+                    </div>
+                  </a>
+                );
+              })}
+            </div>
+          </Carousel.Item>
+        ))}
+      </Carousel>
+    </div>
+  </div>
+</div>
   <DynamicFilter
   filters={filterOptions}
   onFilterChange={handleFilterChange}
   onDateFilterChange={handleDateFilterChange}  // Use the new date handler
   selectedDate={selectedDate}  // Pass the selected date to the filter
+  values={{
+    departement_affecte: selectedDepartment?.id ? String(selectedDepartment.id) : "",
+    suivi: selectedStatus,
+    date: selectedDateValue,
+  }}
   onAddClick={() => handleShowFormButtonClick()}
   addButtonLabel="Ajouter Réclamation"
+  trailingControl={
+    filtersActive ? (
+      <ListFilterReset active onReset={resetFilters} />
+    ) : null
+  }
 />
   <div className="reclamation-content">
             <div
@@ -1255,7 +1319,17 @@ const handleChangeRowsPerPage = (event) => {
   </Form>
 </div>
 
-  
+<ListState
+  loading={loading}
+  error={loadError}
+  allRowsCount={reclamations.length}
+  filteredRowsCount={totalRows}
+  emptyDataMessage="Aucune réclamation enregistrée."
+  onRetry={fetchData}
+  onResetFilters={resetFilters}
+/>
+
+{!loading && !loadError && totalRows > 0 && (
 <div className="app-section">
   <div
     id="tableContainer"
@@ -1265,10 +1339,10 @@ const handleChangeRowsPerPage = (event) => {
     <ExpandRTable
       columns={columns}
       data={reclamations}
-      filteredData={filteredReclamations}
+      filteredData={visibleReclamations}
       searchTerm={searchTerm}
       highlightText={highlightText}
-      selectAll={selectAll}
+      selectAll={allVisibleReclamationsSelected}
       selectedItems={selectedItems}
       handleSelectAllChange={handleSelectAllChange}
       handleCheckboxChange={handleCheckboxChange}
@@ -1277,15 +1351,24 @@ const handleChangeRowsPerPage = (event) => {
       handleDeleteSelected={handleDeleteSelected}
       rowsPerPage={rowsPerPage}
       page={page}
-      handleChangePage={handleChangePage}
-      handleChangeRowsPerPage={handleChangeRowsPerPage}
       expandedRows={expandedRows}
       toggleRowExpansion={toggleRowExpansion}
       renderExpandedRow={renderExpandedRow}
       uiVariant="app"
+      externalPagination
+      paginationComponent={
+        <ListPagination
+          page={page}
+          rowsPerPage={rowsPerPage}
+          totalRows={totalRows}
+          onPageChange={setPage}
+          onRowsPerPageChange={setRowsPerPage}
+        />
+      }
     />
   </div>
 </div>
+)}
           </div>
         </Box>
       </Box>

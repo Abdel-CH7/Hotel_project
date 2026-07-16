@@ -3,13 +3,18 @@ import React, { useState } from 'react';
 import { Form } from 'react-bootstrap';
 import { FaSearch } from 'react-icons/fa';
 
-const Search = ({ onSearch }) => {
-  const [searchTerm, setSearchTerm] = useState('');
+const Search = ({ onSearch, onChange, value }) => {
+  const [internalSearchTerm, setInternalSearchTerm] = useState('');
+  const isControlled = value !== undefined;
+  const searchTerm = isControlled ? value : internalSearchTerm;
 
   const handleSearch = (e) => {
     const term = e.target.value;
-    setSearchTerm(term);
-    onSearch(term);
+    if (!isControlled) {
+      setInternalSearchTerm(term);
+    }
+    onChange?.(term);
+    onSearch?.(term);
   };
 
   return (

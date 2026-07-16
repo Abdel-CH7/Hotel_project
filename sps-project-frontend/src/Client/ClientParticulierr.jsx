@@ -1,25 +1,24 @@
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useMemo, useState, useEffect } from "react";
 import axios from "axios";
 import { Form, Button, Modal, Carousel } from "react-bootstrap";
-import "jspdf-autotable";
-import { highlightText } from '../utils/textUtils';
-import Search from "../Acceuil/Search";
+import { highlightText, normalizeSearchValue } from '../utils/textUtils';
+import ListFilterReset from "../components/ListFilterReset";
+import ListPagination from "../components/ListPagination";
+import ListState from "../components/ListState";
+import SearchWithExport from "../components/SearchWithExport";
+import useListControls from "../components/useListControls";
+import { exportToExcel as exportToExcelRows, exportToPdf, printRows } from "../utils/listExportUtils";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import PeopleIcon from "@mui/icons-material/People";
-import jsPDF from 'jspdf';
 import {
   faTrash,
-  faFileExcel,
   faPlus,
   faMinus,
   faCircleInfo,
   faSquarePlus,
   faEdit,
   faList,
-  faPrint,
-  faFilePdf,
 } from "@fortawesome/free-solid-svg-icons";
-import * as XLSX from "xlsx";
 import "../style.css";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import Box from "@mui/material/Box";
@@ -28,6 +27,60 @@ import { useOpen } from "../Acceuil/OpenProvider";
 import { FaArrowLeft, FaArrowRight } from "react-icons/fa6";
 import Swal from "sweetalert2";
 import allSectorIcon from "../assets/sectors/all.png";
+
+const CLIENT_EXPORT_COLUMNS = [
+  { key: "code", label: "Code" },
+  { key: "name", label: "Nom" },
+  { key: "prenom", label: "Prénom" },
+  { key: "cin", label: "CIN" },
+  { key: "civilite", label: "Civilité" },
+  { key: "nationalite", label: "Nationalité" },
+  { key: "abreviation", label: "Abréviation" },
+  { key: "adresse", label: "Adresse" },
+  { key: "telephone", label: "Téléphone" },
+  { key: "ville", label: "Ville" },
+  { key: "codePostal", label: "Code postal" },
+  { key: "categorie", label: "Catégorie" },
+  { key: "secteur", label: "Secteur" },
+  { key: "zone", label: "Zone" },
+  { key: "region", label: "Région" },
+  { key: "modePaiement", label: "Mode de paiement" },
+];
+
+const CLIENT_EXPORT_COLUMN_WIDTHS = {
+  code: 13,
+  name: 14,
+  prenom: 16,
+  cin: 14,
+  civilite: 13,
+  nationalite: 18,
+  abreviation: 18,
+  adresse: 30,
+  telephone: 18,
+  ville: 15,
+  codePostal: 15,
+  categorie: 16,
+  secteur: 18,
+  zone: 13,
+  region: 20,
+  modePaiement: 29,
+};
+
+const CLIENT_EXPORT_NOWRAP_COLUMNS = [
+  "code",
+  "name",
+  "prenom",
+  "cin",
+  "civilite",
+  "nationalite",
+  "abreviation",
+  "telephone",
+  "ville",
+  "codePostal",
+  "categorie",
+  "secteur",
+  "zone",
+];
 
 //------------------------- CLIENT LIST---------------------//
 const ClientParticulierr = () => {
@@ -78,6 +131,8 @@ const handleImageError = (fallback) => (e) => {
 };
 
   const [clients, setClients] = useState([]);
+  const [clientsLoading, setClientsLoading] = useState(true);
+  const [clientsLoadError, setClientsLoadError] = useState("");
   const [editSecteur, setEditSecteur] = useState({
     _method: "put",
     secteurClient: "",
@@ -179,19 +234,8 @@ const [villeFilter, setVilleFilter] = useState('');
 
   const [showAddMod, setShowAddMod] = useState(false); // Gère l'affichage du formulaire
 
-  //-------------------Pagination-----------------------/
-  const [rowsPerPage, setRowsPerPage] = useState(5);
-  const [page, setPage] = useState(0);
-  const [filteredclients, setFilteredclients] = useState([]);
-  // Pagination calculations
-  const indexOfLastClient = (page + 1) * rowsPerPage;
-  const indexOfFirstClient = indexOfLastClient - rowsPerPage;
-  const currentClients = clients.slice(indexOfFirstClient, indexOfLastClient);
   //-------------------Selected-----------------------/
   const [selectedItems, setSelectedItems] = useState([]);
-  const [selectAll, setSelectAll] = useState(false);
-  //-------------------Search-----------------------/
-  const [searchTerm, setSearchTerm] = useState("");
   const [selectedClientId, setSelectedClientId] = useState(null);
   //------------------------Site-Client---------------------
   const [showFormSC, setShowFormSC] = useState(false);
@@ -235,6 +279,8 @@ const [villeFilter, setVilleFilter] = useState('');
 
 
   const fetchClients = async () => {
+    setClientsLoading(true);
+    setClientsLoadError("");
     try {
       const response = await axios.get("http://localhost:8000/api/all-data-client-particulier");
       const data = response.data;
@@ -257,6 +303,7 @@ const [villeFilter, setVilleFilter] = useState('');
       localStorage.setItem("siteClients", JSON.stringify(data.site_clients || []));
     } catch (error) {
       console.error('Erreur lors de la récupération des clients:', error);
+      setClientsLoadError(error?.response?.data?.message || "Impossible de charger les clients particuliers.");
       if (error.response && error.response.status === 403) {
         Swal.fire({
           icon: "error",
@@ -264,6 +311,8 @@ const [villeFilter, setVilleFilter] = useState('');
           text: "Vous n'avez pas l'autorisation de voir la liste des Clients.",
         });
       }
+    } finally {
+      setClientsLoading(false);
     }
   };
   
@@ -284,8 +333,11 @@ const [villeFilter, setVilleFilter] = useState('');
     if (storedRegions) setRegions(JSON.parse(storedRegions));
     if (storedAgent) setAgent(JSON.parse(storedAgent));
     if (storedSiteClients) setSiteClients(JSON.parse(storedSiteClients));
-    if (!storedClients || !storedAgent || !storedModes || !storedZones || !storedRegions || !storedSiteClients) 
+    if (!storedClients || !storedAgent || !storedModes || !storedZones || !storedRegions || !storedSiteClients) {
       fetchClients();
+    } else {
+      setClientsLoading(false);
+    }
   }, []);
 
 
@@ -311,26 +363,6 @@ const [villeFilter, setVilleFilter] = useState('');
     );
   };
   
-  //---------------------------------------------
-  useEffect(() => {
-    const filtered = clients.filter((client) =>
-      Object.values(client).some((value) => {
-        if (typeof value === "string") {
-          return value.toLowerCase().includes(searchTerm.toLowerCase());
-        } else if (typeof value === "number") {
-          return value.toString().includes(searchTerm.toLowerCase());
-        }
-        return false;
-      })
-    );
-
-    setFilteredclients(filtered);
-  }, [clients, searchTerm]);
-
-  const handleSearch = (term) => {
-    setSearchTerm(term);
-  };
-
   const handleChangeSC = (e) => {
     const { name, type, files, value } = e.target;
 
@@ -1067,26 +1099,6 @@ await axios({
     setEditingSiteClient(null); // Clear editing client
   };
 
-  //------------------------- CLIENT PAGINATION---------------------//
-
-  const handleChangePage = (event, newPage) => {
-    setPage(newPage);
-  };
-
-  const handleChangeRowsPerPage = (event) => {
-    const selectedRows = parseInt(event.target.value, 10);
-    setRowsPerPage(selectedRows);
-    localStorage.setItem('rowsPerPageClients', selectedRows);  // Store in localStorage
-    setPage(0);
-  };
-
-  useEffect(() => {
-    const savedRowsPerPage = localStorage.getItem('rowsPerPageClients');
-    if (savedRowsPerPage) {
-      setRowsPerPage(parseInt(savedRowsPerPage, 10));
-    }
-  }, []);
-
   //------------------------- CLIENT DELETE---------------------//
 
   const handleDelete = (id) => {
@@ -1184,23 +1196,12 @@ await axios({
 
   
   const handleSelectAllChange = () => {
-    const newSelectAll = !selectAll;
-    setSelectAll(newSelectAll);
-  
-    // Récupérer uniquement les clients de la page actuelle
-    const clientsOnCurrentPage = filteredClients.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
-    
-    if (newSelectAll) {
-      // Ajouter uniquement les clients visibles
-      setSelectedItems(prevSelectedItems => [
-        ...prevSelectedItems,
-        ...clientsOnCurrentPage.map(client => client.id)
-      ]);
+    const visibleIds = visibleRows.map((client) => client.id);
+
+    if (!selectAll) {
+      setSelectedItems((previous) => [...new Set([...previous, ...visibleIds])]);
     } else {
-      // Supprimer uniquement les clients de la page actuelle
-      setSelectedItems(prevSelectedItems =>
-        prevSelectedItems.filter(id => !clientsOnCurrentPage.some(client => client.id === id))
-      );
+      setSelectedItems((previous) => previous.filter((id) => !visibleIds.includes(id)));
     }
   };
   
@@ -1215,19 +1216,9 @@ await axios({
 
 
   const handleCheckboxChange = (itemId) => {
-    let updatedSelectedItems = [...selectedItems];
-  
-    if (updatedSelectedItems.includes(itemId)) {
-      updatedSelectedItems = updatedSelectedItems.filter(id => id !== itemId);
-    } else {
-      updatedSelectedItems.push(itemId);
-    }
-  
-    setSelectedItems(updatedSelectedItems);
-  
-    // Vérifier si tous les éléments de la page sont sélectionnés
-    const clientsOnCurrentPage = filteredClients.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
-    setSelectAll(clientsOnCurrentPage.every(client => updatedSelectedItems.includes(client.id)));
+    setSelectedItems((previous) => previous.includes(itemId)
+      ? previous.filter((id) => id !== itemId)
+      : [...previous, itemId]);
   };
   
 
@@ -1237,107 +1228,32 @@ await axios({
 
 
   const exportToExcel = () => {
-    const table = document.getElementById('clientsTable');
-    const workbook = XLSX.utils.table_to_book(table, { sheet: 'Clients' });
-    XLSX.writeFile(workbook, 'clients_table.xlsx');
+    exportToExcelRows({ rows: exportRows, columns: CLIENT_EXPORT_COLUMNS, sheetName: "Clients", filename: "clients_particuliers.xlsx" });
   };
 
   
   const exportToPDF = () => {
-    const doc = new jsPDF();
-    
-    // Manually adding HTML content
-    const title = 'Table  Clients';
-    doc.text(title, 14, 16);
-    
-    doc.autoTable({
-      head: [['Logo', 'Code', 'Nom', 'Prenom', 'CIN', 'Civilite', 'Nationalite', 'Téléphone', 'Ville', 'Zone', 'Région']],
-      body: filteredClients?.map(client => [
-        client.logoC ? { content: 'Logo', rowSpan: 1 } : '',
-        client.CodeClient || '',
-        client.name || '',
-        client.prenom || '',
-        client.cin || '',
-        client.civilite || '',
-        client.nationalite || '',
-        client.tele || '',
-        client.ville || '',
-        client.zone?.zone || '',
-        client.region?.region || ''
-      ]),
-      startY: 20,
-      theme: 'grid',
-      styles: { fontSize: 8, overflow: 'linebreak' },
-      headStyles: { fillColor: '#007bff' }
+    exportToPdf({
+      rows: exportRows,
+      columns: CLIENT_EXPORT_COLUMNS,
+      title: "Liste des Clients Particulier",
+      filename: "clients_particuliers.pdf",
+      orientation: "landscape",
+      columnWidths: CLIENT_EXPORT_COLUMN_WIDTHS,
+      nowrapColumns: CLIENT_EXPORT_NOWRAP_COLUMNS,
     });
-  
-    doc.save('clients_table.pdf');
   };
   
 
   const printTable = () => {
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Client List</title>
-          <style>
-            table {
-              width: 100%;
-              border-collapse: collapse;
-            }
-            th, td {
-              border: 1px solid black;
-              padding: 8px;
-              text-align: left;
-            }
-            th {
-              background-color: #f2f2f2;
-            }
-          </style>
-        </head>
-        <body>
-          <h1>Client List</h1>
-          <table>
-            <thead>
-              <tr>
-                <th>Logo</th>
-                <th>Code</th>
-                <th>Nom</th>
-                <th>Prenom</th>
-                <th>CIN</th>
-                <th>Civilite</th>
-                <th>Nationalite</th>
-                <th>Téléphone</th>
-                <th>Ville</th>
-                <th>Zone</th>
-                <th>Région</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${filteredClients?.map(client => `
-                <tr>
-                  <td><img src="${client.logoC ? `http://localhost:8000/storage/${client.logoC}` : "http://localhost:8000/storage/default_user.png"}" loading="lazy" alt="Logo" style="width:50px; height:50px; border-radius:50%;" /></td>
-                  <td>${client.CodeClient || ''}</td>
-                  <td>${client.name || ''}</td>
-                  <td>${client.prenom || ''}</td>
-                  <td>${client.cin || ''}</td>
-                  <td>${client.civilite || ''}</td>
-                  <td>${client.nationalite || ''}</td>
-                  <td>${client.tele || ''}</td>
-                  <td>${client.ville || ''}</td>
-                  <td>${client.zone?.zone || ''}</td>
-                  <td>${client.region?.region || ''}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </body>
-      </html>
-    `);
-  
-    printWindow.document.close();
-    printWindow.print();
+    printRows({
+      rows: exportRows,
+      columns: CLIENT_EXPORT_COLUMNS,
+      title: "Liste des Clients Particulier",
+      orientation: "landscape",
+      columnWidths: CLIENT_EXPORT_COLUMN_WIDTHS,
+      nowrapColumns: CLIENT_EXPORT_NOWRAP_COLUMNS,
+    });
   };
 
   document.addEventListener("change", async function (event) {
@@ -1515,49 +1431,98 @@ const handleInputChangeRep = (index, field, value) => {
 
 const handleRegionFilterChange = (e) => {
   setRegionFilter(e.target.value);
+  resetPage();
 };
 
 const handleZoneFilterChange = (e) => {
   setZoneFilter(e.target.value);
+  resetPage();
 };
 
 const handleVilleFilterChange = (e) => {
   setVilleFilter(e.target.value);
+  resetPage();
 };
-const filteredClients = clients.filter((client) => {
-  return (
-    ((regionFilter ? client.region?.region === regionFilter : true) &&
-    (zoneFilter ? client.zone?.zone === zoneFilter : true) &&
-    (villeFilter ? client.ville === villeFilter : true) &&
-    (selectedCategory ? client.secteur_id
-      === selectedCategory : true)) &&
-    (
-      // (searchTerm ? client?.secteur?.secteurClient?.toLowerCase().startsWith(searchTerm.toLowerCase()) : true) ||
-      (searchTerm ? client?.zone?.zone?.toLowerCase().includes(searchTerm.toLowerCase()) : true) ||
-      (searchTerm ? client?.region?.region?.toLowerCase().includes(searchTerm.toLowerCase()) : true) ||
-      (searchTerm ? client?.ville?.toLowerCase().includes(searchTerm.toLowerCase()) : true) ||
-      (searchTerm ? client?.categorie?.toLowerCase().includes(searchTerm.toLowerCase()) : true) ||
-      (searchTerm ? client?.civilite?.toLowerCase().includes(searchTerm.toLowerCase()) : true) ||
-      (searchTerm ? client?.nationalite?.toLowerCase().includes(searchTerm.toLowerCase()) : true) ||
-      (searchTerm ? client?.CodeClient?.toLowerCase().includes(searchTerm.toLowerCase()) : true) ||
-      (searchTerm ? client?.name?.toLowerCase().includes(searchTerm.toLowerCase()) : true) ||
-      (searchTerm ? client?.tele?.toLowerCase().includes(searchTerm.toLowerCase()) : true) ||
-      (searchTerm ? client?.abreviation?.toLowerCase().includes(searchTerm.toLowerCase()) : true) ||
-      (searchTerm ? client?.prenom?.toLowerCase().includes(searchTerm.toLowerCase()) : true) ||
-      (searchTerm ? client?.adresse?.toLowerCase().includes(searchTerm.toLowerCase()) : true) ||
-      (searchTerm ? client?.cin?.toLowerCase().includes(searchTerm.toLowerCase()) : true) ||
-      (searchTerm ? client?.CodeClient?.toLowerCase().includes(searchTerm.toLowerCase()) : true) ||
-      (searchTerm ? client?.seince?.toLowerCase().includes(searchTerm.toLowerCase()) : true) || 
-      (searchTerm ? client?.cin?.toLowerCase().includes(searchTerm.toLowerCase()) : true) ||
-      (searchTerm ? client?.tele?.toLowerCase().includes(searchTerm.toLowerCase()) : true) ||
-      (searchTerm ? client?.code_postal?.toLowerCase().includes(searchTerm.toLowerCase()) : true) ||
-      (searchTerm ? client?.adresse?.toLowerCase().includes(searchTerm.toLowerCase()) : true) ||
-      (searchTerm ? client?.montant_plafond?.toLowerCase().includes(searchTerm.toLowerCase()) : true) ||
-      (searchTerm ? modePaimant.find((agent)=>agent.id===client?.mod_id)?.mode_paimants.toLowerCase().includes(searchTerm.toLowerCase()) : true) ||
-      (searchTerm ? secteurClient.find((agent)=>agent.id===client?.secteur_id)?.secteurClient?.toLowerCase().includes(searchTerm.toLowerCase()) : true) 
-    )
-  );
+
+const filterClients = useCallback((rows, currentSearchTerm) => {
+  const needle = normalizeSearchValue(currentSearchTerm);
+
+  return rows.filter((client) => {
+    if (regionFilter && client.region?.region !== regionFilter) return false;
+    if (zoneFilter && client.zone?.zone !== zoneFilter) return false;
+    if (villeFilter && client.ville !== villeFilter) return false;
+    if (selectedCategory && String(client.secteur_id) !== String(selectedCategory)) return false;
+    if (!needle) return true;
+
+    const secteur = secteurClient.find((item) => item.id === client.secteur_id)?.secteurClient;
+    const modePaiement = modePaimant.find((item) => item.id === client.mod_id)?.mode_paimants;
+    return [
+      client.CodeClient,
+      client.name,
+      client.prenom,
+      client.cin,
+      client.civilite,
+      client.nationalite,
+      client.abreviation,
+      client.adresse,
+      client.tele,
+      client.ville,
+      client.code_postal,
+      client.categorie,
+      secteur,
+      client.zone?.zone,
+      client.region?.region,
+      modePaiement,
+    ].some((value) => normalizeSearchValue(value).includes(needle));
+  });
+}, [modePaimant, regionFilter, secteurClient, selectedCategory, villeFilter, zoneFilter]);
+
+const {
+  searchTerm,
+  page,
+  rowsPerPage,
+  filteredRows: filteredClients,
+  visibleRows,
+  totalRows,
+  setSearchTerm,
+  setPage,
+  setRowsPerPage,
+  resetPage,
+} = useListControls({
+  allRows: clients,
+  filterRows: filterClients,
+  storageKey: "rowsPerPageClientsParticulier",
 });
+
+const selectAll = visibleRows.length > 0 && visibleRows.every((client) => selectedItems.includes(client.id));
+const filtersActive = Boolean(searchTerm || selectedCategory || regionFilter || zoneFilter || villeFilter);
+const resetFilters = useCallback(() => {
+  setSearchTerm("");
+  setSelectedCategory("");
+  setRegionFilter("");
+  setZoneFilter("");
+  setVilleFilter("");
+  resetPage();
+}, [resetPage, setSearchTerm]);
+
+const exportRows = useMemo(() => filteredClients.map((client) => ({
+  code: client.CodeClient || "",
+  name: client.name || "",
+  prenom: client.prenom || "",
+  cin: client.cin || "",
+  civilite: client.civilite || "",
+  nationalite: client.nationalite || "",
+  abreviation: client.abreviation || "",
+  adresse: client.adresse || "",
+  telephone: client.tele || "",
+  ville: client.ville || "",
+  codePostal: client.code_postal || "",
+  categorie: client.categorie || "",
+  secteur: secteurClient.find((item) => item.id === client.secteur_id)?.secteurClient || "",
+  zone: client.zone?.zone || "",
+  region: client.region?.region || "",
+  modePaiement: modePaimant.find((item) => item.id === client.mod_id)?.mode_paimants || "",
+})), [filteredClients, modePaimant, secteurClient]);
 
 
 const handleAddZone = async () => {
@@ -1894,8 +1859,8 @@ const chunks = chunkArray(secteurClient, chunkSize);
 
 
 const handleCategoryFilterChange = (catId) => {
- 
   setSelectedCategory(catId);
+  resetPage();
 };
 useEffect(() => {
 
@@ -1906,36 +1871,17 @@ useEffect(() => {
         <Box component="main" className="app-page clients-particulier-page" sx={{ flexGrow: 1, p: 3, mt: 0 }}>
 
        
-          <div className="app-page-header">
-  <h1 className="app-page-title">Liste des Clients Particulier</h1>
-
-  <div className="app-toolbar">
-    <div className="app-search-box">
-      <Search onSearch={handleSearch} type="search" />
-    </div>
-
-
-
-              <div className="app-export-actions">
-              <FontAwesomeIcon
-    onClick={printTable}  
-    icon={faPrint}
-    className="app-action-icon is-muted"
-  />
-                  <FontAwesomeIcon
-      onClick={exportToPDF}
-            icon={faFilePdf}
-      className="app-action-icon is-danger"
-    />
-
-                <FontAwesomeIcon
-                  icon={faFileExcel}
-                  onClick={exportToExcel}
-                  className="app-action-icon is-success"
-                />
-              </div>
-            </div>
-          </div>
+          <SearchWithExport
+            Title="Liste des Clients Particulier"
+            searchValue={searchTerm}
+            onSearchChange={setSearchTerm}
+            printTable={printTable}
+            exportToPDF={exportToPDF}
+            exportToExcel={exportToExcel}
+            resultCount={totalRows}
+            loading={clientsLoading}
+            exportsDisabled={totalRows === 0}
+          />
 
           {
           
@@ -2046,8 +1992,7 @@ useEffect(() => {
   }
 </Form.Select>
 
-
-
+<ListFilterReset active={filtersActive} onReset={resetFilters} />
 </div>
 </div>
 
@@ -4270,7 +4215,16 @@ Region
 
               </Form>
             </div>
-            <div className="">
+            <ListState
+              loading={clientsLoading}
+              error={clientsLoadError}
+              allRowsCount={clients.length}
+              filteredRowsCount={totalRows}
+              emptyDataMessage="Aucun client particulier enregistré."
+              onRetry={fetchClients}
+              onResetFilters={resetFilters}
+            />
+            <div className="" style={{ display: !clientsLoading && !clientsLoadError && totalRows > 0 ? undefined : "none" }}>
               <div
                 id="tableContainer"
                 className="app-table-wrapper"
@@ -4314,9 +4268,7 @@ Region
     </tr>
   </thead>
   <tbody className="text-center" style={{ backgroundColor: '#007bff' }}>
-    {filteredClients
-      .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-      ?.map((client) => {
+    {visibleRows?.map((client) => {
         const rep =agent.find((agent)=>agent.id===client.last_represantant?.id_agent);
       return(
          <React.Fragment key={client.id}>
@@ -4628,53 +4580,13 @@ info_site_clients
                     Supprimer selection
                   </Button>
 
-                  <div className="app-table-pagination">
-                    <span>Lignes par page:</span>
-
-                    <select
-                      value={rowsPerPage}
-                      onChange={(e) =>
-                        handleChangeRowsPerPage({
-                          target: { value: e.target.value },
-                        })
-                      }
-                    >
-                      {[5, 10, 15, 20, 25].map((value) => (
-                        <option key={value} value={value}>
-                          {value}
-                        </option>
-                      ))}
-                    </select>
-
-                    <span>
-                      {filteredClients.length > 0
-                        ? `${page * rowsPerPage + 1}-${Math.min(
-                            (page + 1) * rowsPerPage,
-                            filteredClients.length
-                          )} sur ${filteredClients.length}`
-                        : "0-0 sur 0"}
-                    </span>
-
-                    <button
-                      type="button"
-                      className="app-pagination-arrow"
-                      disabled={page === 0}
-                      onClick={(e) => handleChangePage(e, page - 1)}
-                      aria-label="Page prÃ©cÃ©dente"
-                    >
-                      ‹
-                    </button>
-
-                    <button
-                      type="button"
-                      className="app-pagination-arrow"
-                      disabled={(page + 1) * rowsPerPage >= filteredClients.length}
-                      onClick={(e) => handleChangePage(e, page + 1)}
-                      aria-label="Page suivante"
-                    >
-                      ›
-                    </button>
-                  </div>
+                  <ListPagination
+                    page={page}
+                    rowsPerPage={rowsPerPage}
+                    totalRows={totalRows}
+                    onPageChange={setPage}
+                    onRowsPerPageChange={setRowsPerPage}
+                  />
                 </div>
               </div>
             </div>

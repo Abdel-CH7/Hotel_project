@@ -26,6 +26,8 @@ const ExpandRTable = ({
   renderExpandedRow,
   renderCustomActions,
   uiVariant = "default",
+  externalPagination = false,
+  paginationComponent = null,
 }) => {
   const hasActions = handleEdit || handleDelete || renderCustomActions;
   const displayData = filteredData || data || [];
@@ -306,7 +308,10 @@ maxWidth: `${actionColumnWidth}px`,
           </thead>
 
           <tbody>
-            {displayData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((item) => (
+            {(externalPagination
+              ? displayData
+              : displayData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+            ).map((item) => (
               <React.Fragment key={item.id || `row-${Math.random()}`}>
                 <tr>
                   <td
@@ -362,7 +367,7 @@ maxWidth: `${actionColumnWidth}px`,
                         textAlign: 'center',
                       }}
                     >
-                      <div style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}>
+                      <div className="app-table-actions">
                         {handleEdit && (
                           <FontAwesomeIcon
                             onClick={() => handleEdit(item)}
@@ -458,7 +463,7 @@ maxWidth: `${actionColumnWidth}px`,
           Supprimer selection
         </Button>
 
-        <div
+        {paginationComponent || <div
           className={isAppTable ? 'app-table-pagination' : undefined}
           style={isAppTable ? undefined : { display: 'flex', alignItems: 'center', gap: '10px' }}
         >
@@ -473,7 +478,7 @@ maxWidth: `${actionColumnWidth}px`,
             ))}
           </select>
           <span>{`${page * rowsPerPage + 1}-${Math.min((page + 1) * rowsPerPage, displayData.length)} sur ${displayData.length}`}</span>
-        </div>
+        </div>}
       </div>
     </div>
   );
