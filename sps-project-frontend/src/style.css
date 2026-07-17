@@ -2752,6 +2752,242 @@ body .swal2-container {
   cursor: not-allowed;
 }
 
+/* Internal users and self-service profile. */
+.app-user-avatar {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 50%;
+  background: rgba(0, 175, 170, 0.16);
+  color: #0b4d54;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.app-user-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.navigation-user-block {
+  min-height: 62px;
+  color: #fff !important;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.navigation-user-block .MuiListItemIcon-root {
+  min-width: 48px;
+}
+
+.navigation-user-block .MuiListItemText-primary {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+}
+
+.navigation-user-block .MuiListItemText-secondary {
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 12px;
+}
+
+.user-page-heading {
+  margin-bottom: 22px;
+}
+
+.user-page-heading h1 {
+  margin: 0;
+  color: #0b4d54;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.user-page-heading p {
+  margin: 6px 0 0;
+  color: #64748b;
+}
+
+.user-management-page .user-filter-row {
+  margin-bottom: 18px;
+}
+
+.user-management-page .user-search-input {
+  flex: 1 1 320px;
+  width: min(420px, 100%) !important;
+  max-width: 480px !important;
+}
+
+.user-management-page .user-table-wrapper {
+  overflow: hidden;
+}
+
+.user-management-page .app-table-scroll {
+  overflow-x: auto;
+}
+
+.user-management-page .user-table {
+  min-width: 900px;
+}
+
+.user-management-page .user-identity-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+}
+
+.user-management-page .app-status-badge.is-neutral {
+  background: rgba(100, 116, 139, 0.12);
+  color: #475569;
+}
+
+.user-management-page .user-action-button {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.user-management-page .user-action-button:disabled {
+  opacity: 0.32;
+  cursor: not-allowed;
+}
+
+.user-management-page .user-action-button .app-table-action {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+
+.user-management-page .app-table-action.is-warning {
+  color: #b77900;
+}
+
+.user-management-page .app-table-action.is-success {
+  color: #15803d;
+}
+
+.profile-layout {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.75fr) minmax(320px, 1.25fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.profile-page .profile-section {
+  padding: 22px;
+  border-radius: 8px;
+}
+
+.profile-page .profile-section h2 {
+  margin: 0 0 18px;
+  color: #0b4d54;
+  font-size: 18px;
+}
+
+.profile-photo-section {
+  text-align: center;
+}
+
+.profile-photo-preview {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.profile-photo-preview > img {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.profile-file-label {
+  display: inline-flex;
+  cursor: pointer;
+}
+
+.profile-photo-actions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.profile-readonly-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 20px;
+}
+
+.profile-readonly-grid > div {
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.profile-readonly-grid span,
+.profile-readonly-grid strong {
+  display: block;
+}
+
+.profile-readonly-grid span {
+  margin-bottom: 3px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.profile-security-section {
+  grid-column: 2;
+}
+
+@media (max-width: 800px) {
+  .profile-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-security-section {
+    grid-column: auto;
+  }
+
+  .user-management-page .user-filter-row,
+  .user-management-page .app-filter-controls {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .user-management-page,
+  .profile-page {
+    padding: 16px !important;
+  }
+
+  .user-page-heading {
+    align-items: stretch;
+  }
+
+  .user-page-heading .app-add-button {
+    width: 100%;
+  }
+
+  .profile-readonly-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .company-contacts-count {
   display: inline-flex;
   align-items: center;

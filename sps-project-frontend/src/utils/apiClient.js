@@ -3,6 +3,7 @@ import axios from "axios";
 export const AUTH_TOKEN_KEY = "API_TOKEN";
 export const AUTH_STATE_KEY = "isAuthenticated";
 export const AUTH_UNAUTHORIZED_EVENT = "app:auth-unauthorized";
+export const AUTH_REDIRECT_MESSAGE_KEY = "app:auth-message";
 
 const LEGACY_TOKEN_KEY = "token";
 const INVALID_TOKEN_VALUES = new Set(["", "null", "undefined"]);
@@ -71,8 +72,15 @@ const attachToken = (config) => {
 };
 
 const handleResponseError = (error) => {
-  if (error.response?.status === 401 && !isLoginRequest(error.config)) {
+  const accountInactive = error.response?.status === 403
+    && error.response?.data?.code === "account_inactive";
+
+  if ((error.response?.status === 401 || accountInactive) && !isLoginRequest(error.config)) {
     clearStoredAuthentication();
+
+    if (accountInactive && typeof window !== "undefined") {
+      window.sessionStorage.setItem(AUTH_REDIRECT_MESSAGE_KEY, error.response.data.message);
+    }
 
     if (typeof window !== "undefined" && !redirectingToLogin) {
       redirectingToLogin = true;

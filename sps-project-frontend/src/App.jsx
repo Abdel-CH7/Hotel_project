@@ -4,6 +4,7 @@ import Navigation from './Acceuil/Navigation';
 import { Suspense, lazy } from 'react';
 import { OpenProvider } from './Acceuil/OpenProvider.jsx';
 import ProtectedRoute from './components/ProtectedRoute';
+import AdminRoute from './components/AdminRoute';
 
 const Login = lazy(() => import('./Login/Login'));
 // const Dashboard = lazy(() => import('./Acceuil/Dashboard'));
@@ -20,6 +21,8 @@ const GestionEquipements = lazy(() => import('./Equipements/Equipements'));
 const ReclamationPage = lazy(() => import('./reclamation/ReclamationPage'));
 
 const Reservation = lazy(() => import('./Reservation/Reservation'));
+const ProfilePage = lazy(() => import('./profile/ProfilePage'));
+const UserManagement = lazy(() => import('./Users/UserManagement'));
 
 // const AgentList = lazy(() => import('./Agents/AgentList'));
 
@@ -137,6 +140,24 @@ const App = () => {
           element={
             <ProtectedRoute>
               <Reservation />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/users"
+          element={
+            <ProtectedRoute>
+              <AdminRoute>
+                <UserManagement />
+              </AdminRoute>
             </ProtectedRoute>
           }
         />

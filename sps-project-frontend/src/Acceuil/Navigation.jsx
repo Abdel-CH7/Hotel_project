@@ -17,7 +17,9 @@ import {
   MdOutlineMeetingRoom,
   MdOutlineDiscount,
   MdCleaningServices,
-  MdOutlineBuild
+  MdOutlineBuild,
+  MdAdminPanelSettings,
+  MdManageAccounts
 } from "react-icons/md";
 import {
   ListItemButton,
@@ -35,10 +37,10 @@ import ExitToAppIcon from "@mui/icons-material/ExitToApp";
 import { Link } from "react-router-dom";
 import CssBaseline from "@mui/material/CssBaseline";
 import MuiAppBar from "@mui/material/AppBar";
-import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../AuthContext";
 import { useOpen } from "./OpenProvider";
+import UserAvatar from "../components/UserAvatar";
 
 
 
@@ -107,7 +109,6 @@ const defaultTheme = createTheme();
 const Navigation = () => {
   const [selectedOption, setSelectedOption] = useState("");
   const [isNavOpen, setIsNavOpen] = useState(false);
-  const [user, setUser] = useState(null);
   const [users, setUsers] = useState([]);
   const navigate = useNavigate();
   const [permissions, setPermissions] = useState([]);
@@ -121,6 +122,7 @@ const Navigation = () => {
   const [client, setClient] = useState(false);
   const [tarif, setTarif] = useState(false);
   const [chambre, setChambre] = useState(false);
+  const [administration, setAdministration] = useState(false);
   const [production, setProduction] = useState(false);
   const [logistic, setLogistic] = useState(false);
 
@@ -167,12 +169,15 @@ const Navigation = () => {
     if(opt==='tarif'){
       setTarif(!tarif);
     }
+    if(opt==='administration'){
+      setAdministration(!administration);
+    }
   };
   const handleCommandsClick = () => {
     
     setIsCommandsOpen(!isCommandsOpen);
   };
-  const { logout } = useAuth();
+  const { logout, user: authenticatedUser } = useAuth();
   const [openDrawer, setOpenDrawer] = useState(false);
   const handleOptionChange = (event) => {
     const selectedValue = event.target.value;
@@ -258,21 +263,6 @@ const Navigation = () => {
     px: 2.5,
   }));
  
-  const handleLogoutClick = async () => {
-    try {
-      // Logout logic
-      navigate("/login");
-    } catch (error) {
-      console.error("Error during logout:", error);
-
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: "An error occurred during logout.",
-      });
-    }
-  };
-
   const handleLogout = async () => {
     try {
       await logout();
@@ -552,6 +542,21 @@ const Navigation = () => {
               <ListItemText primary="Réclamations" />
             </ListItem>
           </List>
+          {authenticatedUser?.role === "admin" && (
+            <List>
+              <ListItem button onClick={() => toggleSubmenu('administration')} className="sidBarcomposantColore">
+                <ListItemIcon><MdAdminPanelSettings className="iconSedBar" /></ListItemIcon>
+                <ListItemText primary="Administration" />
+                {administration ? <ChevronRightIcon /> : <ChevronLeftIcon />}
+              </ListItem>
+              <Collapse in={administration} timeout="auto" unmountOnExit>
+                <ListItem button component={Link} to="/users" className="sidBarSucomposantColore">
+                  <ListItemIcon><MdManageAccounts className="iconSedBar" /></ListItemIcon>
+                  <ListItemText primary="Gestion des utilisateurs" />
+                </ListItem>
+              </Collapse>
+            </List>
+          )}
           </Box>
           <Box
             sx={{
@@ -561,12 +566,18 @@ const Navigation = () => {
             }}
           >
             <List disablePadding>
+              <ListItem button component={Link} to="/profile" className="navigation-user-block">
+                <ListItemIcon><UserAvatar user={authenticatedUser} size={38} /></ListItemIcon>
+                <ListItemText
+                  primary={authenticatedUser?.name || "Utilisateur"}
+                  secondary={`Mon profil · ${authenticatedUser?.role_label || (authenticatedUser?.role === "admin" ? "Administrateur" : "Employé")}`}
+                />
+              </ListItem>
+            </List>
+            <List disablePadding>
             <ListItem
               button
-              onClick={() => {
-                handleLogoutClick();
-                handleLogout();
-              }}
+              onClick={handleLogout}
               style={{ color: "red", background: "white" }}
             >
               <ListItemIcon>

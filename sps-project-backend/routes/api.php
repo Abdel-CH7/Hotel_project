@@ -54,6 +54,8 @@ use App\Http\Controllers\ReclamationReservationContextController;
 use App\Http\Controllers\ReclamationStatusController;
 use App\Http\Controllers\ReclamationTypeController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\UserManagementController;
 
 use App\Http\Controllers\ReservationController;
 use App\Http\Controllers\ReservationReadinessController;
@@ -63,9 +65,22 @@ use App\Http\Controllers\ReservationClientOptionsController;
 
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'active'])->group(function () {
 Route::get('/user', [AuthController::class, 'user']);
 Route::post('/logout', [AuthController::class, 'logout']);
+Route::get('/profile', [ProfileController::class, 'show']);
+Route::put('/profile', [ProfileController::class, 'update']);
+Route::put('/profile/password', [ProfileController::class, 'updatePassword']);
+Route::post('/profile/photo', [ProfileController::class, 'uploadPhoto']);
+Route::delete('/profile/photo', [ProfileController::class, 'removePhoto']);
+
+Route::middleware('admin')->group(function () {
+    Route::get('/users', [UserManagementController::class, 'index']);
+    Route::post('/users', [UserManagementController::class, 'store']);
+    Route::put('/users/{user}', [UserManagementController::class, 'update'])->whereNumber('user');
+    Route::patch('/users/{user}/status', [UserManagementController::class, 'status'])->whereNumber('user');
+    Route::patch('/users/{user}/reset-password', [UserManagementController::class, 'resetPassword'])->whereNumber('user');
+});
 Route::get('/dashboard/summary', [DashboardController::class, 'summary']);
 
 // Client Particulier routes: Tested

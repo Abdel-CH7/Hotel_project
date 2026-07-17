@@ -163,6 +163,7 @@ class ReservationPaymentApiTest extends TestCase
             ->assertJsonMissingPath('data.paiement.created_by.email');
         $paymentId = $created->json('data.paiement.id');
 
+        $creator->update(['is_active' => false]);
         $this->actingAs($canceller);
         $this->patchJson("/api/reservations/{$reservation->id}/payments/{$paymentId}/cancel", [
             'motif_annulation' => 'Tentative de remplacement',
@@ -173,6 +174,7 @@ class ReservationPaymentApiTest extends TestCase
             'motif_annulation' => 'Erreur de saisie',
         ])->assertOk()
             ->assertJsonPath('data.paiement.statut', 'annule')
+            ->assertJsonPath('data.paiement.created_by.name', $creator->name)
             ->assertJsonPath('data.paiement.annulation.par.id', $canceller->id)
             ->assertJsonPath('data.paiement.annulation.par.name', $canceller->name)
             ->assertJsonMissingPath('data.paiement.annulation.par.email')

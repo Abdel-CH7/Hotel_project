@@ -66,6 +66,13 @@ export const AuthProvider = ({ children }) => {
     return response;
   };
 
+  const refreshUser = async () => {
+    const userData = await authService.getUser();
+    setUser(userData);
+    setIsAuthenticated(true);
+    return userData;
+  };
+
   const logout = async () => {
     try {
       if (getStoredAuthToken()) await authService.logout();
@@ -85,6 +92,7 @@ export const AuthProvider = ({ children }) => {
     loading,
     login,
     logout,
+    refreshUser,
   };
 
   return (

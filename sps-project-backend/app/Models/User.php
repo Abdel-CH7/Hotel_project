@@ -11,6 +11,15 @@ use Laravel\Sanctum\HasApiTokens;
 class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
+
+    public const ROLE_ADMIN = 'admin';
+
+    public const ROLE_STAFF = 'staff';
+
+    public const ROLES = [
+        self::ROLE_ADMIN,
+        self::ROLE_STAFF,
+    ];
     /**
      * The attributes that are mass assignable.
      *
@@ -20,6 +29,9 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'photo',
+        'role',
+        'is_active',
     ];
 
     /**
@@ -30,6 +42,7 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'tokens',
     ];
 
     /**
@@ -42,6 +55,17 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_active' => 'boolean',
         ];
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->role === self::ROLE_ADMIN;
+    }
+
+    public function isActive(): bool
+    {
+        return (bool) $this->is_active;
     }
 }

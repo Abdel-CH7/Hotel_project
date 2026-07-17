@@ -15,6 +15,7 @@ import {
 import { Visibility, VisibilityOff } from "@mui/icons-material";
 import { useAuth } from "../AuthContext";
 import AnimatedBackground from "../components/AnimatedBackground";
+import { AUTH_REDIRECT_MESSAGE_KEY } from "../utils/apiClient";
 
 const CREDENTIALS_ERROR = "Adresse e-mail ou mot de passe incorrect.";
 const NETWORK_ERROR = "Serveur inaccessible. Vérifiez que l’API Laravel est démarrée.";
@@ -23,7 +24,11 @@ const GENERIC_ERROR = "Connexion impossible. Veuillez réessayer.";
 const Login = () => {
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(() => {
+    const message = window.sessionStorage.getItem(AUTH_REDIRECT_MESSAGE_KEY) || "";
+    window.sessionStorage.removeItem(AUTH_REDIRECT_MESSAGE_KEY);
+    return message;
+  });
   const [submitting, setSubmitting] = useState(false);
   const { login, user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
@@ -54,6 +59,9 @@ const Login = () => {
       navigate(destination, { replace: true });
     } catch (requestError) {
       if (!requestError.response) setError(NETWORK_ERROR);
+      else if (requestError.response.status === 403 && requestError.response.data?.code === "account_inactive") {
+        setError(requestError.response.data.message);
+      }
       else if ([401, 422].includes(requestError.response.status)) setError(CREDENTIALS_ERROR);
       else setError(GENERIC_ERROR);
     } finally {
