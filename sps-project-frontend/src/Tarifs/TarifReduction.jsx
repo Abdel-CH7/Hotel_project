@@ -8,11 +8,13 @@ import { faEdit, faTrash } from "@fortawesome/free-solid-svg-icons";
 import ListFilterReset from "../components/ListFilterReset";
 import ListPagination from "../components/ListPagination";
 import ListState from "../components/ListState";
+import RequiredLabel from "../components/RequiredLabel";
 import SearchWithExport from "../components/SearchWithExport";
 import TariffPlanSelector from "../components/TariffPlanSelector";
 import useListControls from "../components/useListControls";
 import { useOpen } from "../Acceuil/OpenProvider";
 import { exportToExcel as exportExcelRows, exportToPdf, printRows } from "../utils/listExportUtils";
+import { focusFirstInvalidField } from "../utils/formValidationUtils";
 import {
   getNumberSearchVariants,
   highlightText,
@@ -209,6 +211,7 @@ const TarifReduction = () => {
       nextErrors.reduction_value = "Le montant fixe ou le pourcentage doit être supérieur à zéro.";
     }
     setDetailErrors(nextErrors);
+    if (Object.keys(nextErrors).length) focusFirstInvalidField(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
 
@@ -232,7 +235,12 @@ const TarifReduction = () => {
       await Swal.fire("Succès", `Règle de réduction ${editingDetail ? "modifiée" : "ajoutée"} avec succès.`, "success");
       closeDrawer();
     } catch (error) {
-      if (error.response?.status === 422) setDetailErrors(backendFieldErrors(error));
+      if (error.response?.status === 422) {
+        const fieldErrors = backendFieldErrors(error);
+        setDetailErrors(fieldErrors);
+        focusFirstInvalidField(fieldErrors);
+        return;
+      }
       if (error.response?.status === 409) await refreshData();
       await Swal.fire("Erreur", firstBackendMessage(error, "Impossible d'enregistrer cette réduction."), "error");
     } finally {
@@ -325,7 +333,9 @@ const TarifReduction = () => {
     event.preventDefault();
     const designation = gridForm.designation.trim();
     if (!designation) {
-      setGridErrors({ designation: "La désignation est obligatoire." });
+      const fieldErrors = { designation: "La désignation est obligatoire." };
+      setGridErrors(fieldErrors);
+      focusFirstInvalidField(fieldErrors);
       return;
     }
     setGridSaving(true);
@@ -341,7 +351,12 @@ const TarifReduction = () => {
       setGridForm(EMPTY_GRID);
       setGridErrors({});
     } catch (error) {
-      if (error.response?.status === 422) setGridErrors(backendFieldErrors(error));
+      if (error.response?.status === 422) {
+        const fieldErrors = backendFieldErrors(error);
+        setGridErrors(fieldErrors);
+        focusFirstInvalidField(fieldErrors);
+        return;
+      }
       await Swal.fire("Erreur", firstBackendMessage(error, "Impossible d'enregistrer ce plan."), "error");
     } finally {
       setGridSaving(false);
@@ -393,6 +408,7 @@ const TarifReduction = () => {
     if (!payload.type_reduction) nextErrors.type_reduction = "Le type de réduction est obligatoire.";
     if (Object.keys(nextErrors).length) {
       setTypeErrors(nextErrors);
+      focusFirstInvalidField(nextErrors);
       return;
     }
     setTypeSaving(true);
@@ -410,7 +426,12 @@ const TarifReduction = () => {
       setTypeErrors({});
       await Swal.fire("Succès", `Type de réduction ${wasEditing ? "modifié" : "ajouté"} avec succès.`, "success");
     } catch (error) {
-      if (error.response?.status === 422) setTypeErrors(backendFieldErrors(error));
+      if (error.response?.status === 422) {
+        const fieldErrors = backendFieldErrors(error);
+        setTypeErrors(fieldErrors);
+        focusFirstInvalidField(fieldErrors);
+        return;
+      }
       await Swal.fire("Erreur", firstBackendMessage(error, "Impossible d'enregistrer ce type de réduction."), "error");
     } finally {
       setTypeSaving(false);
@@ -484,30 +505,32 @@ const TarifReduction = () => {
         <ListState loading={loading} error={loadError} allRowsCount={details.length} filteredRowsCount={totalRows} emptyDataMessage="Aucune réduction tarifaire enregistrée." onRetry={refreshData} onResetFilters={resetFilters} />
 
         <div id="formContainer" className="app-form-drawer tariff-form-drawer" style={{ right: drawerOpen ? 0 : "-100%" }} aria-hidden={!drawerOpen}>
-          <Form onSubmit={saveDetail}>
+          <Form onSubmit={saveDetail} noValidate>
             <h2 className="app-form-drawer-title">{editingDetail ? "Modifier" : "Ajouter"} une réduction</h2>
+            <p className="app-required-note"><span className="app-required-mark" aria-hidden="true">*</span> Champs obligatoires</p>
             <p className="tariff-form-hint">Le montant fixe est soustrait en DH. Le pourcentage est soustrait du sous-total éligible. Les deux peuvent être combinés.</p>
             <div className="tariff-form-grid">
-              <Form.Group className="tariff-form-wide">
-                <Form.Label>Plan de réductions</Form.Label>
+              <Form.Group className="tariff-form-wide" data-field="tarif_reduction_id">
+                <Form.Label><RequiredLabel required={selectedGridId === ""}>Plan de réductions</RequiredLabel></Form.Label>
                 {selectedGridId !== "" ? <Form.Control value={selectedPlan?.designation ?? ""} readOnly /> : <Form.Select name="tarif_reduction_id" value={detailForm.tarif_reduction_id} onChange={handleDetailChange} isInvalid={!!detailErrors.tarif_reduction_id}><option value="">Sélectionner un plan</option>{grids.map((grid) => <option key={grid.id} value={grid.id} disabled={planUsage(grid).locked}>{grid.designation}</option>)}</Form.Select>}
                 <Form.Control.Feedback type="invalid">{detailErrors.tarif_reduction_id}</Form.Control.Feedback>
               </Form.Group>
-              <Form.Group className="tariff-form-wide">
-                <Form.Label>Type de réduction</Form.Label>
+              <Form.Group className="tariff-form-wide" data-field="type_reduction_id">
+                <Form.Label><RequiredLabel required>Type de réduction</RequiredLabel></Form.Label>
                 <Form.Select name="type_reduction_id" value={detailForm.type_reduction_id} onChange={handleDetailChange} isInvalid={!!detailErrors.type_reduction_id}>
                   <option value="">Sélectionner un type de réduction</option>
                   {availableReductionTypes.map((type) => <option key={type.id} value={type.id}>{type.type_reduction}</option>)}
                 </Form.Select>
                 <Form.Control.Feedback type="invalid">{detailErrors.type_reduction_id}</Form.Control.Feedback>
               </Form.Group>
-              <Form.Group>
+              <div className="tariff-form-wide"><Form.Label><RequiredLabel required>Valeur de la réduction</RequiredLabel></Form.Label><Form.Text>Renseignez un montant fixe, un pourcentage, ou les deux.</Form.Text></div>
+              <Form.Group data-field="montant_fixe">
                 <Form.Label>Montant fixe</Form.Label>
                 <Form.Control type="number" min="0" step="0.01" name="montant_fixe" value={detailForm.montant_fixe} onChange={handleDetailChange} isInvalid={!!detailErrors.montant_fixe} />
                 <Form.Text>Montant soustrait en DH.</Form.Text>
                 <Form.Control.Feedback type="invalid">{detailErrors.montant_fixe}</Form.Control.Feedback>
               </Form.Group>
-              <Form.Group>
+              <Form.Group data-field={detailErrors.reduction_value ? "reduction_value" : "pourcentage"}>
                 <Form.Label>Pourcentage</Form.Label>
                 <Form.Control type="number" min="0" max="100" step="0.01" name="pourcentage" value={detailForm.pourcentage} onChange={handleDetailChange} isInvalid={!!detailErrors.pourcentage || !!detailErrors.reduction_value} />
                 <Form.Text>Pourcentage soustrait du sous-total éligible.</Form.Text>
@@ -557,7 +580,7 @@ const TarifReduction = () => {
         <Modal show={gridModalOpen} onHide={closeGridModal} size="lg" centered>
           <Modal.Header closeButton><Modal.Title>Gérer les plans de réductions</Modal.Title></Modal.Header>
           <Modal.Body>
-            <Form onSubmit={saveGrid} className="tariff-plan-form"><Form.Group><Form.Label>Désignation</Form.Label><Form.Control value={gridForm.designation} onChange={(event) => { setGridForm({ designation: event.target.value }); setGridErrors({}); }} isInvalid={!!gridErrors.designation} placeholder="Ex. Réductions fidélité 2026" /><Form.Control.Feedback type="invalid">{gridErrors.designation}</Form.Control.Feedback></Form.Group><div className="app-form-actions"><Button type="submit" className="app-primary-button" disabled={gridSaving}>{editingGrid ? "Modifier" : "Ajouter"}</Button>{editingGrid && <Button type="button" className="app-secondary-button" onClick={() => { setEditingGrid(null); setGridForm(EMPTY_GRID); setGridErrors({}); }}>Annuler la modification</Button>}</div></Form>
+            <Form onSubmit={saveGrid} className="tariff-plan-form" noValidate><p className="app-required-note"><span className="app-required-mark" aria-hidden="true">*</span> Champs obligatoires</p><Form.Group data-field="designation"><Form.Label><RequiredLabel required>Désignation</RequiredLabel></Form.Label><Form.Control value={gridForm.designation} onChange={(event) => { setGridForm({ designation: event.target.value }); setGridErrors({}); }} isInvalid={!!gridErrors.designation} placeholder="Ex. Réductions fidélité 2026" /><Form.Control.Feedback type="invalid">{gridErrors.designation}</Form.Control.Feedback></Form.Group><div className="app-form-actions"><Button type="submit" className="app-primary-button" disabled={gridSaving}>{editingGrid ? "Modifier" : "Ajouter"}</Button>{editingGrid && <Button type="button" className="app-secondary-button" onClick={() => { setEditingGrid(null); setGridForm(EMPTY_GRID); setGridErrors({}); }}>Annuler la modification</Button>}</div></Form>
             <div className="app-table-wrapper tariff-modal-table"><table className="table table-bordered app-table"><thead><tr><th>Désignation</th><th>Utilisation</th><th>Actions</th></tr></thead><tbody>{grids.map((grid) => { const usage = planUsage(grid); return <tr key={grid.id}><td>{grid.designation}</td><td><span className={`tariff-plan-usage is-${usage.state}`}>{usage.label}</span></td><td><div className="app-table-actions"><button type="button" className="tariff-action-button" onClick={() => editGrid(grid)} disabled={usage.locked} title={usage.locked ? usage.label : "Modifier le plan"} aria-label="Modifier le plan"><FontAwesomeIcon icon={faEdit} className="app-table-action is-edit" /></button><button type="button" className="tariff-action-button" onClick={() => deleteGrid(grid)} disabled={usage.referenced} title={usage.referenced ? usage.label : "Supprimer le plan"} aria-label="Supprimer le plan"><FontAwesomeIcon icon={faTrash} className="app-table-action is-delete" /></button></div></td></tr>; })}{!grids.length && <tr><td colSpan="3" className="text-center">Aucun plan de réductions</td></tr>}</tbody></table></div>
           </Modal.Body>
           <Modal.Footer><Button type="button" className="app-secondary-button" onClick={closeGridModal}>Fermer</Button></Modal.Footer>
@@ -566,9 +589,10 @@ const TarifReduction = () => {
         <Modal show={typeModalOpen} onHide={closeTypeModal} size="lg" centered>
           <Modal.Header closeButton><Modal.Title>Gestion des types de réduction</Modal.Title></Modal.Header>
           <Modal.Body>
-            <Form onSubmit={saveType} className="tariff-type-form">
-              <Form.Group><Form.Label>Code</Form.Label><Form.Control value={typeForm.code} onChange={(event) => { setTypeForm((current) => ({ ...current, code: event.target.value })); setTypeErrors((current) => ({ ...current, code: "" })); }} isInvalid={!!typeErrors.code} /><Form.Control.Feedback type="invalid">{typeErrors.code}</Form.Control.Feedback></Form.Group>
-              <Form.Group><Form.Label>Type de réduction</Form.Label><Form.Control value={typeForm.type_reduction} onChange={(event) => { setTypeForm((current) => ({ ...current, type_reduction: event.target.value })); setTypeErrors((current) => ({ ...current, type_reduction: "" })); }} isInvalid={!!typeErrors.type_reduction} /><Form.Control.Feedback type="invalid">{typeErrors.type_reduction}</Form.Control.Feedback></Form.Group>
+            <Form onSubmit={saveType} className="tariff-type-form" noValidate>
+              <p className="app-required-note"><span className="app-required-mark" aria-hidden="true">*</span> Champs obligatoires</p>
+              <Form.Group data-field="code"><Form.Label><RequiredLabel required>Code</RequiredLabel></Form.Label><Form.Control value={typeForm.code} onChange={(event) => { setTypeForm((current) => ({ ...current, code: event.target.value })); setTypeErrors((current) => ({ ...current, code: "" })); }} isInvalid={!!typeErrors.code} /><Form.Control.Feedback type="invalid">{typeErrors.code}</Form.Control.Feedback></Form.Group>
+              <Form.Group data-field="type_reduction"><Form.Label><RequiredLabel required>Type de réduction</RequiredLabel></Form.Label><Form.Control value={typeForm.type_reduction} onChange={(event) => { setTypeForm((current) => ({ ...current, type_reduction: event.target.value })); setTypeErrors((current) => ({ ...current, type_reduction: "" })); }} isInvalid={!!typeErrors.type_reduction} /><Form.Control.Feedback type="invalid">{typeErrors.type_reduction}</Form.Control.Feedback></Form.Group>
               <div className="app-form-actions"><Button type="submit" className="app-primary-button" disabled={typeSaving}>{editingType ? "Modifier" : "Ajouter"}</Button>{editingType && <Button type="button" className="app-secondary-button" onClick={() => { setEditingType(null); setTypeForm(EMPTY_TYPE); setTypeErrors({}); }}>Annuler la modification</Button>}</div>
             </Form>
             <div className="app-table-wrapper tariff-modal-table"><table className="table table-bordered app-table"><thead><tr><th>Code</th><th>Type de réduction</th><th>Actions</th></tr></thead><tbody>

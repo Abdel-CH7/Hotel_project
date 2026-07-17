@@ -23,12 +23,14 @@ import AppStats from "../components/AppStats";
 import ListFilterReset from "../components/ListFilterReset";
 import ListPagination from "../components/ListPagination";
 import ListState from "../components/ListState";
+import RequiredLabel from "../components/RequiredLabel";
 import useListControls from "../components/useListControls";
 import {
   exportToExcel as exportRowsToExcel,
   exportToPdf as exportRowsToPdf,
   printRows,
 } from "../utils/listExportUtils";
+import { setValidationErrors } from "../utils/formValidationUtils";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import Box from "@mui/material/Box";
 import { useOpen } from "../Acceuil/OpenProvider";
@@ -361,7 +363,7 @@ const handleChange = (e) => {
         "Le prix d'achat doit être un nombre positif ou nul.";
     }
     
-    setErrors(newErrors);
+    setValidationErrors(setErrors, newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
@@ -369,14 +371,7 @@ const handleChange = (e) => {
     e.preventDefault();
     setHasSubmitted(true);
     
-    if (!validateForm()) {
-      Swal.fire({
-        icon: "error",
-        title: "Erreur",
-        text: "Veuillez remplir tous les champs obligatoires"
-      });
-      return;
-    }
+    if (!validateForm()) return;
 
     const formDataToSend = new FormData();
     Object.entries(formData).forEach(([key, value]) => {
@@ -420,21 +415,8 @@ const handleChange = (e) => {
       console.error("Erreur lors de la soumission:", error);
 
       if (error.response?.status === 422 && error.response?.data?.errors) {
-        const backendErrors = Object.fromEntries(
-          Object.entries(error.response.data.errors).map(([field, messages]) => [
-            field,
-            Array.isArray(messages) ? messages[0] : String(messages),
-          ])
-        );
-        const firstError = Object.values(backendErrors)[0];
-
-        setErrors(backendErrors);
+        setValidationErrors(setErrors, error);
         setHasSubmitted(true);
-        Swal.fire({
-          icon: "error",
-          title: "Erreur de validation",
-          text: firstError || "Veuillez vérifier les informations saisies.",
-        });
         return;
       }
 
@@ -641,7 +623,7 @@ const handleShowForm = () => {
     event.preventDefault();
 
     if (!emplacementForm.nom.trim()) {
-      setEmplacementErrors({ nom: "Le nom est obligatoire." });
+      setValidationErrors(setEmplacementErrors, { nom: "Le nom est obligatoire." });
       return;
     }
 
@@ -684,13 +666,7 @@ const handleShowForm = () => {
       });
     } catch (error) {
       if (error.response?.status === 422 && error.response?.data?.errors) {
-        const backendErrors = Object.fromEntries(
-          Object.entries(error.response.data.errors).map(([field, messages]) => [
-            field,
-            Array.isArray(messages) ? messages[0] : String(messages),
-          ])
-        );
-        setEmplacementErrors(backendErrors);
+        setValidationErrors(setEmplacementErrors, error);
         return;
       }
 
@@ -946,10 +922,11 @@ const handleShowForm = () => {
     <h4 className="app-form-drawer-title">
       {editingEquipement ? "Modifier" : "Ajouter"} un Équipement
     </h4>
+    <p className="app-required-note"><span className="app-required-mark" aria-hidden="true">*</span> Champs obligatoires</p>
 
     <div className="row g-3">
-      <Form.Group className="col-md-6">
-        <Form.Label>Nom *</Form.Label>
+      <Form.Group className="col-md-6" data-field="nom">
+        <Form.Label><RequiredLabel required>Nom</RequiredLabel></Form.Label>
         <Form.Control
           type="text"
           name="nom"
@@ -964,8 +941,8 @@ const handleShowForm = () => {
         )}
       </Form.Group>
 
-      <Form.Group className="col-md-6">
-        <Form.Label>N° Série *</Form.Label>
+      <Form.Group className="col-md-6" data-field="numero_serie">
+        <Form.Label><RequiredLabel required>N° Série</RequiredLabel></Form.Label>
         <Form.Control
           type="text"
           name="numero_serie"
@@ -980,8 +957,8 @@ const handleShowForm = () => {
         )}
       </Form.Group>
 
-      <Form.Group className="col-md-6">
-        <Form.Label>Modèle *</Form.Label>
+      <Form.Group className="col-md-6" data-field="modele">
+        <Form.Label><RequiredLabel required>Modèle</RequiredLabel></Form.Label>
         <Form.Control
           type="text"
           name="modele"
@@ -996,8 +973,8 @@ const handleShowForm = () => {
         )}
       </Form.Group>
 
-      <Form.Group className="col-md-6">
-        <Form.Label>Marque *</Form.Label>
+      <Form.Group className="col-md-6" data-field="marque">
+        <Form.Label><RequiredLabel required>Marque</RequiredLabel></Form.Label>
         <Form.Control
           type="text"
           name="marque"
@@ -1012,8 +989,8 @@ const handleShowForm = () => {
         )}
       </Form.Group>
 
-      <Form.Group className="col-md-6">
-        <Form.Label>Catégorie *</Form.Label>
+      <Form.Group className="col-md-6" data-field="categorie_id">
+        <Form.Label><RequiredLabel required>Catégorie</RequiredLabel></Form.Label>
         <Form.Select
           name="categorie_id"
           value={formData.categorie_id}
@@ -1034,8 +1011,8 @@ const handleShowForm = () => {
         )}
       </Form.Group>
 
-      <Form.Group className="col-md-6">
-        <Form.Label>Statut</Form.Label>
+      <Form.Group className="col-md-6" data-field="statut">
+        <Form.Label><RequiredLabel required>Statut</RequiredLabel></Form.Label>
         <Form.Select
           name="statut"
           value={formData.statut}
@@ -1047,8 +1024,8 @@ const handleShowForm = () => {
         </Form.Select>
       </Form.Group>
 
-      <Form.Group className="col-md-6">
-        <Form.Label>Type de localisation *</Form.Label>
+      <Form.Group className="col-md-6" data-field="location_type">
+        <Form.Label><RequiredLabel required>Type de localisation</RequiredLabel></Form.Label>
         <Form.Select
           value={locationType}
           onChange={handleLocationTypeChange}
@@ -1066,8 +1043,8 @@ const handleShowForm = () => {
       </Form.Group>
 
       {locationType === "chambre" && (
-        <Form.Group className="col-md-6">
-          <Form.Label>Chambre *</Form.Label>
+        <Form.Group className="col-md-6" data-field="chambre_id">
+          <Form.Label><RequiredLabel required>Chambre</RequiredLabel></Form.Label>
           <Form.Select
             name="chambre_id"
             value={formData.chambre_id}
@@ -1090,8 +1067,8 @@ const handleShowForm = () => {
       )}
 
       {locationType === "emplacement" && (
-        <Form.Group className="col-md-6">
-          <Form.Label>Emplacement *</Form.Label>
+        <Form.Group className="col-md-6" data-field="emplacement_id">
+          <Form.Label><RequiredLabel required>Emplacement</RequiredLabel></Form.Label>
           <Form.Select
             name="emplacement_id"
             value={formData.emplacement_id}
@@ -1120,8 +1097,8 @@ const handleShowForm = () => {
         </Form.Group>
       )}
 
-      <Form.Group className="col-md-6">
-        <Form.Label>Date acquisition *</Form.Label>
+      <Form.Group className="col-md-6" data-field="date_acquisition">
+        <Form.Label><RequiredLabel required>Date acquisition</RequiredLabel></Form.Label>
         <Form.Control
           type="date"
           name="date_acquisition"
@@ -1136,7 +1113,7 @@ const handleShowForm = () => {
         )}
       </Form.Group>
 
-      <Form.Group className="col-md-6">
+      <Form.Group className="col-md-6" data-field="date_fin_garantie">
         <Form.Label>Date fin garantie</Form.Label>
         <Form.Control
           type="date"
@@ -1153,7 +1130,7 @@ const handleShowForm = () => {
         )}
       </Form.Group>
 
-      <Form.Group className="col-md-6">
+      <Form.Group className="col-md-6" data-field="fournisseur">
         <Form.Label>Fournisseur</Form.Label>
         <Form.Control
           type="text"
@@ -1163,7 +1140,7 @@ const handleShowForm = () => {
         />
       </Form.Group>
 
-      <Form.Group className="col-md-6">
+      <Form.Group className="col-md-6" data-field="prix_achat">
         <Form.Label>Prix d'achat</Form.Label>
         <Form.Control
           type="number"
@@ -1181,7 +1158,7 @@ const handleShowForm = () => {
         )}
       </Form.Group>
 
-      <Form.Group className="col-md-6">
+      <Form.Group className="col-md-6" data-field="document">
         <Form.Label>Document</Form.Label>
         <Form.Control
           type="file"
@@ -1247,9 +1224,10 @@ const handleShowForm = () => {
   </Modal.Header>
   <Modal.Body>
     <Form onSubmit={handleEmplacementSubmit} noValidate>
+      <p className="app-required-note"><span className="app-required-mark" aria-hidden="true">*</span> Champs obligatoires</p>
       <div className="row g-3">
-        <Form.Group className="col-md-6">
-          <Form.Label>Nom *</Form.Label>
+        <Form.Group className="col-md-6" data-field="nom">
+          <Form.Label><RequiredLabel required>Nom</RequiredLabel></Form.Label>
           <Form.Control
             name="nom"
             value={emplacementForm.nom}
@@ -1263,7 +1241,7 @@ const handleShowForm = () => {
           )}
         </Form.Group>
 
-        <Form.Group className="col-md-6">
+        <Form.Group className="col-md-6" data-field="type">
           <Form.Label>Type</Form.Label>
           <Form.Control
             name="type"
@@ -1278,7 +1256,7 @@ const handleShowForm = () => {
           )}
         </Form.Group>
 
-        <Form.Group className="col-12">
+        <Form.Group className="col-12" data-field="description">
           <Form.Label>Description</Form.Label>
           <Form.Control
             as="textarea"

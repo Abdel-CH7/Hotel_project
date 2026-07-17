@@ -29,13 +29,7 @@ export const firstBackendMessage = (error, fallback = "Une erreur est survenue."
   return error?.response?.data?.message || fallback;
 };
 
-export const backendFieldErrors = (error) =>
-  Object.fromEntries(
-    Object.entries(error?.response?.data?.errors || {}).map(([field, messages]) => [
-      field,
-      Array.isArray(messages) ? messages[0] : String(messages),
-    ]),
-  );
+export const backendFieldErrors = normalizeBackendFieldErrors;
 
 export const formatMoney = (value) => {
   if (value === null || value === undefined || value === "") return "-";
@@ -56,3 +50,4 @@ export const escapeHtml = (value) =>
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+import { normalizeBackendFieldErrors } from "../utils/formValidationUtils";

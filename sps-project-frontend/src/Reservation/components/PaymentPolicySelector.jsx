@@ -1,5 +1,6 @@
 import { Button, Form } from "react-bootstrap";
 import { formatDate, formatMoney } from "../reservationUtils";
+import RequiredLabel from "../../components/RequiredLabel";
 
 const addCalendarDays = (dateValue, days) => {
   if (!dateValue || !Number.isInteger(Number(days)) || Number(days) < 0) return "";
@@ -32,12 +33,14 @@ const PaymentPolicySelector = ({
   return (
     <section className="reservation-form-section reservation-payment-policy">
       <h3>3. Politique de paiement</h3>
-      <Form.Group>
-        <Form.Label>Politique de paiement *</Form.Label>
+      <Form.Group data-field="politique_paiement">
+        <Form.Label><RequiredLabel required>Politique de paiement</RequiredLabel></Form.Label>
         <Form.Select
           value={form.politique_paiement}
           onChange={(event) => setField("politique_paiement", event.target.value)}
           isInvalid={Boolean(errors.politique_paiement)}
+          aria-required="true"
+          aria-invalid={Boolean(errors.politique_paiement)}
         >
           <option value="">Sélectionner</option>
           <option value="paiement_sur_place">Paiement sur place</option>
@@ -54,8 +57,8 @@ const PaymentPolicySelector = ({
 
       {form.politique_paiement === "acompte_requis" && (
         <div className="reservation-form-grid reservation-policy-fields">
-          <Form.Group>
-            <Form.Label>Montant de l’acompte requis *</Form.Label>
+          <Form.Group data-field="montant_acompte_requis">
+            <Form.Label><RequiredLabel required>Montant de l’acompte requis</RequiredLabel></Form.Label>
             <Form.Control
               type="number"
               min="0.01"
@@ -64,12 +67,14 @@ const PaymentPolicySelector = ({
               value={form.montant_acompte_requis}
               onChange={(event) => setField("montant_acompte_requis", event.target.value)}
               isInvalid={Boolean(errors.montant_acompte_requis)}
+              aria-required="true"
+              aria-invalid={Boolean(errors.montant_acompte_requis)}
             />
             <Form.Control.Feedback type="invalid">{errors.montant_acompte_requis}</Form.Control.Feedback>
             {preview?.montant_total && <Form.Text>Total actuel : {formatMoney(preview.montant_total)}</Form.Text>}
           </Form.Group>
-          <Form.Group>
-            <Form.Label>Date limite de l’acompte *</Form.Label>
+          <Form.Group data-field="date_limite_paiement">
+            <Form.Label><RequiredLabel required>Date limite de l’acompte</RequiredLabel></Form.Label>
             <Form.Control
               type="date"
               min={reservationDate}
@@ -77,6 +82,8 @@ const PaymentPolicySelector = ({
               value={form.date_limite_paiement}
               onChange={(event) => setField("date_limite_paiement", event.target.value)}
               isInvalid={Boolean(errors.date_limite_paiement)}
+              aria-required="true"
+              aria-invalid={Boolean(errors.date_limite_paiement)}
             />
             <Form.Control.Feedback type="invalid">{errors.date_limite_paiement}</Form.Control.Feedback>
           </Form.Group>
@@ -85,8 +92,8 @@ const PaymentPolicySelector = ({
 
       {form.politique_paiement === "paiement_integral_avant_arrivee" && (
         <div className="reservation-policy-fields">
-          <Form.Group>
-            <Form.Label>Date limite du paiement intégral *</Form.Label>
+          <Form.Group data-field="date_limite_paiement">
+            <Form.Label><RequiredLabel required>Date limite du paiement intégral</RequiredLabel></Form.Label>
             <Form.Control
               type="date"
               min={reservationDate}
@@ -94,6 +101,8 @@ const PaymentPolicySelector = ({
               value={form.date_limite_paiement}
               onChange={(event) => setField("date_limite_paiement", event.target.value)}
               isInvalid={Boolean(errors.date_limite_paiement)}
+              aria-required="true"
+              aria-invalid={Boolean(errors.date_limite_paiement)}
             />
             <Form.Control.Feedback type="invalid">{errors.date_limite_paiement}</Form.Control.Feedback>
           </Form.Group>

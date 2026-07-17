@@ -1,5 +1,6 @@
 import { Form } from "react-bootstrap";
 import { formatMoney } from "../reservationUtils";
+import RequiredLabel from "../../components/RequiredLabel";
 
 const valueOrDash = (value) => (value === null || value === undefined || value === "" ? "—" : value);
 
@@ -48,12 +49,14 @@ const ClientSelector = ({ form, clients, loading, errors, setField, fallbackClie
     <section className="reservation-form-section reservation-client-selector">
       <h3>1. Client</h3>
       <div className="reservation-form-grid">
-        <Form.Group>
-          <Form.Label>Type de client</Form.Label>
+        <Form.Group data-field="client_type">
+          <Form.Label><RequiredLabel required>Type de client</RequiredLabel></Form.Label>
           <Form.Select
             value={form.client_type}
             onChange={(event) => setField("client_type", event.target.value)}
             isInvalid={Boolean(errors.client_type)}
+            aria-required="true"
+            aria-invalid={Boolean(errors.client_type)}
           >
             <option value="">Sélectionner</option>
             <option value="societe">Société</option>
@@ -62,13 +65,15 @@ const ClientSelector = ({ form, clients, loading, errors, setField, fallbackClie
           <Form.Control.Feedback type="invalid">{errors.client_type}</Form.Control.Feedback>
         </Form.Group>
 
-        <Form.Group>
-          <Form.Label>Client</Form.Label>
+        <Form.Group data-field="client_id">
+          <Form.Label><RequiredLabel required>Client</RequiredLabel></Form.Label>
           <Form.Select
             value={form.client_id}
             onChange={(event) => setField("client_id", event.target.value)}
             disabled={!form.client_type || (loading && options.length === 0)}
             isInvalid={Boolean(errors.client_id)}
+            aria-required="true"
+            aria-invalid={Boolean(errors.client_id)}
           >
             <option value="">
               {!form.client_type ? "Sélectionner d’abord le type" : loading && options.length === 0 ? "Chargement..." : "Sélectionner un client"}

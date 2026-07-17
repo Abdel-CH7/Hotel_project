@@ -11,10 +11,12 @@ import ExpandRTable from "../components/ExpandRTable";
 import ListFilterReset from "../components/ListFilterReset";
 import ListPagination from "../components/ListPagination";
 import ListState from "../components/ListState";
+import RequiredLabel from "../components/RequiredLabel";
 import useListControls from "../components/useListControls";
 import { useOpen } from "../Acceuil/OpenProvider";
 import { highlightText, normalizeSearchValue } from "../utils/textUtils";
 import { exportToExcel as exportToExcelRows, exportToPdf, printRows } from "../utils/listExportUtils";
+import { fieldError, setValidationErrors } from "../utils/formValidationUtils";
 import "../style.css";
 
 const API_URL = "http://localhost:8000/api";
@@ -86,17 +88,31 @@ const CLIENT_EXPORT_NOWRAP = [
   "nationalite", "telephone", "pays", "ville", "codePostal",
 ];
 
-const GuestField = ({ label, required = false, error, children, className = "" }) => (
-  <Form.Group className={`client-guest-field ${className}`.trim()}>
+const GuestField = ({ label, required = false, error, children, className = "", field = "" }) => {
+  const directControl = React.Children.toArray(children).find((child) => React.isValidElement(child) && child.props?.name);
+  const fieldName = field || directControl?.props?.name || "";
+  const errorId = fieldName ? `${fieldName.replace(/[^a-zA-Z0-9_-]/g, "-")}-error` : undefined;
+
+  return (
+  <Form.Group className={`client-guest-field ${className}`.trim()} data-field={fieldName || undefined}>
     <Form.Label>
-      {label}{required && <span className="client-required-mark" aria-hidden="true"> *</span>}
+      <RequiredLabel required={required}>{label}</RequiredLabel>
     </Form.Label>
     <div className="client-form-control-stack">
-      {children}
-      {error && <div className="invalid-feedback d-block">{error}</div>}
+      {React.Children.map(children, (child) => (
+        React.isValidElement(child) && child.props?.name
+          ? React.cloneElement(child, {
+            "aria-required": required || undefined,
+            "aria-invalid": error ? true : undefined,
+            "aria-describedby": error ? errorId : child.props["aria-describedby"],
+          })
+          : child
+      ))}
+      {error && <div id={errorId} className="invalid-feedback d-block app-field-error">{error}</div>}
     </div>
   </Form.Group>
-);
+  );
+};
 
 const getClientChildren = (client) => (
   Array.isArray(client?.info_clients) ? client.info_clients : []
@@ -194,8 +210,7 @@ const ClientParticulierr = () => {
   }, [fetchClients, fetchLocationOptions]);
 
   const getFieldError = useCallback((field) => {
-    const value = errors?.[field];
-    return Array.isArray(value) ? value[0] || "" : value || "";
+    return fieldError(errors, field);
   }, [errors]);
 
   const clearFieldErrors = (...fields) => {
@@ -330,13 +345,7 @@ const ClientParticulierr = () => {
       }
     });
 
-    setErrors(nextErrors);
-    const firstField = Object.keys(nextErrors)[0];
-    if (firstField) {
-      requestAnimationFrame(() => {
-        document.querySelector(`[name="${firstField}"]`)?.focus();
-      });
-    }
+    setValidationErrors(setErrors, nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
 
@@ -395,7 +404,7 @@ const ClientParticulierr = () => {
       });
     } catch (error) {
       if (error?.response?.status === 422) {
-        setErrors(error.response.data?.errors || {});
+        setValidationErrors(setErrors, error);
         return;
       }
       await Swal.fire({
@@ -810,14 +819,10 @@ const ClientParticulierr = () => {
       <aside className={`app-form-drawer client-guest-drawer ${drawerOpen ? "is-open" : ""}`} aria-hidden={!drawerOpen}>
         <Form onSubmit={handleSubmit} noValidate>
           <h4 className="app-form-drawer-title">{editingClient ? "Modifier" : "Ajouter"} un client particulier</h4>
+          <p className="app-required-note"><span className="app-required-mark" aria-hidden="true">*</span> Champs obligatoires</p>
 
           <section className="client-guest-form-section">
-            <h5>Identité</h5>
-            {!editingClient && (
-              <p className="client-generated-code-note">
-                Le code client sera généré automatiquement après l’enregistrement.
-              </p>
-            )}
+
             <div className="client-guest-form-grid">
               {editingClient && (
                 <GuestField label="Code client">
@@ -885,7 +890,7 @@ const ClientParticulierr = () => {
               )}
 
               {formData.pays_code === "MA" ? (
-                <GuestField label="Ville" required error={getFieldError("ville") || getFieldError("ville_autre")}>
+                <GuestField label="Ville" required field={formData.ville === OTHER_CITY ? "ville_autre" : "ville"} error={getFieldError("ville") || getFieldError("ville_autre")}>
                   <Form.Select name="ville" value={formData.ville} onChange={handleCityChange} isInvalid={Boolean(getFieldError("ville") || getFieldError("ville_autre"))} disabled={!currentMoroccoRegion}>
                     <option value="">Sélectionner une ville</option>
                     {legacyMoroccoCity && <option value={formData.ville}>{formData.ville} (à corriger)</option>}
@@ -943,6 +948,7 @@ const ClientParticulierr = () => {
                         <div className="client-child-age-field">
                           <Form.Control
                             name={`infos.${index}.age`}
+                            data-field={`infos.${index}.age`}
                             type="number"
                             min="0"
                             max="17"
@@ -952,7 +958,7 @@ const ClientParticulierr = () => {
                             isInvalid={Boolean(getFieldError(`infos.${index}.age`))}
                           />
                           {getFieldError(`infos.${index}.age`) && (
-                            <div className="invalid-feedback d-block">
+                            <div className="invalid-feedback d-block app-field-error">
                               {getFieldError(`infos.${index}.age`)}
                             </div>
                           )}

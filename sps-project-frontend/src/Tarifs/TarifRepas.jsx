@@ -8,11 +8,13 @@ import { faEdit, faTrash } from "@fortawesome/free-solid-svg-icons";
 import ListFilterReset from "../components/ListFilterReset";
 import ListPagination from "../components/ListPagination";
 import ListState from "../components/ListState";
+import RequiredLabel from "../components/RequiredLabel";
 import SearchWithExport from "../components/SearchWithExport";
 import TariffPlanSelector from "../components/TariffPlanSelector";
 import useListControls from "../components/useListControls";
 import { useOpen } from "../Acceuil/OpenProvider";
 import { exportToExcel as exportExcelRows, exportToPdf, printRows } from "../utils/listExportUtils";
+import { focusFirstInvalidField } from "../utils/formValidationUtils";
 import {
   getNumberSearchVariants,
   highlightText,
@@ -196,6 +198,7 @@ const TarifRepas = () => {
       nextErrors.prix_par_personne = "Le prix ne peut pas être négatif.";
     }
     setDetailErrors(nextErrors);
+    if (Object.keys(nextErrors).length) focusFirstInvalidField(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
 
@@ -220,7 +223,12 @@ const TarifRepas = () => {
       await Swal.fire("Succès", `Tarif repas ${editingDetail ? "modifié" : "ajouté"} avec succès.`, "success");
       closeDrawer();
     } catch (error) {
-      if (error.response?.status === 422) setDetailErrors(backendFieldErrors(error));
+      if (error.response?.status === 422) {
+        const fieldErrors = backendFieldErrors(error);
+        setDetailErrors(fieldErrors);
+        focusFirstInvalidField(fieldErrors);
+        return;
+      }
       if (error.response?.status === 409) await refreshData();
       await Swal.fire("Erreur", firstBackendMessage(error, "Impossible d'enregistrer ce tarif repas."), "error");
     } finally {
@@ -313,7 +321,9 @@ const TarifRepas = () => {
     event.preventDefault();
     const designation = gridForm.designation.trim();
     if (!designation) {
-      setGridErrors({ designation: "La désignation est obligatoire." });
+      const fieldErrors = { designation: "La désignation est obligatoire." };
+      setGridErrors(fieldErrors);
+      focusFirstInvalidField(fieldErrors);
       return;
     }
 
@@ -330,7 +340,12 @@ const TarifRepas = () => {
       setGridForm(EMPTY_GRID);
       setGridErrors({});
     } catch (error) {
-      if (error.response?.status === 422) setGridErrors(backendFieldErrors(error));
+      if (error.response?.status === 422) {
+        const fieldErrors = backendFieldErrors(error);
+        setGridErrors(fieldErrors);
+        focusFirstInvalidField(fieldErrors);
+        return;
+      }
       await Swal.fire("Erreur", firstBackendMessage(error, "Impossible d'enregistrer ce plan."), "error");
     } finally {
       setGridSaving(false);
@@ -383,6 +398,7 @@ const TarifRepas = () => {
     if (!payload.type_repas) nextErrors.type_repas = "Le type de repas est obligatoire.";
     if (Object.keys(nextErrors).length) {
       setTypeErrors(nextErrors);
+      focusFirstInvalidField(nextErrors);
       return;
     }
 
@@ -400,7 +416,12 @@ const TarifRepas = () => {
       setTypeErrors({});
       await Swal.fire("Succès", `Type de repas ${editingType ? "modifié" : "ajouté"} avec succès.`, "success");
     } catch (error) {
-      if (error.response?.status === 422) setTypeErrors(backendFieldErrors(error));
+      if (error.response?.status === 422) {
+        const fieldErrors = backendFieldErrors(error);
+        setTypeErrors(fieldErrors);
+        focusFirstInvalidField(fieldErrors);
+        return;
+      }
       await Swal.fire("Erreur", firstBackendMessage(error, "Impossible d'enregistrer ce type de repas."), "error");
     } finally {
       setTypeSaving(false);
@@ -474,25 +495,26 @@ const TarifRepas = () => {
         <ListState loading={loading} error={loadError} allRowsCount={details.length} filteredRowsCount={totalRows} emptyDataMessage="Aucun tarif repas enregistré." onRetry={refreshData} onResetFilters={resetFilters} />
 
         <div id="formContainer" className="app-form-drawer tariff-form-drawer" style={{ right: drawerOpen ? 0 : "-100%" }} aria-hidden={!drawerOpen}>
-          <Form onSubmit={saveDetail}>
+          <Form onSubmit={saveDetail} noValidate>
             <h2 className="app-form-drawer-title">{editingDetail ? "Modifier" : "Ajouter"} un tarif repas</h2>
+            <p className="app-required-note"><span className="app-required-mark" aria-hidden="true">*</span> Champs obligatoires</p>
             <p className="tariff-form-hint">Le montant correspond au prix facturé pour une personne.</p>
             <div className="tariff-form-grid">
-              <Form.Group className="tariff-form-wide">
-                <Form.Label>Plan tarifaire repas</Form.Label>
+              <Form.Group className="tariff-form-wide" data-field="tarif_repas_id">
+                <Form.Label><RequiredLabel required={selectedGridId === ""}>Plan tarifaire repas</RequiredLabel></Form.Label>
                 {selectedGridId !== "" ? <Form.Control value={selectedPlan?.designation ?? ""} readOnly /> : <Form.Select name="tarif_repas_id" value={detailForm.tarif_repas_id} onChange={handleDetailChange} isInvalid={!!detailErrors.tarif_repas_id}><option value="">Sélectionner un plan</option>{grids.map((grid) => <option key={grid.id} value={grid.id} disabled={planUsage(grid).locked}>{grid.designation}</option>)}</Form.Select>}
                 <Form.Control.Feedback type="invalid">{detailErrors.tarif_repas_id}</Form.Control.Feedback>
               </Form.Group>
-              <Form.Group className="tariff-form-wide">
-                <Form.Label>Type de repas</Form.Label>
+              <Form.Group className="tariff-form-wide" data-field="type_repas_id">
+                <Form.Label><RequiredLabel required>Type de repas</RequiredLabel></Form.Label>
                 <Form.Select name="type_repas_id" value={detailForm.type_repas_id} onChange={handleDetailChange} isInvalid={!!detailErrors.type_repas_id}>
                   <option value="">Sélectionner un type de repas</option>
                   {availableMealTypes.map((type) => <option key={type.id} value={type.id}>{type.type_repas}</option>)}
                 </Form.Select>
                 <Form.Control.Feedback type="invalid">{detailErrors.type_repas_id}</Form.Control.Feedback>
               </Form.Group>
-              <Form.Group className="tariff-form-wide">
-                <Form.Label>Prix par personne</Form.Label>
+              <Form.Group className="tariff-form-wide" data-field="prix_par_personne">
+                <Form.Label><RequiredLabel required>Prix par personne</RequiredLabel></Form.Label>
                 <Form.Control type="number" min="0" step="0.01" name="prix_par_personne" value={detailForm.prix_par_personne} onChange={handleDetailChange} isInvalid={!!detailErrors.prix_par_personne} />
                 <Form.Control.Feedback type="invalid">{detailErrors.prix_par_personne}</Form.Control.Feedback>
               </Form.Group>
@@ -541,7 +563,7 @@ const TarifRepas = () => {
         <Modal show={gridModalOpen} onHide={closeGridModal} size="lg" centered>
           <Modal.Header closeButton><Modal.Title>Gérer les plans tarifaires repas</Modal.Title></Modal.Header>
           <Modal.Body>
-            <Form onSubmit={saveGrid} className="tariff-plan-form"><Form.Group><Form.Label>Désignation</Form.Label><Form.Control value={gridForm.designation} onChange={(event) => { setGridForm({ designation: event.target.value }); setGridErrors({}); }} isInvalid={!!gridErrors.designation} placeholder="Ex. Tarif repas été 2026" /><Form.Control.Feedback type="invalid">{gridErrors.designation}</Form.Control.Feedback></Form.Group><div className="app-form-actions"><Button type="submit" className="app-primary-button" disabled={gridSaving}>{editingGrid ? "Modifier" : "Ajouter"}</Button>{editingGrid && <Button type="button" className="app-secondary-button" onClick={() => { setEditingGrid(null); setGridForm(EMPTY_GRID); setGridErrors({}); }}>Annuler la modification</Button>}</div></Form>
+            <Form onSubmit={saveGrid} className="tariff-plan-form" noValidate><p className="app-required-note"><span className="app-required-mark" aria-hidden="true">*</span> Champs obligatoires</p><Form.Group data-field="designation"><Form.Label><RequiredLabel required>Désignation</RequiredLabel></Form.Label><Form.Control value={gridForm.designation} onChange={(event) => { setGridForm({ designation: event.target.value }); setGridErrors({}); }} isInvalid={!!gridErrors.designation} placeholder="Ex. Tarif repas été 2026" /><Form.Control.Feedback type="invalid">{gridErrors.designation}</Form.Control.Feedback></Form.Group><div className="app-form-actions"><Button type="submit" className="app-primary-button" disabled={gridSaving}>{editingGrid ? "Modifier" : "Ajouter"}</Button>{editingGrid && <Button type="button" className="app-secondary-button" onClick={() => { setEditingGrid(null); setGridForm(EMPTY_GRID); setGridErrors({}); }}>Annuler la modification</Button>}</div></Form>
             <div className="app-table-wrapper tariff-modal-table"><table className="table table-bordered app-table"><thead><tr><th>Désignation</th><th>Utilisation</th><th>Actions</th></tr></thead><tbody>{grids.map((grid) => { const usage = planUsage(grid); return <tr key={grid.id}><td>{grid.designation}</td><td><span className={`tariff-plan-usage is-${usage.state}`}>{usage.label}</span></td><td><div className="app-table-actions"><button type="button" className="tariff-action-button" onClick={() => editGrid(grid)} disabled={usage.locked} title={usage.locked ? usage.label : "Modifier le plan"} aria-label="Modifier le plan"><FontAwesomeIcon icon={faEdit} className="app-table-action is-edit" /></button><button type="button" className="tariff-action-button" onClick={() => deleteGrid(grid)} disabled={usage.referenced} title={usage.referenced ? usage.label : "Supprimer le plan"} aria-label="Supprimer le plan"><FontAwesomeIcon icon={faTrash} className="app-table-action is-delete" /></button></div></td></tr>; })}{!grids.length && <tr><td colSpan="3" className="text-center">Aucun plan tarifaire</td></tr>}</tbody></table></div>
           </Modal.Body>
           <Modal.Footer><Button type="button" className="app-secondary-button" onClick={closeGridModal}>Fermer</Button></Modal.Footer>
@@ -550,9 +572,10 @@ const TarifRepas = () => {
         <Modal show={typeModalOpen} onHide={closeTypeModal} size="lg" centered>
           <Modal.Header closeButton><Modal.Title>Gestion des types de repas</Modal.Title></Modal.Header>
           <Modal.Body>
-            <Form onSubmit={saveType} className="tariff-type-form">
-              <Form.Group><Form.Label>Code</Form.Label><Form.Control value={typeForm.code} onChange={(event) => { setTypeForm((current) => ({ ...current, code: event.target.value })); setTypeErrors((current) => ({ ...current, code: "" })); }} isInvalid={!!typeErrors.code} /><Form.Control.Feedback type="invalid">{typeErrors.code}</Form.Control.Feedback></Form.Group>
-              <Form.Group><Form.Label>Type de repas</Form.Label><Form.Control value={typeForm.type_repas} onChange={(event) => { setTypeForm((current) => ({ ...current, type_repas: event.target.value })); setTypeErrors((current) => ({ ...current, type_repas: "" })); }} isInvalid={!!typeErrors.type_repas} /><Form.Control.Feedback type="invalid">{typeErrors.type_repas}</Form.Control.Feedback></Form.Group>
+            <Form onSubmit={saveType} className="tariff-type-form" noValidate>
+              <p className="app-required-note"><span className="app-required-mark" aria-hidden="true">*</span> Champs obligatoires</p>
+              <Form.Group data-field="code"><Form.Label><RequiredLabel required>Code</RequiredLabel></Form.Label><Form.Control value={typeForm.code} onChange={(event) => { setTypeForm((current) => ({ ...current, code: event.target.value })); setTypeErrors((current) => ({ ...current, code: "" })); }} isInvalid={!!typeErrors.code} /><Form.Control.Feedback type="invalid">{typeErrors.code}</Form.Control.Feedback></Form.Group>
+              <Form.Group data-field="type_repas"><Form.Label><RequiredLabel required>Type de repas</RequiredLabel></Form.Label><Form.Control value={typeForm.type_repas} onChange={(event) => { setTypeForm((current) => ({ ...current, type_repas: event.target.value })); setTypeErrors((current) => ({ ...current, type_repas: "" })); }} isInvalid={!!typeErrors.type_repas} /><Form.Control.Feedback type="invalid">{typeErrors.type_repas}</Form.Control.Feedback></Form.Group>
               <div className="app-form-actions"><Button type="submit" className="app-primary-button" disabled={typeSaving}>{editingType ? "Modifier" : "Ajouter"}</Button>{editingType && <Button type="button" className="app-secondary-button" onClick={() => { setEditingType(null); setTypeForm(EMPTY_TYPE); setTypeErrors({}); }}>Annuler la modification</Button>}</div>
             </Form>
             <div className="app-table-wrapper tariff-modal-table"><table className="table table-bordered app-table"><thead><tr><th>Code</th><th>Type de repas</th><th>Actions</th></tr></thead><tbody>

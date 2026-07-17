@@ -8,6 +8,7 @@ import {
   getReservationFormOptions,
   updateReservation,
 } from "../api/reservationApi";
+import { focusFirstInvalidField, normalizeBackendFieldErrors } from "../../utils/formValidationUtils";
 
 let roomRowSequence = 0;
 
@@ -189,10 +190,7 @@ const reconcileRowsWithAvailability = (rows, rooms) => {
 const fieldErrorsFrom = (error) => {
   const response = error?.response;
   if (response?.status === 422 && response.data?.errors) {
-    return Object.entries(response.data.errors).reduce((result, [field, messages]) => {
-      result[field] = Array.isArray(messages) ? messages[0] : messages;
-      return result;
-    }, {});
+    return normalizeBackendFieldErrors(error);
   }
 
   if (response?.data?.field && response.data?.message) {
@@ -784,7 +782,8 @@ export const useReservationForm = ({ onSaved }) => {
   const submit = useCallback(async () => {
     if (Object.keys(validation).length > 0) {
       setErrors(validation);
-      setActionError("Veuillez corriger les champs signalés avant d’enregistrer.");
+      setActionError("");
+      focusFirstInvalidField(validation);
       return null;
     }
 
@@ -799,8 +798,14 @@ export const useReservationForm = ({ onSaved }) => {
       close();
       return result;
     } catch (error) {
-      setErrors(fieldErrorsFrom(error));
-      setActionError(apiMessage(error, "Impossible d’enregistrer la réservation."));
+      const fieldErrors = fieldErrorsFrom(error);
+      setErrors(fieldErrors);
+      if (Object.keys(fieldErrors).length) {
+        setActionError("");
+        focusFirstInvalidField(fieldErrors);
+      } else {
+        setActionError(apiMessage(error, "Impossible d’enregistrer la réservation."));
+      }
       if (error?.response?.status === 409) setAvailabilityVersion((value) => value + 1);
       return null;
     } finally {

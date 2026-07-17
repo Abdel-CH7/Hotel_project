@@ -8,10 +8,12 @@ import { faEdit, faList, faPlus, faTrash } from "@fortawesome/free-solid-svg-ico
 import ListFilterReset from "../components/ListFilterReset";
 import ListPagination from "../components/ListPagination";
 import ListState from "../components/ListState";
+import RequiredLabel from "../components/RequiredLabel";
 import SearchWithExport from "../components/SearchWithExport";
 import useListControls from "../components/useListControls";
 import { useOpen } from "../Acceuil/OpenProvider";
 import { exportToExcel as exportExcelRows, exportToPdf, printRows } from "../utils/listExportUtils";
+import { focusFirstInvalidField } from "../utils/formValidationUtils";
 import {
   getDateSearchVariants,
   highlightText,
@@ -201,6 +203,7 @@ const TarifsActuel = () => {
     if (!periodForm.tarif_chambre_id) nextErrors.tarif_chambre_id = "Le plan tarifaire chambre est obligatoire.";
     if (!periodForm.statut) nextErrors.statut = "Le statut est obligatoire.";
     setPeriodErrors(nextErrors);
+    focusFirstInvalidField(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
 
@@ -227,7 +230,12 @@ const TarifsActuel = () => {
       await Swal.fire("Succès", `Période tarifaire ${editingPeriod ? "modifiée" : "ajoutée"} avec succès.`, "success");
       closeDrawer();
     } catch (error) {
-      if (error.response?.status === 422) setPeriodErrors(backendFieldErrors(error));
+      if (error.response?.status === 422) {
+        const fieldErrors = backendFieldErrors(error);
+        setPeriodErrors(fieldErrors);
+        focusFirstInvalidField(fieldErrors);
+        return;
+      }
       await Swal.fire("Erreur", firstBackendMessage(error, "Impossible d'enregistrer cette période tarifaire."), "error");
     } finally {
       setSaving(false);
@@ -369,16 +377,17 @@ const TarifsActuel = () => {
         <ListState loading={loading} error={loadError} allRowsCount={periods.length} filteredRowsCount={totalRows} emptyDataMessage="Aucune période tarifaire enregistrée." onRetry={refreshData} onResetFilters={resetFilters} />
 
         <div id="formContainer" className="app-form-drawer tariff-form-drawer tariff-period-drawer" style={{ right: drawerOpen ? 0 : "-100%" }} aria-hidden={!drawerOpen}>
-          <Form onSubmit={savePeriod}>
+          <Form onSubmit={savePeriod} noValidate>
             <h2 className="app-form-drawer-title">{editingPeriod ? "Modifier" : "Ajouter"} une période tarifaire</h2>
+            <p className="app-required-note"><span className="app-required-mark" aria-hidden="true">*</span> Champs obligatoires</p>
             <div className="tariff-form-grid">
-              <Form.Group className="tariff-form-wide"><Form.Label>Désignation</Form.Label><Form.Control name="designation" value={periodForm.designation} onChange={handlePeriodChange} isInvalid={!!periodErrors.designation} /><Form.Control.Feedback type="invalid">{periodErrors.designation}</Form.Control.Feedback></Form.Group>
-              <Form.Group><Form.Label>Date de début</Form.Label><Form.Control type="date" name="date_debut" value={periodForm.date_debut} onChange={handlePeriodChange} disabled={periodStructureReadOnly} isInvalid={!!periodErrors.date_debut} /><Form.Control.Feedback type="invalid">{periodErrors.date_debut}</Form.Control.Feedback></Form.Group>
-              <Form.Group><Form.Label>Date de fin</Form.Label><Form.Control type="date" name="date_fin" min={periodForm.date_debut || undefined} value={periodForm.date_fin} onChange={handlePeriodChange} disabled={periodStructureReadOnly} isInvalid={!!periodErrors.date_fin} /><Form.Control.Feedback type="invalid">{periodErrors.date_fin}</Form.Control.Feedback></Form.Group>
-              <Form.Group className="tariff-form-wide"><Form.Label>Plan tarifaire chambre</Form.Label><Form.Select name="tarif_chambre_id" value={periodForm.tarif_chambre_id} onChange={handlePeriodChange} disabled={periodStructureReadOnly} isInvalid={!!periodErrors.tarif_chambre_id}><option value="">Sélectionner un plan chambre</option>{roomGrids.map((grid) => <option key={grid.id} value={grid.id}>{grid.designation}</option>)}</Form.Select><Form.Text>Un plan actif doit couvrir tous les types de chambres utilisés.</Form.Text><Form.Control.Feedback type="invalid">{periodErrors.tarif_chambre_id}</Form.Control.Feedback></Form.Group>
+              <Form.Group className="tariff-form-wide" data-field="designation"><Form.Label><RequiredLabel required>Désignation</RequiredLabel></Form.Label><Form.Control name="designation" value={periodForm.designation} onChange={handlePeriodChange} isInvalid={!!periodErrors.designation} /><Form.Control.Feedback type="invalid">{periodErrors.designation}</Form.Control.Feedback></Form.Group>
+              <Form.Group data-field="date_debut"><Form.Label><RequiredLabel required>Date de début</RequiredLabel></Form.Label><Form.Control type="date" name="date_debut" value={periodForm.date_debut} onChange={handlePeriodChange} disabled={periodStructureReadOnly} isInvalid={!!periodErrors.date_debut} /><Form.Control.Feedback type="invalid">{periodErrors.date_debut}</Form.Control.Feedback></Form.Group>
+              <Form.Group data-field="date_fin"><Form.Label><RequiredLabel required>Date de fin</RequiredLabel></Form.Label><Form.Control type="date" name="date_fin" min={periodForm.date_debut || undefined} value={periodForm.date_fin} onChange={handlePeriodChange} disabled={periodStructureReadOnly} isInvalid={!!periodErrors.date_fin} /><Form.Control.Feedback type="invalid">{periodErrors.date_fin}</Form.Control.Feedback></Form.Group>
+              <Form.Group className="tariff-form-wide" data-field="tarif_chambre_id"><Form.Label><RequiredLabel required>Plan tarifaire chambre</RequiredLabel></Form.Label><Form.Select name="tarif_chambre_id" value={periodForm.tarif_chambre_id} onChange={handlePeriodChange} disabled={periodStructureReadOnly} isInvalid={!!periodErrors.tarif_chambre_id}><option value="">Sélectionner un plan chambre</option>{roomGrids.map((grid) => <option key={grid.id} value={grid.id}>{grid.designation}</option>)}</Form.Select><Form.Text>Un plan actif doit couvrir tous les types de chambres utilisés.</Form.Text><Form.Control.Feedback type="invalid">{periodErrors.tarif_chambre_id}</Form.Control.Feedback></Form.Group>
               <Form.Group className="tariff-form-wide"><Form.Label>Plan tarifaire repas</Form.Label><Form.Select name="tarif_repas_id" value={periodForm.tarif_repas_id} onChange={handlePeriodChange} disabled={periodStructureReadOnly} isInvalid={!!periodErrors.tarif_repas_id}><option value="">Aucun plan de repas</option>{mealGrids.map((grid) => <option key={grid.id} value={grid.id}>{grid.designation}</option>)}</Form.Select><Form.Control.Feedback type="invalid">{periodErrors.tarif_repas_id}</Form.Control.Feedback></Form.Group>
               <Form.Group className="tariff-form-wide"><Form.Label>Plan de réductions</Form.Label><Form.Select name="tarif_reduction_id" value={periodForm.tarif_reduction_id} onChange={handlePeriodChange} disabled={periodStructureReadOnly} isInvalid={!!periodErrors.tarif_reduction_id}><option value="">Aucun plan de réductions</option>{reductionGrids.map((grid) => <option key={grid.id} value={grid.id}>{grid.designation}</option>)}</Form.Select><Form.Control.Feedback type="invalid">{periodErrors.tarif_reduction_id}</Form.Control.Feedback></Form.Group>
-              <Form.Group className="tariff-form-wide"><Form.Label>Statut</Form.Label>{!editingPeriod ? <Form.Control value="Brouillon" readOnly /> : <Form.Select name="statut" value={periodForm.statut} onChange={handlePeriodChange} isInvalid={!!periodErrors.statut}>{activeEditing ? <><option value="actif">Actif</option><option value="archive">Archivé</option></> : <><option value="brouillon">Brouillon</option><option value="actif">Actif</option></>}</Form.Select>}<Form.Control.Feedback type="invalid">{periodErrors.statut}</Form.Control.Feedback></Form.Group>
+              <Form.Group className="tariff-form-wide" data-field="statut"><Form.Label><RequiredLabel required={Boolean(editingPeriod)}>Statut</RequiredLabel></Form.Label>{!editingPeriod ? <Form.Control value="Brouillon" readOnly /> : <Form.Select name="statut" value={periodForm.statut} onChange={handlePeriodChange} isInvalid={!!periodErrors.statut}>{activeEditing ? <><option value="actif">Actif</option><option value="archive">Archivé</option></> : <><option value="brouillon">Brouillon</option><option value="actif">Actif</option></>}</Form.Select>}<Form.Control.Feedback type="invalid">{periodErrors.statut}</Form.Control.Feedback></Form.Group>
             </div>
             <div className="app-form-actions"><Button type="submit" className="app-primary-button" disabled={saving}>{saving ? "Enregistrement..." : "Valider"}</Button><Button type="button" className="app-secondary-button" onClick={closeDrawer}>Annuler</Button></div>
           </Form>

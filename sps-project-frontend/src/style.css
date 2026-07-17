@@ -2420,10 +2420,6 @@ body .swal2-container {
   font-weight: 600;
 }
 
-.clients-particulier-page .client-required-mark {
-  color: #b91c1c;
-}
-
 .clients-particulier-page .client-guest-section-heading {
   display: flex;
   align-items: center;
@@ -2625,10 +2621,6 @@ body .swal2-container {
 .clients-societe-page .company-form-control-stack > .form-control,
 .clients-societe-page .company-form-control-stack > .form-select {
   width: 100%;
-}
-
-.clients-societe-page .company-required-mark {
-  color: #b91c1c;
 }
 
 .clients-societe-page .company-lookup-control,
@@ -3069,4 +3061,38 @@ body .swal2-container {
     width: calc(100vw - 48px);
     max-width: calc(100vw - 48px);
   }
+}
+.app-required-mark {
+  color: #dc3545;
+  font-weight: 700;
+}
+
+.app-required-note {
+  margin: 0 0 12px;
+  color: #64748b;
+  font-size: 0.82rem;
+}
+
+.app-field-error {
+  display: block;
+  width: 100%;
+  margin-top: 0.25rem;
+  color: #dc3545;
+  font-size: 0.82rem;
+}
+
+.app-form-alert {
+  margin-bottom: 12px;
+  padding: 9px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 0.9rem;
+}
+
+.app-form-alert.is-error {
+  border-color: #f1aeb5;
+  background: #fff5f5;
+  color: #842029;
 }

@@ -8,11 +8,13 @@ import { faEdit, faTrash } from "@fortawesome/free-solid-svg-icons";
 import ListFilterReset from "../components/ListFilterReset";
 import ListPagination from "../components/ListPagination";
 import ListState from "../components/ListState";
+import RequiredLabel from "../components/RequiredLabel";
 import SearchWithExport from "../components/SearchWithExport";
 import TariffPlanSelector from "../components/TariffPlanSelector";
 import useListControls from "../components/useListControls";
 import { useOpen } from "../Acceuil/OpenProvider";
 import { exportToExcel as exportExcelRows, exportToPdf, printRows } from "../utils/listExportUtils";
+import { focusFirstInvalidField } from "../utils/formValidationUtils";
 import {
   getNumberSearchVariants,
   highlightText,
@@ -224,6 +226,7 @@ const TarifChambre = () => {
     }
 
     setDetailErrors(nextErrors);
+    if (Object.keys(nextErrors).length) focusFirstInvalidField(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
 
@@ -251,7 +254,12 @@ const TarifChambre = () => {
       await Swal.fire("Succès", `Tarif chambre ${editingDetail ? "modifié" : "ajouté"} avec succès.`, "success");
       closeDrawer();
     } catch (error) {
-      if (error.response?.status === 422) setDetailErrors(backendFieldErrors(error));
+      if (error.response?.status === 422) {
+        const fieldErrors = backendFieldErrors(error);
+        setDetailErrors(fieldErrors);
+        focusFirstInvalidField(fieldErrors);
+        return;
+      }
       if (error.response?.status === 409) await refreshData();
       await Swal.fire("Erreur", firstBackendMessage(error, "Impossible d'enregistrer ce tarif chambre."), "error");
     } finally {
@@ -349,7 +357,9 @@ const TarifChambre = () => {
     event.preventDefault();
     const designation = gridForm.designation.trim();
     if (!designation) {
-      setGridErrors({ designation: "La désignation est obligatoire." });
+      const fieldErrors = { designation: "La désignation est obligatoire." };
+      setGridErrors(fieldErrors);
+      focusFirstInvalidField(fieldErrors);
       return;
     }
 
@@ -366,7 +376,12 @@ const TarifChambre = () => {
       setGridForm(EMPTY_GRID);
       setGridErrors({});
     } catch (error) {
-      if (error.response?.status === 422) setGridErrors(backendFieldErrors(error));
+      if (error.response?.status === 422) {
+        const fieldErrors = backendFieldErrors(error);
+        setGridErrors(fieldErrors);
+        focusFirstInvalidField(fieldErrors);
+        return;
+      }
       await Swal.fire("Erreur", firstBackendMessage(error, "Impossible d'enregistrer ce plan."), "error");
     } finally {
       setGridSaving(false);
@@ -458,15 +473,16 @@ const TarifChambre = () => {
           style={{ right: drawerOpen ? 0 : "-100%" }}
           aria-hidden={!drawerOpen}
         >
-          <Form onSubmit={handleDetailSubmit}>
+          <Form onSubmit={handleDetailSubmit} noValidate>
             <h2 className="app-form-drawer-title">
               {editingDetail ? "Modifier" : "Ajouter"} un tarif chambre
             </h2>
+            <p className="app-required-note"><span className="app-required-mark" aria-hidden="true">*</span> Champs obligatoires</p>
             <p className="tariff-form-hint">Les montants correspondent au nombre de personnes occupant la chambre.</p>
 
             <div className="tariff-form-grid">
-              <Form.Group className="tariff-form-wide">
-                <Form.Label>Plan tarifaire chambre</Form.Label>
+              <Form.Group className="tariff-form-wide" data-field="tarif_chambre_id">
+                <Form.Label><RequiredLabel required={selectedGridId === ""}>Plan tarifaire chambre</RequiredLabel></Form.Label>
                 {selectedGridId !== "" ? (
                   <Form.Control value={selectedPlan?.designation ?? ""} readOnly />
                 ) : (
@@ -477,8 +493,8 @@ const TarifChambre = () => {
                 )}
                 <Form.Control.Feedback type="invalid">{detailErrors.tarif_chambre_id}</Form.Control.Feedback>
               </Form.Group>
-              <Form.Group className="tariff-form-wide">
-                <Form.Label>Type de chambre</Form.Label>
+              <Form.Group className="tariff-form-wide" data-field="type_chambre_id">
+                <Form.Label><RequiredLabel required>Type de chambre</RequiredLabel></Form.Label>
                 <Form.Select name="type_chambre_id" value={detailForm.type_chambre_id} onChange={handleDetailChange} isInvalid={!!detailErrors.type_chambre_id}>
                   <option value="">Sélectionner un type de chambre</option>
                   {availableRoomTypes.map((type) => <option key={type.id} value={type.id}>{type.type_chambre}{type.nb_lit ? ` — ${type.nb_lit} lit${Number(type.nb_lit) > 1 ? "s" : ""}` : ""}</option>)}
@@ -486,14 +502,18 @@ const TarifChambre = () => {
                 <Form.Control.Feedback type="invalid">{detailErrors.type_chambre_id}</Form.Control.Feedback>
                 <Form.Text>Les types de chambre sont gérés dans le module Chambre.</Form.Text>
               </Form.Group>
+              <div className="tariff-form-wide" data-field="prix_1_personne">
+                <Form.Label><RequiredLabel required>Prix par occupation</RequiredLabel></Form.Label>
+                <Form.Text>Au moins un prix d’occupation doit être renseigné.</Form.Text>
+              </div>
               {[
                 ["prix_1_personne", "Prix pour 1 personne"],
                 ["prix_2_personnes", "Prix pour 2 personnes"],
                 ["prix_3_personnes", "Prix pour 3 personnes"],
                 ["prix_lit_supplementaire", "Prix du lit supplémentaire"],
               ].map(([name, label]) => (
-                <Form.Group key={name}>
-                  <Form.Label>{label}</Form.Label>
+                <Form.Group key={name} data-field={name}>
+                  <Form.Label><RequiredLabel required={name === "prix_lit_supplementaire"}>{label}</RequiredLabel></Form.Label>
                   <Form.Control type="number" min="0" step="0.01" name={name} value={detailForm[name]} onChange={handleDetailChange} isInvalid={!!detailErrors[name]} />
                   <Form.Control.Feedback type="invalid">{detailErrors[name]}</Form.Control.Feedback>
                 </Form.Group>
@@ -565,8 +585,9 @@ const TarifChambre = () => {
         <Modal show={gridModalOpen} onHide={closeGridModal} size="lg" centered>
           <Modal.Header closeButton><Modal.Title>Gérer les plans tarifaires chambre</Modal.Title></Modal.Header>
           <Modal.Body>
-            <Form onSubmit={saveGrid} className="tariff-plan-form">
-              <Form.Group><Form.Label>Désignation</Form.Label><Form.Control value={gridForm.designation} onChange={(event) => { setGridForm({ designation: event.target.value }); setGridErrors({}); }} isInvalid={!!gridErrors.designation} placeholder="Ex. Tarif hébergement été 2026" /><Form.Control.Feedback type="invalid">{gridErrors.designation}</Form.Control.Feedback></Form.Group>
+            <Form onSubmit={saveGrid} className="tariff-plan-form" noValidate>
+              <p className="app-required-note"><span className="app-required-mark" aria-hidden="true">*</span> Champs obligatoires</p>
+              <Form.Group data-field="designation"><Form.Label><RequiredLabel required>Désignation</RequiredLabel></Form.Label><Form.Control value={gridForm.designation} onChange={(event) => { setGridForm({ designation: event.target.value }); setGridErrors({}); }} isInvalid={!!gridErrors.designation} placeholder="Ex. Tarif hébergement été 2026" /><Form.Control.Feedback type="invalid">{gridErrors.designation}</Form.Control.Feedback></Form.Group>
               <div className="app-form-actions"><Button type="submit" className="app-primary-button" disabled={gridSaving}>{editingGrid ? "Modifier" : "Ajouter"}</Button>{editingGrid && <Button type="button" className="app-secondary-button" onClick={() => { setEditingGrid(null); setGridForm(EMPTY_GRID); setGridErrors({}); }}>Annuler la modification</Button>}</div>
             </Form>
             <div className="app-table-wrapper tariff-modal-table"><table className="table table-bordered app-table"><thead><tr><th>Désignation</th><th>Utilisation</th><th>Actions</th></tr></thead><tbody>

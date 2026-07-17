@@ -11,6 +11,7 @@ import ExpandRTable from "../components/ExpandRTable";
 import ListFilterReset from "../components/ListFilterReset";
 import ListPagination from "../components/ListPagination";
 import ListState from "../components/ListState";
+import RequiredLabel from "../components/RequiredLabel";
 import useListControls from "../components/useListControls";
 import { useOpen } from "../Acceuil/OpenProvider";
 import {
@@ -23,6 +24,7 @@ import {
   exportToPdf,
   printRows,
 } from "../utils/listExportUtils";
+import { fieldError, setValidationErrors } from "../utils/formValidationUtils";
 import "../style.css";
 
 const API_URL = "http://localhost:8000/api";
@@ -99,17 +101,31 @@ const EXPORT_WIDTHS = {
   plafond: 18,
 };
 
-const CompanyField = ({ label, required = false, error, children, className = "" }) => (
-  <Form.Group className={`company-form-field ${className}`.trim()}>
+const CompanyField = ({ label, required = false, error, children, className = "", field = "" }) => {
+  const directControl = React.Children.toArray(children).find((child) => React.isValidElement(child) && child.props?.name);
+  const fieldName = field || directControl?.props?.name || "";
+  const errorId = fieldName ? `${fieldName.replace(/[^a-zA-Z0-9_-]/g, "-")}-error` : undefined;
+
+  return (
+  <Form.Group className={`company-form-field ${className}`.trim()} data-field={fieldName || undefined}>
     <Form.Label>
-      {label}{required && <span className="company-required-mark" aria-hidden="true"> *</span>}
+      <RequiredLabel required={required}>{label}</RequiredLabel>
     </Form.Label>
     <div className="company-form-control-stack">
-      {children}
-      {error && <div className="invalid-feedback d-block">{error}</div>}
+      {React.Children.map(children, (child) => (
+        React.isValidElement(child) && child.props?.name
+          ? React.cloneElement(child, {
+            "aria-required": required || undefined,
+            "aria-invalid": error ? true : undefined,
+            "aria-describedby": error ? errorId : child.props["aria-describedby"],
+          })
+          : child
+      ))}
+      {error && <div id={errorId} className="invalid-feedback d-block app-field-error">{error}</div>}
     </div>
   </Form.Group>
-);
+  );
+};
 
 const normalizeRows = (rows) => Array.isArray(rows)
   ? rows.map((client) => ({
@@ -255,10 +271,7 @@ const ClientList = () => {
     fetchFormOptions();
   }, [fetchClients, fetchFormOptions]);
 
-  const getFieldError = useCallback((field) => {
-    const value = errors?.[field];
-    return Array.isArray(value) ? value[0] || "" : value || "";
-  }, [errors]);
+  const getFieldError = useCallback((field) => fieldError(errors, field), [errors]);
 
   const clearErrors = (...fields) => {
     setErrors((previous) => {
@@ -459,9 +472,7 @@ const ClientList = () => {
       }
     });
 
-    setErrors(nextErrors);
-    const firstField = Object.keys(nextErrors)[0];
-    if (firstField) requestAnimationFrame(() => document.querySelector(`[name="${firstField}"]`)?.focus());
+    setValidationErrors(setErrors, nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
 
@@ -527,7 +538,7 @@ const ClientList = () => {
           const visibleIndex = submittedContacts[payloadIndex]?.visibleIndex ?? payloadIndex;
           return [`contacts.${visibleIndex}.${contactMatch[2]}`, messages];
         }));
-        setErrors(mappedErrors);
+        setValidationErrors(setErrors, mappedErrors);
         return;
       }
       await Swal.fire({
@@ -901,14 +912,10 @@ const ClientList = () => {
         <aside className={`app-form-drawer company-drawer ${drawerOpen ? "is-open" : ""}`} aria-hidden={!drawerOpen}>
           <Form onSubmit={handleSubmit} noValidate>
             <h4 className="app-form-drawer-title">{editingClient ? "Modifier" : "Ajouter"} un client société</h4>
+            <p className="app-required-note"><span className="app-required-mark" aria-hidden="true">*</span> Champs obligatoires</p>
 
             <section className="company-form-section">
-              <h5>Identité de l’entreprise</h5>
-              {!editingClient && (
-                <p className="client-generated-code-note">
-                  Le code client sera généré automatiquement après l’enregistrement.
-                </p>
-              )}
+
               <div className="company-form-grid">
                 {editingClient && (
                   <CompanyField label="Code client">
@@ -978,7 +985,7 @@ const ClientList = () => {
                   </CompanyField>
                 )}
                 {formData.pays_code === "MA" ? (
-                  <CompanyField label="Ville" required error={getFieldError("ville") || getFieldError("ville_autre")}>
+                  <CompanyField label="Ville" required field={formData.ville === OTHER_CITY ? "ville_autre" : "ville"} error={getFieldError("ville") || getFieldError("ville_autre")}>
                     <Form.Select name="ville" value={formData.ville} onChange={(event) => { setFormData((previous) => ({ ...previous, ville: event.target.value })); setOtherCity(""); clearErrors("ville", "ville_autre"); }} disabled={!currentMoroccoRegion} isInvalid={Boolean(getFieldError("ville") || getFieldError("ville_autre"))}>
                       <option value="">Sélectionner une ville</option>
                       {legacyMoroccoCity && <option value={formData.ville}>{formData.ville} (à corriger)</option>}
@@ -1037,10 +1044,13 @@ const ClientList = () => {
                 <h5>Contacts</h5>
                 <button type="button" className="app-secondary-button" onClick={addContact}><FontAwesomeIcon icon={faPlus} /> Ajouter un contact</button>
               </div>
+              {contacts.length > 0 && (
+                <p className="app-required-note"><span className="app-required-mark" aria-hidden="true">*</span> Pour chaque contact ajouté : nom et au moins un téléphone ou un email.</p>
+              )}
               <div className="app-table-wrapper company-contact-editor">
                 <table className="app-table">
                   <colgroup><col style={{ width: "22%" }} /><col style={{ width: "20%" }} /><col style={{ width: "20%" }} /><col style={{ width: "30%" }} /><col style={{ width: "8%" }} /></colgroup>
-                  <thead><tr><th>Nom</th><th>Prénom</th><th>Téléphone</th><th>Email</th><th>Action</th></tr></thead>
+                  <thead><tr><th><RequiredLabel required>Nom</RequiredLabel></th><th>Prénom</th><th>Téléphone</th><th>Email</th><th>Action</th></tr></thead>
                   <tbody>
                     {contacts.length === 0 && <tr><td colSpan={5}>Aucun contact renseigné.</td></tr>}
                     {contacts.map((contact, index) => (
@@ -1052,8 +1062,8 @@ const ClientList = () => {
                           ["email", "email"],
                         ].map(([field, type]) => (
                           <td key={field}>
-                            <Form.Control name={`contacts.${index}.${field}`} type={type} value={contact[field] ?? ""} onChange={(event) => changeContact(index, field, event.target.value)} isInvalid={Boolean(getFieldError(`contacts.${index}.${field}`))} />
-                            {getFieldError(`contacts.${index}.${field}`) && <div className="invalid-feedback d-block">{getFieldError(`contacts.${index}.${field}`)}</div>}
+                            <Form.Control data-field={`contacts.${index}.${field}`} name={`contacts.${index}.${field}`} type={type} value={contact[field] ?? ""} onChange={(event) => changeContact(index, field, event.target.value)} isInvalid={Boolean(getFieldError(`contacts.${index}.${field}`))} aria-invalid={Boolean(getFieldError(`contacts.${index}.${field}`))} />
+                            {getFieldError(`contacts.${index}.${field}`) && <div className="invalid-feedback d-block app-field-error">{getFieldError(`contacts.${index}.${field}`)}</div>}
                           </td>
                         ))}
                         <td><button type="button" className="app-table-action is-delete" title="Supprimer" onClick={() => removeContact(index)}><FontAwesomeIcon icon={faTrash} /></button></td>

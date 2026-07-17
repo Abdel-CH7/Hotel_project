@@ -1,4 +1,5 @@
 import { Form } from "react-bootstrap";
+import RequiredLabel from "../../components/RequiredLabel";
 
 const MealSelector = ({ options, selectedMeals, totalOccupants, errors, toggleMeal, updateQuantity }) => (
   <section className="reservation-form-section">
@@ -22,8 +23,8 @@ const MealSelector = ({ options, selectedMeals, totalOccupants, errors, toggleMe
                 onChange={(event) => toggleMeal(option.type_repas_id, event.target.checked)}
               />
               {selected && (
-                <Form.Group>
-                  <Form.Label>Quantité par jour</Form.Label>
+                <Form.Group data-field={`repas.${selectedIndex}.quantite_par_jour`}>
+                  <Form.Label><RequiredLabel required>Quantité par jour</RequiredLabel></Form.Label>
                   <Form.Control
                     type="number"
                     min="1"
@@ -31,6 +32,8 @@ const MealSelector = ({ options, selectedMeals, totalOccupants, errors, toggleMe
                     value={selected.quantite_par_jour}
                     onChange={(event) => updateQuantity(option.type_repas_id, event.target.value)}
                     isInvalid={Boolean(errors[`repas.${selectedIndex}.quantite_par_jour`])}
+                    aria-required="true"
+                    aria-invalid={Boolean(errors[`repas.${selectedIndex}.quantite_par_jour`])}
                   />
                   <Form.Control.Feedback type="invalid">
                     {errors[`repas.${selectedIndex}.quantite_par_jour`]}

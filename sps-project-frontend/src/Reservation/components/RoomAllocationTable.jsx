@@ -1,5 +1,6 @@
 import { Button, Form } from "react-bootstrap";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import RequiredLabel from "../../components/RequiredLabel";
 import { faPlus, faTrash } from "@fortawesome/free-solid-svg-icons";
 
 const RoomAllocationTable = ({
@@ -94,12 +95,14 @@ const RoomAllocationTable = ({
                   ))}
                 </Form.Select>
               </Form.Group>
-              <Form.Group>
-                <Form.Label>Numéro de chambre</Form.Label>
+              <Form.Group data-field={`chambres.${index}.chambre_id`}>
+                <Form.Label><RequiredLabel required>Numéro de chambre</RequiredLabel></Form.Label>
                 <Form.Select
                   value={row.chambre_id}
                   onChange={(event) => updateRoom(index, "chambre_id", event.target.value)}
                   isInvalid={Boolean(errors[`chambres.${index}.chambre_id`])}
+                  aria-required="true"
+                  aria-invalid={Boolean(errors[`chambres.${index}.chambre_id`])}
                 >
                   <option value="">
                     {roomOptions.length === 0 ? "Aucune chambre compatible" : "Sélectionner une chambre"}
@@ -135,27 +138,31 @@ const RoomAllocationTable = ({
             )}
 
             <div className="reservation-occupancy-row">
-              <Form.Group>
-                <Form.Label>Adultes</Form.Label>
+              <Form.Group data-field={`chambres.${index}.adultes`}>
+                <Form.Label><RequiredLabel required>Adultes</RequiredLabel></Form.Label>
                 <Form.Control
                   type="number"
                   min="1"
                   value={row.adultes}
                   onChange={(event) => updateRoom(index, "adultes", event.target.value)}
                   isInvalid={Boolean(errors[`chambres.${index}.adultes`])}
+                  aria-required="true"
+                  aria-invalid={Boolean(errors[`chambres.${index}.adultes`])}
                 />
                 <Form.Control.Feedback type="invalid">
                   {errors[`chambres.${index}.adultes`]}
                 </Form.Control.Feedback>
               </Form.Group>
-              <Form.Group>
-                <Form.Label>Enfants occupants</Form.Label>
+              <Form.Group data-field={`chambres.${index}.enfants`}>
+                <Form.Label><RequiredLabel required>Enfants occupants</RequiredLabel></Form.Label>
                 <Form.Control
                   type="number"
                   min="0"
                   value={row.enfants}
                   onChange={(event) => updateRoom(index, "enfants", event.target.value)}
                   isInvalid={Boolean(errors[`chambres.${index}.enfants`])}
+                  aria-required="true"
+                  aria-invalid={Boolean(errors[`chambres.${index}.enfants`])}
                 />
                 <Form.Control.Feedback type="invalid">
                   {errors[`chambres.${index}.enfants`]}

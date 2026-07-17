@@ -12,12 +12,14 @@ import SearchWithExport from "../components/SearchWithExport";
 import ListFilterReset from "../components/ListFilterReset";
 import ListPagination from "../components/ListPagination";
 import ListState from "../components/ListState";
+import RequiredLabel from "../components/RequiredLabel";
 import useListControls from "../components/useListControls";
 import {
   exportToExcel as exportRowsToExcel,
   exportToPdf as exportRowsToPdf,
   printRows,
 } from "../utils/listExportUtils";
+import { focusFirstInvalidField, normalizeBackendFieldErrors, setValidationErrors } from "../utils/formValidationUtils";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import PeopleIcon from "@mui/icons-material/People";
 import { storeDataInIndexedDB } from "../indexDB";
@@ -342,6 +344,7 @@ const handleChange = (e) => {
       ...prev,
       type_chambre_id: value,
     }));
+    setErrors((current) => ({ ...current, type_chambre_id: "" }));
 
     return;
   }
@@ -350,6 +353,7 @@ const handleChange = (e) => {
     ...prev,
     [name]: type === "file" ? files[0] : value,
   }));
+  setErrors((current) => ({ ...current, [name]: "" }));
 };
   // const handleChange = (e) => {
   //   setUser({
@@ -411,18 +415,21 @@ const handleChange = (e) => {
         const newTypeErrors = { ...typeErrors };
         // Chambre Validation
         const num_chambres = chambres.filter((chambre) => chambre.num_chambre);
-        newErrors.vue = formData.vue === "";
-        newErrors.etage = formData.etage === "";
-        newErrors.num_chambre =
-          formData.num_chambre === "" ||
+        newErrors.vue = formData.vue === "" ? "La vue est obligatoire." : "";
+        newErrors.etage = formData.etage === "" ? "L'étage est obligatoire." : "";
+        newErrors.num_chambre = formData.num_chambre === ""
+          ? "Le numéro de chambre est obligatoire."
+          :
           (num_chambres.some(
             (chambre) =>
               sanitizeInput(chambre.num_chambre) === sanitizeInput(formData.num_chambre)
           ) &&
-            sanitizeInput(formData.num_chambre) !== sanitizeInput(editingChambre?.num_chambre));
-        newErrors.type_chambre_id = formData.type_chambre_id === "";
-        newErrors.wifi = formData.wifi === "";
-        newErrors.climat = formData.climat === "";
+            sanitizeInput(formData.num_chambre) !== sanitizeInput(editingChambre?.num_chambre))
+            ? "Ce numéro de chambre existe déjà."
+            : "";
+        newErrors.type_chambre_id = formData.type_chambre_id === "" ? "Le type de chambre est obligatoire." : "";
+        newErrors.wifi = formData.wifi === "" ? "Le choix Wi-Fi est obligatoire." : "";
+        newErrors.climat = formData.climat === "" ? "Le choix de climatisation est obligatoire." : "";
         // Vue Validation
         newVueErrors.vue = newVue.vue === "";
         newVueErrors.vueAdd = newVue.vueAdd ? false : true;
@@ -475,15 +482,21 @@ const handleChange = (e) => {
 const handleSubmit = async (e) => {
   e.preventDefault();
   setSubmitted(true);
-
-  const hasErrors = Object.values(errors).some(error => error === true);
-  if (hasErrors) {
-    Swal.fire({
-      icon: "error",
-      title: "Erreur!",
-      text: "Veuillez remplir tous les champs obligatoires.",
-    });
-    return;  
+  const roomNumbers = chambres.filter((room) => room.num_chambre);
+  const nextErrors = {};
+  if (!String(formData.num_chambre || "").trim()) nextErrors.num_chambre = "Le numéro de chambre est obligatoire.";
+  else if (roomNumbers.some((room) => sanitizeInput(room.num_chambre) === sanitizeInput(formData.num_chambre))
+    && sanitizeInput(formData.num_chambre) !== sanitizeInput(editingChambre?.num_chambre)) {
+    nextErrors.num_chambre = "Ce numéro de chambre existe déjà.";
+  }
+  if (!formData.type_chambre_id) nextErrors.type_chambre_id = "Le type de chambre est obligatoire.";
+  if (!formData.vue) nextErrors.vue = "La vue est obligatoire.";
+  if (!formData.etage) nextErrors.etage = "L'étage est obligatoire.";
+  if (!formData.climat) nextErrors.climat = "Le choix de climatisation est obligatoire.";
+  if (!formData.wifi) nextErrors.wifi = "Le choix Wi-Fi est obligatoire.";
+  if (Object.keys(nextErrors).length) {
+    setValidationErrors(setErrors, nextErrors);
+    return;
   }
   const url = editingChambre
       ? `http://localhost:8000/api/chambres/${editingChambre.id}`
@@ -539,18 +552,7 @@ const handleSubmit = async (e) => {
       }
   } catch (error) {
       if (error.response?.status === 422) {
-          const backendErrors = Object.fromEntries(
-            Object.entries(error.response.data.errors || {}).map(([field, messages]) => [
-              field,
-              Array.isArray(messages) ? messages[0] : messages,
-            ])
-          );
-          setErrors((currentErrors) => ({ ...currentErrors, ...backendErrors }));
-          Swal.fire({
-            icon: "error",
-            title: "Erreur de validation",
-            text: Object.values(backendErrors)[0] || "Veuillez vérifier les champs du formulaire.",
-          });
+          setValidationErrors(setErrors, error);
           return;
       }
 
@@ -1151,10 +1153,14 @@ const handleAddEtage = async () => {
   ).trim();
 
   if (!etageValue) {
+    const nextErrors = {
+      etageAdd: "L'étage est obligatoire.",
+    };
     setEtageErrors((previousErrors) => ({
       ...previousErrors,
-      etageAdd: "L'étage est obligatoire.",
+      ...nextErrors,
     }));
+    focusFirstInvalidField(nextErrors);
     return;
   }
 
@@ -1181,6 +1187,13 @@ const handleAddEtage = async () => {
       text: "Étage ajouté avec succès.",
     });
   } catch (error) {
+    if (error.response?.status === 422) {
+      const backendErrors = normalizeBackendFieldErrors(error);
+      const mappedErrors = { etageAdd: backendErrors.etage || "", photo: backendErrors.photo || "" };
+      setEtageErrors((previous) => ({ ...previous, ...mappedErrors }));
+      focusFirstInvalidField(mappedErrors);
+      return;
+    }
     const backendErrors =
       error.response?.data?.errors || {};
 
@@ -1270,10 +1283,12 @@ const handleSaveEtage = async () => {
   ).trim();
 
   if (!etageValue) {
+    const nextErrors = { etage: "L'étage est obligatoire." };
     setEtageErrors((previousErrors) => ({
       ...previousErrors,
-      etage: "L'étage est obligatoire.",
+      ...nextErrors,
     }));
+    focusFirstInvalidField(nextErrors);
     return;
   }
 
@@ -1306,6 +1321,14 @@ const handleSaveEtage = async () => {
       error.response?.data || error
     );
 
+    if (error.response?.status === 422) {
+      const backendErrors = normalizeBackendFieldErrors(error);
+      const mappedErrors = { etage: backendErrors.etage || "", photo: backendErrors.photo || "" };
+      setEtageErrors((previous) => ({ ...previous, ...mappedErrors }));
+      focusFirstInvalidField(mappedErrors);
+      return;
+    }
+
     const backendErrors =
       error.response?.data?.errors || {};
 
@@ -1333,10 +1356,12 @@ const handleAddVue = async () => {
   const vueValue = String(newVue.vueAdd || "").trim();
 
   if (!vueValue) {
+    const nextErrors = { vueAdd: "La vue est obligatoire." };
     setVueErrors((previousErrors) => ({
       ...previousErrors,
-      vueAdd: "La vue est obligatoire.",
+      ...nextErrors,
     }));
+    focusFirstInvalidField(nextErrors);
     return;
   }
 
@@ -1363,6 +1388,13 @@ const handleAddVue = async () => {
       text: "Vue ajoutée avec succès.",
     });
   } catch (error) {
+    if (error.response?.status === 422) {
+      const backendErrors = normalizeBackendFieldErrors(error);
+      const mappedErrors = { vueAdd: backendErrors.vue || "", photo: backendErrors.photo || "" };
+      setVueErrors((previous) => ({ ...previous, ...mappedErrors }));
+      focusFirstInvalidField(mappedErrors);
+      return;
+    }
     const backendErrors =
       error.response?.data?.errors || {};
 
@@ -1448,10 +1480,12 @@ const handleSaveVue = async () => {
   const vueValue = String(newVue.vue || "").trim();
 
   if (!vueValue) {
+    const nextErrors = { vue: "La vue est obligatoire." };
     setVueErrors((previousErrors) => ({
       ...previousErrors,
-      vue: "La vue est obligatoire.",
+      ...nextErrors,
     }));
+    focusFirstInvalidField(nextErrors);
     return;
   }
 
@@ -1483,6 +1517,14 @@ const handleSaveVue = async () => {
       "Erreur modification Vue:",
       error.response?.data || error
     );
+
+    if (error.response?.status === 422) {
+      const backendErrors = normalizeBackendFieldErrors(error);
+      const mappedErrors = { vue: backendErrors.vue || "", photo: backendErrors.photo || "" };
+      setVueErrors((previous) => ({ ...previous, ...mappedErrors }));
+      focusFirstInvalidField(mappedErrors);
+      return;
+    }
 
     const backendErrors =
       error.response?.data?.errors || {};
@@ -1660,19 +1702,19 @@ const handlePresetTypeChange = (value) => {
     lits_supplementaires_maxAdd: "0",
     commentaireAdd: preset ? preset.commentaire : "",
   }));
+  setTypeErrors((current) => ({
+    ...current,
+    type_chambreAdd: "",
+    nb_litAdd: "",
+    nb_salleAdd: "",
+  }));
 };
 const handleAddTypeChambre = async () => {
   const validationErrors = validateAddTypeChambre();
 
   if (Object.keys(validationErrors).length > 0) {
     setTypeErrors(validationErrors);
-
-    Swal.fire({
-      icon: "error",
-      title: "Champs invalides",
-      text: "Veuillez remplir correctement les champs obligatoires.",
-    });
-
+    focusFirstInvalidField(validationErrors);
     return;
   }
 
@@ -1729,18 +1771,7 @@ const handleAddTypeChambre = async () => {
         return result;
       }, {});
       setTypeErrors((currentErrors) => ({ ...currentErrors, ...mappedErrors }));
-      const messages = Object.values(validationErrors).flat();
-
-      Swal.fire({
-        icon: "warning",
-        title: "Erreur de validation",
-        html: `
-          <div style="text-align:left">
-            ${messages.map((msg) => `<p>${msg}</p>`).join("")}
-          </div>
-        `,
-      });
-
+      focusFirstInvalidField(mappedErrors);
       return;
     }
 
@@ -1823,6 +1854,7 @@ const handleSaveTypeChambre = async () => {
 
     if (Object.keys(validationErrors).length > 0) {
       setTypeErrors((currentErrors) => ({ ...currentErrors, ...validationErrors }));
+      focusFirstInvalidField(validationErrors);
       return;
     }
 
@@ -1856,6 +1888,7 @@ const handleSaveTypeChambre = async () => {
         return result;
       }, {});
       setTypeErrors((currentErrors) => ({ ...currentErrors, ...mappedErrors }));
+      focusFirstInvalidField(mappedErrors);
       return;
     }
 
@@ -2257,9 +2290,10 @@ const columns = [
                   {editingChambre ? "Modifier" : "Ajouter"} une Chambre
                 </h4>
               </Form.Label>
+              <p className="app-required-note"><span className="app-required-mark" aria-hidden="true">*</span> Champs obligatoires</p>
               <div className="row">
-                <Form.Group className="col-md-6 mb-3" controlId="num_chambre">
-                  <Form.Label>Numero de Chambre</Form.Label>
+                <Form.Group className="col-md-6 mb-3" controlId="num_chambre" data-field="num_chambre">
+                  <Form.Label><RequiredLabel required>Numero de Chambre</RequiredLabel></Form.Label>
                   <Form.Control
                     type="text"
                     name="num_chambre"
@@ -2272,7 +2306,7 @@ const columns = [
                   </Form.Control.Feedback>
                 </Form.Group>
 
-                <Form.Group className="col-md-6 mb-3" controlId="type_chambre_id">
+                <Form.Group className="col-md-6 mb-3" controlId="type_chambre_id" data-field="type_chambre_id">
                   <div className="d-flex align-items-center">
                     <FontAwesomeIcon
                       icon={faPlus}
@@ -2283,7 +2317,7 @@ const columns = [
   setShowAddCategory(true);
 }}
                     />
-                    <Form.Label>Type</Form.Label>
+                    <Form.Label><RequiredLabel required>Type</RequiredLabel></Form.Label>
                   </div>
                   <Form.Select
                     name="type_chambre_id"
@@ -2306,7 +2340,7 @@ const columns = [
 
 
               <div className="row">
-                <Form.Group className="col-md-6 mb-3" controlId="vue">
+                <Form.Group className="col-md-6 mb-3" controlId="vue" data-field="vue">
                   <div className="d-flex align-items-center">
                     <FontAwesomeIcon
                       icon={faPlus}
@@ -2314,7 +2348,7 @@ const columns = [
                       style={{ cursor: "pointer" }}
                       onClick={openAddVueModal}
                     />
-                    <Form.Label>Vue</Form.Label>
+                    <Form.Label><RequiredLabel required>Vue</RequiredLabel></Form.Label>
                   </div>
                   <Form.Select
                     name="vue"
@@ -2335,7 +2369,7 @@ const columns = [
                   </Form.Control.Feedback>
                 </Form.Group>
 
-                <Form.Group className="col-md-6 mb-3" controlId="etage">
+                <Form.Group className="col-md-6 mb-3" controlId="etage" data-field="etage">
                   <div className="d-flex align-items-center">
                     <FontAwesomeIcon
                       icon={faPlus}
@@ -2343,7 +2377,7 @@ const columns = [
                       style={{ cursor: "pointer" }}
                       onClick={openAddEtageModal}
                     />
-                    <Form.Label>Etage</Form.Label>
+                    <Form.Label><RequiredLabel required>Etage</RequiredLabel></Form.Label>
                   </div>
                   <Form.Select
                     name="etage"
@@ -2372,6 +2406,7 @@ const columns = [
       </Modal.Header>
       <Modal.Body>
         <Form>
+          <p className="app-required-note"><span className="app-required-mark" aria-hidden="true">*</span> Champs obligatoires</p>
           <Form.Group className="mb-3">
   <Form.Label>Photo actuelle</Form.Label>
 
@@ -2405,12 +2440,13 @@ const columns = [
     name="photo"
     accept="image/jpeg,image/png,image/jpg,image/gif,image/webp"
     isInvalid={!!vueErrors.photo}
-    onChange={(e) =>
+    onChange={(e) => {
       setNewVue((previousData) => ({
         ...previousData,
         photo: e.target.files?.[0] || null,
-      }))
-    }
+      }));
+      setVueErrors((current) => ({ ...current, photo: "" }));
+    }}
   />
 
   {vueErrors.photo && (
@@ -2419,15 +2455,16 @@ const columns = [
     </Form.Control.Feedback>
   )}
 </Form.Group>
-            <Form.Group>
-              <Form.Label>Vue</Form.Label>
+            <Form.Group data-field="vue">
+              <Form.Label><RequiredLabel required>Vue</RequiredLabel></Form.Label>
               <Form.Control
                 type="text"
                 placeholder="Vue"
                 name="vue"
                 isInvalid={!!vueErrors.vue}
                 value={newVue.vue}
-                onChange={(e) => setNewVue({ ...newVue, vue: e.target.value })}/>
+                onChange={(e) => { setNewVue({ ...newVue, vue: e.target.value }); setVueErrors((current) => ({ ...current, vue: "" })); }}/>
+              <Form.Control.Feedback type="invalid">{vueErrors.vue}</Form.Control.Feedback>
             </Form.Group>
       </Form>
       </Modal.Body>
@@ -2459,6 +2496,7 @@ const columns = [
       </Modal.Header>
       <Modal.Body>
         <Form>
+          <p className="app-required-note"><span className="app-required-mark" aria-hidden="true">*</span> Champs obligatoires</p>
           <Form.Group className="mb-3">
   <Form.Label>Photo actuelle</Form.Label>
 
@@ -2492,12 +2530,13 @@ const columns = [
     name="photo"
     accept="image/jpeg,image/png,image/jpg,image/gif,image/webp"
     isInvalid={!!etageErrors.photo}
-    onChange={(e) =>
+    onChange={(e) => {
       setNewEtage((previousData) => ({
         ...previousData,
         photo: e.target.files?.[0] || null,
-      }))
-    }
+      }));
+      setEtageErrors((current) => ({ ...current, photo: "" }));
+    }}
   />
 
   {etageErrors.photo && (
@@ -2506,15 +2545,16 @@ const columns = [
     </Form.Control.Feedback>
   )}
 </Form.Group>
-            <Form.Group>
-              <Form.Label>Etage</Form.Label>
+            <Form.Group data-field="etage">
+              <Form.Label><RequiredLabel required>Etage</RequiredLabel></Form.Label>
               <Form.Control
                 type="text"
                 placeholder="Etage"
                 name="etage"
                 isInvalid={!!etageErrors.etage}
                 value={newEtage.etage}
-                onChange={(e) => setNewEtage({ ...newEtage, etage: e.target.value })}/>
+                onChange={(e) => { setNewEtage({ ...newEtage, etage: e.target.value }); setEtageErrors((current) => ({ ...current, etage: "" })); }}/>
+              <Form.Control.Feedback type="invalid">{etageErrors.etage}</Form.Control.Feedback>
             </Form.Group>
       </Form>
       </Modal.Body>
@@ -2543,6 +2583,7 @@ const columns = [
         </Modal.Header>
         <Modal.Body>
           <Form encType="multipart/form-data">
+          <p className="app-required-note"><span className="app-required-mark" aria-hidden="true">*</span> Champs obligatoires</p>
           <Form.Group className="mb-3">
   <Form.Label>Photo</Form.Label>
 
@@ -2551,12 +2592,13 @@ const columns = [
     name="photo"
     accept="image/jpeg,image/png,image/jpg,image/gif,image/webp"
     isInvalid={!!vueErrors.photo}
-    onChange={(e) =>
+    onChange={(e) => {
       setNewVue((previousData) => ({
         ...previousData,
         photo: e.target.files?.[0] || null,
-      }))
-    }
+      }));
+      setVueErrors((current) => ({ ...current, photo: "" }));
+    }}
     className="form-control"
     lang="fr"
   />
@@ -2570,8 +2612,8 @@ const columns = [
 
 
 
-<Form.Group>
-  <Form.Label>Vue</Form.Label>
+<Form.Group data-field="vueAdd">
+  <Form.Label><RequiredLabel required>Vue</RequiredLabel></Form.Label>
 
   <Form.Control
     type="text"
@@ -2580,10 +2622,10 @@ const columns = [
     value={newVue.vueAdd}
     isInvalid={!!vueErrors.vueAdd}
     onChange={(e) =>
-      setNewVue({
+      { setNewVue({
         ...newVue,
         vueAdd: e.target.value,
-      })
+      }); setVueErrors((current) => ({ ...current, vueAdd: "" })); }
     }
   />
 
@@ -2669,6 +2711,7 @@ const columns = [
         </Modal.Header>
         <Modal.Body>
           <Form encType="multipart/form-data">
+          <p className="app-required-note"><span className="app-required-mark" aria-hidden="true">*</span> Champs obligatoires</p>
 <Form.Group className="mb-3">
   <Form.Label>Photo</Form.Label>
 
@@ -2677,12 +2720,13 @@ const columns = [
     name="photo"
     accept="image/jpeg,image/png,image/jpg,image/gif,image/webp"
     isInvalid={!!etageErrors.photo}
-    onChange={(e) =>
+    onChange={(e) => {
       setNewEtage((previousData) => ({
         ...previousData,
         photo: e.target.files?.[0] || null,
-      }))
-    }
+      }));
+      setEtageErrors((current) => ({ ...current, photo: "" }));
+    }}
     className="form-control"
     lang="fr"
   />
@@ -2693,15 +2737,16 @@ const columns = [
     </Form.Control.Feedback>
   )}
 </Form.Group>
-            <Form.Group>
-              <Form.Label>Etage</Form.Label>
+            <Form.Group data-field="etageAdd">
+              <Form.Label><RequiredLabel required>Etage</RequiredLabel></Form.Label>
               <Form.Control
                 type="text"
                 placeholder="Etage"
                 name="etage"
                 isInvalid={!!etageErrors.etageAdd}
-                onChange={(e) => setNewEtage({ ...newEtage, etageAdd: e.target.value })}
+                onChange={(e) => { setNewEtage({ ...newEtage, etageAdd: e.target.value }); setEtageErrors((current) => ({ ...current, etageAdd: "" })); }}
               />
+              <Form.Control.Feedback type="invalid">{etageErrors.etageAdd}</Form.Control.Feedback>
             </Form.Group>
       </Form>
             
@@ -2781,49 +2826,54 @@ const columns = [
       </Modal.Header>
       <Modal.Body>
         <Form>
-        <Form.Group>
-              <Form.Label>Code Chambre</Form.Label>
+        <p className="app-required-note"><span className="app-required-mark" aria-hidden="true">*</span> Champs obligatoires</p>
+        <Form.Group data-field="code">
+              <Form.Label><RequiredLabel required>Code Chambre</RequiredLabel></Form.Label>
               <Form.Control
                 type="text"
                 placeholder="Code Chambre"
                 name="code"
                 isInvalid={!!typeErrors.code}
                 value={newTypeChambre.code}
-                onChange={(e) => setNewTypeChambre({ ...newTypeChambre, code: e.target.value })}
+                onChange={(e) => { setNewTypeChambre({ ...newTypeChambre, code: e.target.value }); setTypeErrors((current) => ({ ...current, code: "" })); }}
               />
+              <Form.Control.Feedback type="invalid">{typeErrors.code}</Form.Control.Feedback>
             </Form.Group>
-        <Form.Group>
-              <Form.Label>Type Chambre</Form.Label>
+        <Form.Group data-field="type_chambre">
+              <Form.Label><RequiredLabel required>Type Chambre</RequiredLabel></Form.Label>
               <Form.Control
                 type="text"
                 placeholder="Type de Chambre"
                 name="type_chambre"
                 isInvalid={!!typeErrors.type_chambre}
                 value={newTypeChambre.type_chambre}
-                onChange={(e) => setNewTypeChambre({ ...newTypeChambre, type_chambre: e.target.value })}
+                onChange={(e) => { setNewTypeChambre({ ...newTypeChambre, type_chambre: e.target.value }); setTypeErrors((current) => ({ ...current, type_chambre: "" })); }}
               />
+              <Form.Control.Feedback type="invalid">{typeErrors.type_chambre}</Form.Control.Feedback>
             </Form.Group>
-            <Form.Group>
-              <Form.Label>Nombre de Lit</Form.Label>
+            <Form.Group data-field="nb_lit">
+              <Form.Label><RequiredLabel required>Nombre de Lit</RequiredLabel></Form.Label>
               <Form.Control
                 type="number"
                 placeholder="Nombre de Lit"
                 name="nb_lit"
                 isInvalid={!!typeErrors.nb_lit}
                 value={newTypeChambre.nb_lit}
-                onChange={(e) => setNewTypeChambre({ ...newTypeChambre, nb_lit: e.target.value })}
+                onChange={(e) => { setNewTypeChambre({ ...newTypeChambre, nb_lit: e.target.value }); setTypeErrors((current) => ({ ...current, nb_lit: "" })); }}
               />
+              <Form.Control.Feedback type="invalid">{typeErrors.nb_lit}</Form.Control.Feedback>
             </Form.Group>
-            <Form.Group>
-              <Form.Label>Nombre de Salle</Form.Label>
+            <Form.Group data-field="nb_salle">
+              <Form.Label><RequiredLabel required>Nombre de Salle</RequiredLabel></Form.Label>
               <Form.Control
                 type="number"
                 placeholder="Nombre de Salle"
                 name="nb_salle"
                 isInvalid={!!typeErrors.nb_salle}
                 value={newTypeChambre.nb_salle}
-                onChange={(e) => setNewTypeChambre({ ...newTypeChambre, nb_salle: e.target.value })}
+                onChange={(e) => { setNewTypeChambre({ ...newTypeChambre, nb_salle: e.target.value }); setTypeErrors((current) => ({ ...current, nb_salle: "" })); }}
               />
+              <Form.Control.Feedback type="invalid">{typeErrors.nb_salle}</Form.Control.Feedback>
             </Form.Group>
             <Form.Group className="mt-3">
               <Form.Label>Capacité standard</Form.Label>
@@ -2916,6 +2966,7 @@ const columns = [
         </Modal.Header>
         <Modal.Body ref={roomTypeModalBodyRef} className="room-type-management-body">
           <Form className="room-type-management-form">
+            <p className="app-required-note room-type-form-field-wide"><span className="app-required-mark" aria-hidden="true">*</span> Champs obligatoires</p>
             <Form.Group className="room-type-form-field room-type-form-field-wide">
   <Form.Label>Mode de création</Form.Label>
   <Form.Select
@@ -2939,26 +2990,26 @@ const columns = [
   </Form.Select>
 </Form.Group>
 
-          <Form.Group className="room-type-form-field">
-              <Form.Label>Code</Form.Label>
+          <Form.Group className="room-type-form-field" data-field="codeAdd">
+              <Form.Label><RequiredLabel required>Code</RequiredLabel></Form.Label>
 <Form.Control
   type="text"
   placeholder="Code"
   value={newTypeChambre.codeAdd}
   isInvalid={!!typeErrors.codeAdd}
   onChange={(e) =>
-    setNewTypeChambre({
+    { setNewTypeChambre({
       ...newTypeChambre,
       codeAdd: e.target.value,
-    })
+    }); setTypeErrors((current) => ({ ...current, codeAdd: "" })); }
   }
 />
 <Form.Control.Feedback type="invalid">
   {typeErrors.codeAdd}
 </Form.Control.Feedback>
             </Form.Group>
-<Form.Group className="room-type-form-field">
-  <Form.Label>Type Chambre</Form.Label>
+<Form.Group className="room-type-form-field" data-field="type_chambreAdd">
+  <Form.Label><RequiredLabel required>Type Chambre</RequiredLabel></Form.Label>
 
   {typeCreationMode === "preset" ? (
     <Form.Select
@@ -2980,10 +3031,10 @@ const columns = [
       value={newTypeChambre.type_chambreAdd}
       isInvalid={!!typeErrors.type_chambreAdd}
       onChange={(e) =>
-        setNewTypeChambre({
+        { setNewTypeChambre({
           ...newTypeChambre,
           type_chambreAdd: e.target.value,
-        })
+        }); setTypeErrors((current) => ({ ...current, type_chambreAdd: "" })); }
       }
     />
   )}
@@ -2992,8 +3043,8 @@ const columns = [
     {typeErrors.type_chambreAdd}
   </Form.Control.Feedback>
 </Form.Group>            
-            <Form.Group className="room-type-form-field">
-              <Form.Label>Nombre de Lit</Form.Label>
+            <Form.Group className="room-type-form-field" data-field="nb_litAdd">
+              <Form.Label><RequiredLabel required>Nombre de Lit</RequiredLabel></Form.Label>
 <Form.Control
   type="number"
   min="1"
@@ -3002,18 +3053,18 @@ const columns = [
   readOnly={typeCreationMode === "preset"}
   isInvalid={!!typeErrors.nb_litAdd}
   onChange={(e) =>
-    setNewTypeChambre({
+    { setNewTypeChambre({
       ...newTypeChambre,
       nb_litAdd: e.target.value,
-    })
+    }); setTypeErrors((current) => ({ ...current, nb_litAdd: "" })); }
   }
 />
 <Form.Control.Feedback type="invalid">
   {typeErrors.nb_litAdd}
 </Form.Control.Feedback>
             </Form.Group>
-            <Form.Group className="room-type-form-field">
-              <Form.Label>Nombre de Salle</Form.Label>
+            <Form.Group className="room-type-form-field" data-field="nb_salleAdd">
+              <Form.Label><RequiredLabel required>Nombre de Salle</RequiredLabel></Form.Label>
 <Form.Control
   type="number"
   min="1"
@@ -3022,18 +3073,18 @@ const columns = [
   readOnly={typeCreationMode === "preset"}
   isInvalid={!!typeErrors.nb_salleAdd}
   onChange={(e) =>
-    setNewTypeChambre({
+    { setNewTypeChambre({
       ...newTypeChambre,
       nb_salleAdd: e.target.value,
-    })
+    }); setTypeErrors((current) => ({ ...current, nb_salleAdd: "" })); }
   }
 />
 <Form.Control.Feedback type="invalid">
   {typeErrors.nb_salleAdd}
 </Form.Control.Feedback>
             </Form.Group>
-            <Form.Group className="room-type-form-field">
-              <Form.Label>Capacité standard</Form.Label>
+            <Form.Group className="room-type-form-field" data-field="capacite_standardAdd">
+              <Form.Label><RequiredLabel required>Capacité standard</RequiredLabel></Form.Label>
               <Form.Control
                 type="number"
                 min="1"
@@ -3054,8 +3105,8 @@ const columns = [
                 {typeErrors.capacite_standardAdd}
               </Form.Control.Feedback>
             </Form.Group>
-            <Form.Group className="room-type-form-field">
-              <Form.Label>Lits supplémentaires maximum</Form.Label>
+            <Form.Group className="room-type-form-field" data-field="lits_supplementaires_maxAdd">
+              <Form.Label><RequiredLabel required>Lits supplémentaires maximum</RequiredLabel></Form.Label>
               <Form.Control
                 type="number"
                 min="0"
@@ -3217,8 +3268,8 @@ const columns = [
               </div>
 
 
-              <Form.Group className="col-md-6 mb-3" controlId="climat">
-                <Form.Label>Climat</Form.Label>
+              <Form.Group className="col-md-6 mb-3" controlId="climat" data-field="climat">
+                <Form.Label><RequiredLabel required>Climat</RequiredLabel></Form.Label>
                 <div className="d-flex gap-3">
                   <Form.Check
                     type="radio"
@@ -3239,13 +3290,11 @@ const columns = [
                     isInvalid={submitted && !!errors.climat}
                   />
                 </div>
-                <Form.Control.Feedback type="invalid">
-                  {errors.climat}
-                </Form.Control.Feedback>
+                {errors.climat && <div className="invalid-feedback d-block app-field-error">{errors.climat}</div>}
               </Form.Group>
 
-              <Form.Group className="col-md-6 mb-3" controlId="wifi">
-                <Form.Label>Wifi</Form.Label>
+              <Form.Group className="col-md-6 mb-3" controlId="wifi" data-field="wifi">
+                <Form.Label><RequiredLabel required>Wifi</RequiredLabel></Form.Label>
                 <div className="d-flex gap-3">
                   <Form.Check
                     type="radio"
@@ -3266,9 +3315,7 @@ const columns = [
                     isInvalid={submitted && !!errors.wifi}
                   />
                 </div>
-                <Form.Control.Feedback type="invalid">
-                  {errors.wifi}
-                </Form.Control.Feedback>
+                {errors.wifi && <div className="invalid-feedback d-block app-field-error">{errors.wifi}</div>}
               </Form.Group>
               <Form.Group className="app-form-actions">
                 <Button

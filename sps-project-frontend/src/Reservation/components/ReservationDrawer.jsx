@@ -5,6 +5,7 @@ import PaymentPolicySelector from "./PaymentPolicySelector";
 import PricingPreview from "./PricingPreview";
 import ReductionSelector from "./ReductionSelector";
 import RoomAllocationTable from "./RoomAllocationTable";
+import RequiredLabel from "../../components/RequiredLabel";
 import { formatDate, statusClass, statusLabel } from "../reservationUtils";
 
 const ReservationDrawer = ({ formState }) => {
@@ -66,6 +67,7 @@ const ReservationDrawer = ({ formState }) => {
         </div>
         <button type="button" className="reservation-drawer-close" onClick={close} aria-label="Fermer">×</button>
       </div>
+      <p className="app-required-note"><span className="app-required-mark" aria-hidden="true">*</span> Champs obligatoires</p>
 
       {actionError && <div className="reservation-alert is-error">{actionError}</div>}
       {editingReservation?.legacy_pricing && form.chambres.some((room) => room.adultes === "" || room.enfants === "") && (
@@ -86,25 +88,29 @@ const ReservationDrawer = ({ formState }) => {
       <section className="reservation-form-section">
         <h3>2. Dates du séjour</h3>
         <div className="reservation-form-grid">
-          <Form.Group>
-            <Form.Label>Date d’arrivée</Form.Label>
+          <Form.Group data-field="date_debut">
+            <Form.Label><RequiredLabel required>Date d’arrivée</RequiredLabel></Form.Label>
             <Form.Control
               type="date"
               min={isEditing ? undefined : today}
               value={form.date_debut}
               onChange={(event) => setField("date_debut", event.target.value)}
               isInvalid={Boolean(errors.date_debut)}
+              aria-required="true"
+              aria-invalid={Boolean(errors.date_debut)}
             />
             <Form.Control.Feedback type="invalid">{errors.date_debut}</Form.Control.Feedback>
           </Form.Group>
-          <Form.Group>
-            <Form.Label>Date de départ</Form.Label>
+          <Form.Group data-field="date_fin">
+            <Form.Label><RequiredLabel required>Date de départ</RequiredLabel></Form.Label>
             <Form.Control
               type="date"
               min={form.date_debut || (isEditing ? undefined : today)}
               value={form.date_fin}
               onChange={(event) => setField("date_fin", event.target.value)}
               isInvalid={Boolean(errors.date_fin)}
+              aria-required="true"
+              aria-invalid={Boolean(errors.date_fin)}
             />
             <Form.Control.Feedback type="invalid">{errors.date_fin}</Form.Control.Feedback>
           </Form.Group>
