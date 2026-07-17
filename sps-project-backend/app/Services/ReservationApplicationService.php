@@ -19,7 +19,9 @@ class ReservationApplicationService
     public function __construct(
         private readonly ReservationClientResolver $clientResolver,
         private readonly ReservationAvailabilityService $availabilityService,
-        private readonly ReservationPricingService $pricingService
+        private readonly ReservationPricingService $pricingService,
+        private readonly ReservationPaymentService $paymentService,
+        private readonly ReservationPolicyService $policyService
     ) {
     }
 
@@ -34,13 +36,20 @@ class ReservationApplicationService
                 $data['date_fin']
             );
             $pricing = $this->pricingService->calculate($data);
+            $reservationDate = CarbonImmutable::today()->toDateString();
+            $policy = $this->policyService->normalize(
+                $data,
+                $client,
+                $pricing['montant_total'],
+                $reservationDate
+            );
 
             $reservation = Reservation::create([
                 'reservation_num' => $this->generateReservationNumber(),
                 'client_type' => $client['client_type'],
                 'client_id' => $client['client_id'],
                 'client_name_snapshot' => $client['display_name'],
-                'reservation_date' => CarbonImmutable::today()->toDateString(),
+                'reservation_date' => $reservationDate,
                 'date_debut' => $data['date_debut'],
                 'date_fin' => $data['date_fin'],
                 'status' => $data['status'] ?? 'en attente',
@@ -51,11 +60,17 @@ class ReservationApplicationService
                 'sous_total_avant_reduction' => $pricing['sous_total_avant_reduction'],
                 'montant_reduction' => $pricing['montant_reduction'],
                 'montant_total' => $pricing['montant_total'],
+                'politique_paiement' => $policy['politique_paiement'],
+                'montant_acompte_requis' => $policy['montant_acompte_requis'],
+                'date_limite_paiement' => $policy['date_limite_paiement'],
                 'tarif_actuel_id' => $pricing['tariff_period_segments'][0]['tarif_actuel_id'],
                 'tarif_repas_id' => null,
             ]);
 
             $this->persistPricingSnapshots($reservation, $pricing);
+            if ($reservation->status === 'confirmé') {
+                $this->policyService->assertConfirmationAllowed($reservation);
+            }
 
             return $this->loadComplete($reservation);
         }, 3);
@@ -75,6 +90,19 @@ class ReservationApplicationService
                 $locked->id
             );
             $pricing = $this->pricingService->calculate($data);
+            $this->paymentService->assertProposedTotalCoversPayments($locked, $pricing['montant_total']);
+            $policy = $this->policyService->normalize(
+                $data,
+                $client,
+                $pricing['montant_total'],
+                $locked->reservation_date?->format('Y-m-d') ?? CarbonImmutable::today()->toDateString()
+            );
+            $this->policyService->assertConfirmedCreditUpdateAllowed(
+                $locked,
+                $client,
+                $policy,
+                $pricing['montant_total']
+            );
 
             $sameClient = $locked->client_type === $client['client_type']
                 && (int) $locked->client_id === (int) $client['client_id'];
@@ -100,6 +128,9 @@ class ReservationApplicationService
                 'sous_total_avant_reduction' => $pricing['sous_total_avant_reduction'],
                 'montant_reduction' => $pricing['montant_reduction'],
                 'montant_total' => $pricing['montant_total'],
+                'politique_paiement' => $policy['politique_paiement'],
+                'montant_acompte_requis' => $policy['montant_acompte_requis'],
+                'date_limite_paiement' => $policy['date_limite_paiement'],
                 'tarif_actuel_id' => $pricing['tariff_period_segments'][0]['tarif_actuel_id'],
                 'tarif_repas_id' => null,
             ]);
@@ -147,6 +178,10 @@ class ReservationApplicationService
                 );
             }
 
+            if ($status === 'confirmé') {
+                $this->policyService->assertConfirmationAllowed($locked);
+            }
+
             $locked->update([
                 'status' => $status,
                 'cancelled_at' => $status === 'annulé' ? now() : null,
@@ -179,18 +214,26 @@ class ReservationApplicationService
 
     public function loadComplete(Reservation $reservation): Reservation
     {
-        return $reservation->fresh()->load([
+        $complete = $reservation->fresh()->load([
             'client' => function (MorphTo $morphTo): void {
                 $morphTo->morphWith([
                     Client::class => ['secteur', 'modeReglement'],
-                    ClientParticulier::class => [],
+                    ClientParticulier::class => ['info_clients'],
                 ]);
             },
-            'reservationRooms.chambre',
+            'reservationRooms.chambre.etage',
+            'reservationRooms.chambre.vue',
             'reservationRooms.priceSegments',
             'meals',
             'reduction',
+            'paiements.modePaiement:id,mode_paimants',
+            'paiements.createdBy:id,name',
+            'paiements.cancelledBy:id,name',
         ]);
+
+        $this->policyService->attachCreditContexts(collect([$complete]));
+
+        return $complete;
     }
 
     private function persistPricingSnapshots(Reservation $reservation, array $pricing): void

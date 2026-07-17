@@ -491,6 +491,7 @@ class ReservationApiTest extends TestCase
             'client_id' => $client->id,
             'date_debut' => $start,
             'date_fin' => $end,
+            'politique_paiement' => Reservation::POLICY_PAIEMENT_SUR_PLACE,
             'chambres' => [[
                 'chambre_id' => $room->id,
                 'adultes' => $adults,

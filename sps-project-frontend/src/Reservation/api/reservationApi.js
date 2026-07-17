@@ -4,6 +4,8 @@ const API_URL = (import.meta.env.VITE_API_URL || "/api").replace(/\/$/, "");
 
 const dataOf = (response) => response.data?.data ?? response.data;
 let clientOptionsRequest = null;
+let paymentOptionsRequest = null;
+const creditSummaryRequests = new Map();
 
 export const listReservations = async () => {
   const response = await axios.get(`${API_URL}/reservations`);
@@ -62,4 +64,51 @@ export const getReservationClientOptions = async () => {
   }
 
   return clientOptionsRequest;
+};
+
+export const getReservationPaymentOptions = async () => {
+  if (!paymentOptionsRequest) {
+    paymentOptionsRequest = axios
+      .get(`${API_URL}/reservations/payment-options`)
+      .then(dataOf)
+      .finally(() => {
+        paymentOptionsRequest = null;
+      });
+  }
+
+  return paymentOptionsRequest;
+};
+
+export const getReservationCompanyCreditSummary = async (clientId, params = {}) => {
+  const numericClientId = Number(clientId);
+  const excludeId = params.exclude_reservation_id ? Number(params.exclude_reservation_id) : "";
+  const requestKey = `${numericClientId}:${excludeId}`;
+
+  if (!creditSummaryRequests.has(requestKey)) {
+    const request = axios
+      .get(`${API_URL}/reservations/societes/${numericClientId}/credit-summary`, { params })
+      .then(dataOf)
+      .finally(() => {
+        creditSummaryRequests.delete(requestKey);
+      });
+    creditSummaryRequests.set(requestKey, request);
+  }
+
+  return creditSummaryRequests.get(requestKey);
+};
+
+export const createReservationPayment = async (reservationId, payload) => {
+  const response = await axios.post(
+    `${API_URL}/reservations/${Number(reservationId)}/payments`,
+    payload
+  );
+  return dataOf(response);
+};
+
+export const cancelReservationPayment = async (reservationId, paymentId, payload) => {
+  const response = await axios.patch(
+    `${API_URL}/reservations/${Number(reservationId)}/payments/${Number(paymentId)}/cancel`,
+    payload
+  );
+  return dataOf(response);
 };

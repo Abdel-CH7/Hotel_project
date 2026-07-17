@@ -10,6 +10,18 @@ class Reservation extends Model
 {
     use HasFactory;
 
+    public const POLICY_PAIEMENT_SUR_PLACE = 'paiement_sur_place';
+    public const POLICY_ACOMPTE_REQUIS = 'acompte_requis';
+    public const POLICY_PAIEMENT_INTEGRAL = 'paiement_integral_avant_arrivee';
+    public const POLICY_CREDIT_SOCIETE = 'credit_societe';
+
+    public const PAYMENT_POLICIES = [
+        self::POLICY_PAIEMENT_SUR_PLACE => 'Paiement sur place',
+        self::POLICY_ACOMPTE_REQUIS => 'Acompte requis',
+        self::POLICY_PAIEMENT_INTEGRAL => 'Paiement intégral avant l’arrivée',
+        self::POLICY_CREDIT_SOCIETE => 'Crédit Société',
+    ];
+
     protected $table = 'reservations';
 
     protected $fillable = [
@@ -21,6 +33,9 @@ class Reservation extends Model
         'date_fin',
         'status',
         'montant_total',
+        'politique_paiement',
+        'montant_acompte_requis',
+        'date_limite_paiement',
         'montant_reduction',
         'tarif_actuel_id',
         'tarif_repas_id',
@@ -39,6 +54,8 @@ class Reservation extends Model
         'date_debut' => 'date:Y-m-d',
         'date_fin' => 'date:Y-m-d',
         'montant_total' => 'decimal:2',
+        'montant_acompte_requis' => 'decimal:2',
+        'date_limite_paiement' => 'date:Y-m-d',
         'montant_reduction' => 'decimal:2',
         'montant_chambres' => 'decimal:2',
         'montant_repas' => 'decimal:2',
@@ -47,6 +64,16 @@ class Reservation extends Model
         'legacy_pricing' => 'boolean',
         'cancelled_at' => 'datetime',
     ];
+
+    public static function paymentPolicyCodes(): array
+    {
+        return array_keys(self::PAYMENT_POLICIES);
+    }
+
+    public static function paymentPolicyLabel(?string $policy): string
+    {
+        return self::PAYMENT_POLICIES[$policy] ?? 'Politique inconnue';
+    }
 
     public function client(): MorphTo
     {
@@ -83,6 +110,18 @@ class Reservation extends Model
     public function reduction()
     {
         return $this->hasOne(ReservationReduction::class, 'reservation_id');
+    }
+
+    public function paiements()
+    {
+        return $this->hasMany(ReservationPaiement::class, 'reservation_id')
+            ->orderByDesc('date_paiement')
+            ->orderByDesc('id');
+    }
+
+    public function paiementsValides()
+    {
+        return $this->hasMany(ReservationPaiement::class, 'reservation_id')->valide();
     }
 
     public function tarifActuel()

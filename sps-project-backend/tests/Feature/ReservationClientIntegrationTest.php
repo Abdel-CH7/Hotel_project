@@ -78,6 +78,66 @@ class ReservationClientIntegrationTest extends TestCase
         }
     }
 
+    public function test_particular_client_options_include_only_their_registered_children(): void
+    {
+        $parent = $this->createIndividualClient('Parent', 'Principal');
+        $otherParent = $this->createIndividualClient('Parent', 'Autre');
+        $emptyParent = $this->createIndividualClient('Parent', 'Sans enfant');
+        $company = $this->createCompanyClient('Societe sans enfants');
+
+        $adamId = DB::table('enfants')->insertGetId([
+            'idClient' => $parent->id,
+            'type' => 'C',
+            'name' => 'Zed',
+            'prenom' => 'Adam',
+            'age' => 8,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $zoeId = DB::table('enfants')->insertGetId([
+            'idClient' => $parent->id,
+            'type' => 'C',
+            'name' => 'Beta',
+            'prenom' => 'Zoe',
+            'age' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('enfants')->insert([
+            [
+                'idClient' => $parent->id,
+                'type' => 'SC',
+                'name' => 'Site',
+                'prenom' => 'Ignore',
+                'age' => 4,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'idClient' => $otherParent->id,
+                'type' => 'C',
+                'name' => 'Autre',
+                'prenom' => 'Enfant',
+                'age' => 6,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        $response = $this->getJson('/api/reservations/client-options')->assertOk();
+        $parentOption = collect($response->json('data.particulier'))->firstWhere('id', $parent->id);
+        $emptyOption = collect($response->json('data.particulier'))->firstWhere('id', $emptyParent->id);
+        $companyOption = collect($response->json('data.societe'))->firstWhere('id', $company->id);
+
+        $this->assertSame([
+            ['id' => $adamId, 'nom' => 'Zed', 'prenom' => 'Adam', 'age' => 8],
+            ['id' => $zoeId, 'nom' => 'Beta', 'prenom' => 'Zoe', 'age' => null],
+        ], $parentOption['enfants_enregistres']);
+        $this->assertSame([], $emptyOption['enfants_enregistres']);
+        $this->assertArrayNotHasKey('enfants_enregistres', $companyOption);
+        $this->assertSame(['id', 'nom', 'prenom', 'age'], array_keys($parentOption['enfants_enregistres'][0]));
+    }
+
     public function test_same_numeric_id_resolves_each_table_without_cross_table_confusion(): void
     {
         $sharedId = max(
@@ -182,6 +242,7 @@ class ReservationClientIntegrationTest extends TestCase
         $base = [
             'date_debut' => '2097-03-10',
             'date_fin' => '2097-03-12',
+            'politique_paiement' => Reservation::POLICY_PAIEMENT_SUR_PLACE,
             'chambres' => [['chambre_id' => 1, 'adultes' => 1, 'enfants' => 0]],
             'repas' => [],
             'type_reduction_id' => null,
@@ -239,6 +300,7 @@ class ReservationClientIntegrationTest extends TestCase
             'client_id' => $clientId,
             'date_debut' => $start,
             'date_fin' => $end,
+            'politique_paiement' => Reservation::POLICY_PAIEMENT_SUR_PLACE,
             'chambres' => [['chambre_id' => $roomId, 'adultes' => 1, 'enfants' => 0]],
             'repas' => [],
             'type_reduction_id' => null,

@@ -27,7 +27,7 @@
 }
 
 .reservation-table {
-  min-width: 1050px;
+  min-width: 1200px;
 }
 
 .reservation-table th,
@@ -40,6 +40,76 @@
   white-space: normal;
 }
 
+.reservation-room-count-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 52px;
+  height: 30px;
+  border: 1px solid #99ddd9;
+  border-radius: 999px;
+  background: #ecfdfb;
+  color: #087f7b;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.reservation-room-count-button:hover,
+.reservation-room-count-button:focus-visible {
+  border-color: #00afaa;
+  background: #d9f7f5;
+}
+
+.reservation-room-count-button svg {
+  width: 11px;
+  height: 11px;
+}
+
+.reservation-expanded-room-row > td {
+  padding: 0 !important;
+  white-space: normal;
+  background: #f8fafc !important;
+}
+
+.reservation-expanded-room-content {
+  padding: 12px;
+  background: #f8fafc;
+}
+
+.reservation-expanded-room-table-wrapper {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.reservation-expanded-room-table {
+  width: 100%;
+  min-width: 900px;
+  margin: 0 !important;
+  background: #fff;
+}
+
+.reservation-expanded-room-table th,
+.reservation-expanded-room-table td {
+  height: auto;
+  padding: 6px 8px;
+  font-size: 12px;
+}
+
+.reservation-expanded-room-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #b91c1c;
+}
+
+.reservation-expanded-room-empty {
+  margin: 0;
+  color: #64748b;
+}
+
 .reservation-client-cell {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -49,6 +119,17 @@
 
 .reservation-client-cell small {
   grid-column: 1 / -1;
+  color: #64748b;
+  font-size: 11px;
+}
+
+.reservation-payment-cell {
+  display: grid;
+  gap: 5px;
+  min-width: 150px;
+}
+
+.reservation-payment-cell small {
   color: #64748b;
   font-size: 11px;
 }
@@ -242,6 +323,58 @@
   font-size: 11px;
 }
 
+.reservation-client-children-reference {
+  margin-top: 12px;
+  border-top: 1px solid #dbe3ea;
+  padding-top: 12px;
+}
+
+.reservation-client-children-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.reservation-client-children-heading h4 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 13px;
+}
+
+.reservation-client-children-heading span {
+  min-width: 24px;
+  border-radius: 12px;
+  background: #ccfbf1;
+  padding: 2px 7px;
+  color: #0f766e;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.reservation-client-children-reference ul {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: #334155;
+  font-size: 12px;
+}
+
+.reservation-client-children-empty,
+.reservation-client-children-more,
+.reservation-client-children-note {
+  margin: 8px 0 0;
+  color: #64748b;
+  font-size: 11px;
+}
+
+.reservation-client-children-more {
+  color: #0f766e;
+  font-weight: 700;
+}
+
 .reservation-section-heading {
   display: flex;
   align-items: center;
@@ -252,6 +385,20 @@
 
 .reservation-section-heading h3 {
   margin: 0;
+}
+
+.reservation-room-add-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.reservation-room-counter {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .reservation-inline-loading,
@@ -280,6 +427,12 @@
   border-color: #f3cf75;
   background: #fff8e6;
   color: #8a5a00;
+}
+
+.reservation-alert.is-success {
+  border-color: #a7f3d0;
+  background: #ecfdf5;
+  color: #047857;
 }
 
 .reservation-availability-summary {
@@ -339,6 +492,12 @@
   gap: 6px 16px;
   margin-top: 10px;
   color: #475569;
+  font-size: 12px;
+}
+
+.reservation-room-no-match {
+  margin-top: 8px;
+  color: #b45309;
   font-size: 12px;
 }
 
@@ -484,12 +643,191 @@
   margin-top: 20px;
 }
 
+.reservation-payment-section {
+  border-top: 1px solid #dbe3ea;
+  padding-top: 18px;
+}
+
+.reservation-payment-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.reservation-payment-heading h3 {
+  margin: 0;
+}
+
+.reservation-payment-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.reservation-payment-summary > div {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  min-width: 0;
+  border-radius: 6px;
+  background: #f8fafc;
+  padding: 10px;
+}
+
+.reservation-payment-summary span:first-child {
+  color: #64748b;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.reservation-payment-summary strong {
+  width: fit-content;
+  color: #0f172a;
+  font-size: 13px;
+}
+
+.reservation-payment-form,
+.reservation-payment-cancel-panel {
+  margin-top: 14px;
+  border: 1px solid #dbe3ea;
+  border-radius: 7px;
+  background: #f8fafc;
+  padding: 14px;
+}
+
+.reservation-payment-form h4,
+.reservation-payment-cancel-panel h4,
+.reservation-payment-history h4 {
+  margin: 0 0 12px;
+  color: #0f172a;
+  font-size: 13px;
+}
+
+.reservation-payment-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.reservation-payment-form-grid small {
+  color: #64748b;
+  font-weight: 400;
+}
+
+.reservation-payment-comment {
+  grid-column: 1 / -1;
+}
+
+.reservation-payment-classification {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  background: #f8fafc;
+  font-weight: 600;
+}
+
+.reservation-payment-policy > .form-group,
+.reservation-payment-policy > div > .form-group {
+  max-width: 100%;
+}
+
+.reservation-policy-fields {
+  margin-top: 12px;
+}
+
+.reservation-policy-note {
+  margin: 10px 0 0;
+  color: #475569;
+}
+
+.reservation-credit-summary {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #d8e4e3;
+  border-radius: 6px;
+  background: #f8fbfb;
+}
+
+.reservation-policy-details h4 {
+  margin: 16px 0 8px;
+  font-size: 15px;
+}
+
+.reservation-payment-form .app-form-actions,
+.reservation-payment-cancel-panel .app-form-actions {
+  margin-top: 12px;
+}
+
+.reservation-payment-settled {
+  margin-top: 12px;
+  border-radius: 6px;
+  background: #ecfdf5;
+  padding: 10px 12px;
+  color: #047857;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.reservation-payment-history {
+  margin-top: 16px;
+}
+
+.reservation-payment-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.reservation-payment-table {
+  min-width: 950px;
+  margin: 0;
+  font-size: 12px;
+}
+
+.reservation-payment-table th {
+  background: #00afaa;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.reservation-payment-table td {
+  vertical-align: middle;
+}
+
+.reservation-payment-table tr.is-cancelled > td {
+  background: #f8fafc;
+  color: #64748b;
+}
+
+.reservation-payment-cancellation-details {
+  font-size: 11px;
+  font-style: italic;
+}
+
+.reservation-payment-cancel-action {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: #b91c1c;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
 @media (max-width: 900px) {
   .reservation-room-filters {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .reservation-details-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .reservation-payment-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -511,6 +849,20 @@
   .reservation-details-grid,
   .reservation-option-row {
     grid-template-columns: 1fr;
+  }
+
+  .reservation-payment-summary,
+  .reservation-payment-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .reservation-payment-comment {
+    grid-column: auto;
+  }
+
+  .reservation-payment-heading {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .reservation-occupancy-row {

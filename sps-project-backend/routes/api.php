@@ -18,6 +18,8 @@ use App\Http\Controllers\SiteClientController;
 use App\Http\Controllers\TarifRepasController;
 use App\Http\Controllers\IntervenantController;
 use App\Http\Controllers\ModePaimantController;
+use App\Http\Controllers\ReservationPaymentController;
+use App\Http\Controllers\ReservationCreditController;
 use App\Http\Controllers\TarifActuelController;
 use App\Http\Controllers\TypeChambreController;
 use App\Http\Controllers\InterventionController;
@@ -307,11 +309,18 @@ Route::prefix('reclamations')->group(function () {
 // Reservation API. Static routes must stay before identifier routes.
 Route::get('/reservations/readiness', ReservationReadinessController::class);
 Route::get('/reservations/client-options', ReservationClientOptionsController::class);
+Route::get('/reservations/payment-options', [ReservationPaymentController::class, 'options']);
+Route::get('/reservations/societes/{client}/credit-summary', [ReservationCreditController::class, 'show'])
+    ->whereNumber('client');
 Route::get('/reservations/form-options', ReservationFormOptionsController::class);
 Route::get('/reservations/available-rooms', [ReservationController::class, 'availableRooms']);
 Route::post('/reservations/calculate-price', [ReservationController::class, 'calculatePrice']);
 Route::get('/reservations', [ReservationController::class, 'index']);
 Route::post('/reservations', [ReservationController::class, 'store']);
+Route::post('/reservations/{reservation}/payments', [ReservationPaymentController::class, 'store'])
+    ->whereNumber('reservation');
+Route::patch('/reservations/{reservation}/payments/{payment}/cancel', [ReservationPaymentController::class, 'cancel'])
+    ->whereNumber(['reservation', 'payment']);
 Route::patch('/reservations/{reservation}/status', [ReservationController::class, 'updateStatus'])
     ->whereNumber('reservation');
 Route::get('/reservations/{reservation}', [ReservationController::class, 'show'])

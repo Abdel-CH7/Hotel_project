@@ -2,7 +2,7 @@ import { formatDate, formatMoney } from "../reservationUtils";
 
 const PricingPreview = ({ preview, loading, error }) => (
   <section className="reservation-form-section reservation-pricing-preview">
-    <h3>6. Résumé tarifaire</h3>
+    <h3>7. Résumé tarifaire</h3>
     {loading && <div className="reservation-preview-loading">Calcul du tarif…</div>}
     {error && <div className="reservation-alert is-error">{error}</div>}
     {!loading && !error && !preview && (

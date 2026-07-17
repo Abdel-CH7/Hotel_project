@@ -2,7 +2,7 @@ import { Form } from "react-bootstrap";
 
 const MealSelector = ({ options, selectedMeals, totalOccupants, errors, toggleMeal, updateQuantity }) => (
   <section className="reservation-form-section">
-    <h3>4. Repas</h3>
+    <h3>5. Repas</h3>
     {options.length === 0 ? (
       <p className="reservation-muted">Aucun repas n’est disponible sur toute la période sélectionnée.</p>
     ) : (

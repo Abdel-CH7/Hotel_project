@@ -24,6 +24,18 @@ export const statusClass = (status) => ({
   "annulé": "is-danger",
 }[status] || "is-neutral");
 
+export const paymentStatusLabel = (status) => ({
+  non_payee: "Non payée",
+  partiellement_payee: "Partiellement payée",
+  payee: "Payée",
+}[status] || status || "-");
+
+export const paymentStatusClass = (status) => ({
+  non_payee: "is-neutral",
+  partiellement_payee: "is-warning",
+  payee: "is-success",
+}[status] || "is-neutral");
+
 export const clientName = (reservation) => reservation?.client?.display_name || "Client indisponible";
 
 export const clientTypeLabel = (reservation) => reservation?.client?.type_label || ({

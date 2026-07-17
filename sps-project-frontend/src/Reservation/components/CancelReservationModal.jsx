@@ -1,4 +1,5 @@
 import { Button, Form, Modal } from "react-bootstrap";
+import { formatMoney } from "../reservationUtils";
 
 const CancelReservationModal = ({ show, reservation, reason, error, saving, onReasonChange, onConfirm, onHide }) => (
   <Modal show={show} onHide={saving ? undefined : onHide} centered>
@@ -7,6 +8,11 @@ const CancelReservationModal = ({ show, reservation, reason, error, saving, onRe
     </Modal.Header>
     <Modal.Body>
       <p>La réservation <strong>{reservation?.reservation_num}</strong> restera dans l’historique.</p>
+      {Number(reservation?.reglement?.montant_paye || 0) > 0 && (
+        <div className="reservation-alert is-warning">
+          Cette réservation contient {formatMoney(reservation.reglement.montant_paye)} de paiements enregistrés. L’annulation ne rembourse pas automatiquement ces montants.
+        </div>
+      )}
       <Form.Group>
         <Form.Label>Motif d’annulation</Form.Label>
         <Form.Control

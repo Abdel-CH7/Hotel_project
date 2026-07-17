@@ -1,6 +1,7 @@
 import { Button, Form } from "react-bootstrap";
 import ClientSelector from "./ClientSelector";
 import MealSelector from "./MealSelector";
+import PaymentPolicySelector from "./PaymentPolicySelector";
 import PricingPreview from "./PricingPreview";
 import ReductionSelector from "./ReductionSelector";
 import RoomAllocationTable from "./RoomAllocationTable";
@@ -16,6 +17,11 @@ const ReservationDrawer = ({ formState }) => {
     actionError,
     clients,
     clientsLoading,
+    selectedClient,
+    creditSummary,
+    creditLoading,
+    creditError,
+    creditProjection,
     availability,
     availabilityLoading,
     availabilityError,
@@ -26,12 +32,20 @@ const ReservationDrawer = ({ formState }) => {
     saving,
     totalOccupants,
     canAddRoom,
+    availableRoomCount,
+    remainingRoomRows,
+    roomRowsExceedAvailability,
+    roomRowsAvailabilityError,
     today,
     close,
     setField,
+    retryCreditSummary,
     addRoom,
     removeRoom,
     updateRoom,
+    typeOptionsFor,
+    floorOptionsFor,
+    viewOptionsFor,
     roomOptionsFor,
     toggleMeal,
     updateMealQuantity,
@@ -114,14 +128,33 @@ const ReservationDrawer = ({ formState }) => {
         )}
       </section>
 
+      <PaymentPolicySelector
+        form={form}
+        errors={errors}
+        setField={setField}
+        selectedClient={selectedClient}
+        preview={preview}
+        reservationDate={editingReservation?.dates?.reservation || today}
+        creditSummary={creditSummary}
+        creditLoading={creditLoading}
+        creditError={creditError}
+        creditProjection={creditProjection}
+        retryCreditSummary={retryCreditSummary}
+      />
+
       <RoomAllocationTable
         rows={form.chambres}
-        availableRooms={availability?.chambres || []}
         errors={errors}
+        roomSectionError={roomRowsAvailabilityError || errors.chambres}
         canAddRoom={canAddRoom}
+        availableRoomCount={availableRoomCount}
+        remainingRoomRows={remainingRoomRows}
         addRoom={addRoom}
         removeRoom={removeRoom}
         updateRoom={updateRoom}
+        typeOptionsFor={typeOptionsFor}
+        floorOptionsFor={floorOptionsFor}
+        viewOptionsFor={viewOptionsFor}
         roomOptionsFor={roomOptionsFor}
       />
 
@@ -144,9 +177,9 @@ const ReservationDrawer = ({ formState }) => {
       <PricingPreview preview={preview} loading={previewLoading} error={previewError} />
 
       <section className="reservation-form-section">
-        <h3>7. Enregistrement</h3>
+        <h3>8. Enregistrement</h3>
         <div className="app-form-actions reservation-drawer-actions">
-          <Button type="button" className="app-primary-button" onClick={submit} disabled={saving || previewLoading}>
+          <Button type="button" className="app-primary-button" onClick={submit} disabled={saving || previewLoading || roomRowsExceedAvailability}>
             {saving ? "Enregistrement…" : "Enregistrer"}
           </Button>
           <Button type="button" className="app-secondary-button" onClick={close} disabled={saving}>

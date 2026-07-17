@@ -29,6 +29,13 @@ class ReservationClientOptionsController extends Controller
                 'id', 'CodeClient', 'name', 'prenom', 'type_piece', 'cin', 'tele',
                 'nationalite', 'pays_code', 'region_nom', 'ville',
             ])
+            ->with(['info_clients' => function ($query): void {
+                $query
+                    ->select(['id', 'idClient', 'name', 'prenom', 'age'])
+                    ->orderBy('prenom')
+                    ->orderBy('name')
+                    ->orderBy('id');
+            }])
             ->get()
             ->map(fn (ClientParticulier $client): array => ReservationClientData::individualOption($client))
             ->sortBy(self::sortKey(...))

@@ -1,7 +1,8 @@
 import { Modal } from "react-bootstrap";
 import { clientName, clientTypeLabel, formatDate, formatMoney, statusClass, statusLabel } from "../reservationUtils";
+import ReservationPayments from "./ReservationPayments";
 
-const ReservationDetails = ({ show, reservation, loading, error, onHide }) => (
+const ReservationDetails = ({ show, reservation, loading, error, onHide, onPaymentChanged }) => (
   <Modal show={show} onHide={onHide} size="lg" centered scrollable>
     <Modal.Header closeButton>
       <Modal.Title>Détails de la réservation</Modal.Title>
@@ -113,6 +114,52 @@ const ReservationDetails = ({ show, reservation, loading, error, onHide }) => (
             <div><dt>Réduction</dt><dd>{formatMoney(reservation.totals?.reduction)}</dd></div>
             <div className="is-final"><dt>Montant total</dt><dd>{formatMoney(reservation.totals?.total)}</dd></div>
           </dl>
+
+          <section className="reservation-details-section reservation-policy-details">
+            <h3>Politique et échéance</h3>
+            <dl className="reservation-details-grid">
+              <div><dt>Politique</dt><dd>{reservation.politique_paiement?.label || "—"}</dd></div>
+              <div><dt>Acompte requis</dt><dd>{reservation.politique_paiement?.montant_acompte_requis ? formatMoney(reservation.politique_paiement.montant_acompte_requis) : "—"}</dd></div>
+              <div><dt>Date d’échéance</dt><dd>{formatDate(reservation.echeance?.date)}</dd></div>
+              <div>
+                <dt>Statut de l’échéance</dt>
+                <dd><span className={`app-status-badge ${reservation.echeance?.statut === "en_retard" ? "is-danger" : reservation.echeance?.statut === "du_aujourdhui" ? "is-warning" : "is-neutral"}`}>{reservation.echeance?.statut_label || "—"}</span></dd>
+              </div>
+              <div><dt>Montant manquant</dt><dd>{formatMoney(reservation.echeance?.montant_manquant)}</dd></div>
+            </dl>
+
+            {reservation.echeance?.statut === "du_aujourdhui" && (
+              <div className="reservation-alert is-warning">Un paiement de {formatMoney(reservation.echeance.montant_manquant)} est dû aujourd’hui.</div>
+            )}
+            {reservation.echeance?.statut === "en_retard" && (
+              <div className="reservation-alert is-error">Paiement en retard depuis le {formatDate(reservation.echeance.date)}. Montant manquant : {formatMoney(reservation.echeance.montant_manquant)}.</div>
+            )}
+            {reservation.confirmation?.autorisee === false && reservation.status === "en attente" && (
+              <div className="reservation-alert is-warning">{reservation.confirmation.message}</div>
+            )}
+
+            {reservation.credit && (
+              <>
+                <h4>Crédit Société</h4>
+                <dl className="reservation-details-grid">
+                  <div><dt>Plafond</dt><dd>{formatMoney(reservation.credit.plafond)}</dd></div>
+                  <div><dt>Exposition hors réservation</dt><dd>{formatMoney(reservation.credit.exposition_hors_reservation)}</dd></div>
+                  <div><dt>Reste de cette réservation</dt><dd>{formatMoney(reservation.credit.reste_reservation)}</dd></div>
+                  <div><dt>Exposition projetée</dt><dd>{formatMoney(reservation.credit.exposition_projetee)}</dd></div>
+                  <div><dt>Crédit disponible après</dt><dd>{formatMoney(reservation.credit.credit_disponible_apres)}</dd></div>
+                </dl>
+                {reservation.credit.depassement && (
+                  <div className="reservation-alert is-warning">L’exposition de cette société dépasse actuellement son plafond de crédit.</div>
+                )}
+              </>
+            )}
+          </section>
+
+          <ReservationPayments
+            key={reservation.id}
+            reservation={reservation}
+            onChanged={onPaymentChanged}
+          />
 
           {reservation.status === "annulé" && (
             <div className="reservation-alert is-warning">

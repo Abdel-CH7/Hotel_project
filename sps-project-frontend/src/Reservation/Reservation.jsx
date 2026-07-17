@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Box from "@mui/material/Box";
 import { Form } from "react-bootstrap";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -19,7 +19,7 @@ import {
   updateReservationStatus,
 } from "./api/reservationApi";
 import { useReservationForm } from "./hooks/useReservationForm";
-import { clientName, clientTypeLabel, formatDate, formatMoney, statusLabel } from "./reservationUtils";
+import { clientName, clientTypeLabel, formatDate, formatMoney, paymentStatusLabel, statusLabel } from "./reservationUtils";
 import { exportToExcel, exportToPdf, printRows } from "../utils/listExportUtils";
 import { normalizeSearchValue } from "../utils/textUtils";
 import "../style.css";
@@ -34,8 +34,14 @@ const RESERVATION_EXPORT_COLUMNS = [
   { key: "departure", label: "Départ" },
   { key: "nights", label: "Nuits" },
   { key: "rooms", label: "Chambres" },
-  { key: "status", label: "Statut" },
-  { key: "total", label: "Total" },
+  { key: "status", label: "Statut réservation" },
+  { key: "total", label: "Montant total" },
+  { key: "paymentStatus", label: "Statut règlement" },
+  { key: "paid", label: "Montant payé" },
+  { key: "remaining", label: "Reste à payer" },
+  { key: "paymentPolicy", label: "Politique de paiement" },
+  { key: "paymentDeadline", label: "Date d’échéance" },
+  { key: "deadlineStatus", label: "Statut échéance" },
 ];
 
 const nightsBetween = (start, end) => {
@@ -51,6 +57,8 @@ const Reservation = () => {
   const [loadError, setLoadError] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [clientTypeFilter, setClientTypeFilter] = useState("");
+  const [paymentFilter, setPaymentFilter] = useState("");
+  const [deadlineFilter, setDeadlineFilter] = useState("");
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [details, setDetails] = useState(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
@@ -59,6 +67,9 @@ const Reservation = () => {
   const [cancelReason, setCancelReason] = useState("");
   const [cancelError, setCancelError] = useState("");
   const [statusSaving, setStatusSaving] = useState(false);
+  const [expandedRoomRows, setExpandedRoomRows] = useState({});
+  const [roomDetailsCache, setRoomDetailsCache] = useState({});
+  const roomDetailRequests = useRef(new Map());
 
   const loadReservations = useCallback(async () => {
     setLoading(true);
@@ -76,14 +87,68 @@ const Reservation = () => {
     loadReservations();
   }, [loadReservations]);
 
+  const cacheReservationDetails = useCallback((reservation) => {
+    if (!reservation?.id || !Array.isArray(reservation.chambres)) return;
+    const cacheKey = String(reservation.id);
+    setRoomDetailsCache((current) => ({
+      ...current,
+      [cacheKey]: { data: reservation, loading: false, error: "" },
+    }));
+  }, []);
+
+  const loadExpandedRoomDetails = useCallback(async (reservationId) => {
+    const cacheKey = String(reservationId);
+    if (roomDetailRequests.current.has(cacheKey)) {
+      return roomDetailRequests.current.get(cacheKey);
+    }
+
+    setRoomDetailsCache((current) => ({
+      ...current,
+      [cacheKey]: { ...current[cacheKey], loading: true, error: "" },
+    }));
+
+    const request = getReservation(reservationId)
+      .then((reservation) => {
+        cacheReservationDetails(reservation);
+        return reservation;
+      })
+      .catch((error) => {
+        setRoomDetailsCache((current) => ({
+          ...current,
+          [cacheKey]: {
+            ...current[cacheKey],
+            loading: false,
+            error: error?.response?.data?.message || "Impossible de charger les chambres de cette réservation.",
+          },
+        }));
+        return null;
+      })
+      .finally(() => {
+        roomDetailRequests.current.delete(cacheKey);
+      });
+
+    roomDetailRequests.current.set(cacheKey, request);
+    return request;
+  }, [cacheReservationDetails]);
+
+  const toggleRoomDetails = useCallback((reservation) => {
+    const cacheKey = String(reservation.id);
+    const willOpen = !expandedRoomRows[cacheKey];
+    setExpandedRoomRows((current) => ({ ...current, [cacheKey]: !current[cacheKey] }));
+    if (willOpen && !roomDetailsCache[cacheKey]?.data) {
+      loadExpandedRoomDetails(reservation.id);
+    }
+  }, [expandedRoomRows, loadExpandedRoomDetails, roomDetailsCache]);
+
   const handleSaved = useCallback(async (reservation) => {
+    cacheReservationDetails(reservation);
     await loadReservations();
     await Swal.fire({
       icon: "success",
       title: "Succès",
       text: `La réservation ${reservation.reservation_num} a été enregistrée.`,
     });
-  }, [loadReservations]);
+  }, [cacheReservationDetails, loadReservations]);
 
   const formState = useReservationForm({ onSaved: handleSaved });
 
@@ -92,6 +157,8 @@ const Reservation = () => {
     return rows.filter((reservation) => {
       if (statusFilter && reservation.status !== statusFilter) return false;
       if (clientTypeFilter && reservation.client?.type !== clientTypeFilter) return false;
+      if (paymentFilter && reservation.reglement?.statut !== paymentFilter) return false;
+      if (deadlineFilter && reservation.echeance?.statut !== deadlineFilter) return false;
       if (!needle) return true;
       return [
         reservation.reservation_num,
@@ -103,9 +170,15 @@ const Reservation = () => {
         reservation.dates?.fin,
         statusLabel(reservation.status),
         reservation.total,
+        reservation.reglement?.statut_label,
+        reservation.reglement?.montant_paye,
+        reservation.reglement?.reste_a_payer,
+        reservation.politique_paiement?.label,
+        reservation.echeance?.statut_label,
+        reservation.echeance?.date,
       ].some((value) => normalizeSearchValue(value).includes(needle));
     });
-  }, [clientTypeFilter, statusFilter]);
+  }, [clientTypeFilter, deadlineFilter, paymentFilter, statusFilter]);
 
   const {
     searchTerm, page, rowsPerPage, filteredRows, visibleRows, totalRows,
@@ -116,10 +189,12 @@ const Reservation = () => {
     storageKey: "rowsPerPageReservations",
   });
 
-  const filtersActive = Boolean(searchTerm || statusFilter || clientTypeFilter);
+  const filtersActive = Boolean(searchTerm || statusFilter || clientTypeFilter || paymentFilter || deadlineFilter);
   const resetFilters = useCallback(() => {
     setStatusFilter("");
     setClientTypeFilter("");
+    setPaymentFilter("");
+    setDeadlineFilter("");
     setSearchTerm("");
     resetPage();
   }, [resetPage, setSearchTerm]);
@@ -135,6 +210,12 @@ const Reservation = () => {
     rooms: reservation.room_count,
     status: statusLabel(reservation.status),
     total: formatMoney(reservation.total),
+    paymentStatus: reservation.reglement?.statut_label || paymentStatusLabel(reservation.reglement?.statut),
+    paid: formatMoney(reservation.reglement?.montant_paye),
+    remaining: formatMoney(reservation.reglement?.reste_a_payer),
+    paymentPolicy: reservation.politique_paiement?.label || "-",
+    paymentDeadline: formatDate(reservation.echeance?.date),
+    deadlineStatus: reservation.echeance?.statut_label || "-",
   })), [filteredRows]);
 
   const exportExcel = () => exportToExcel({ rows: exportRows, columns: RESERVATION_EXPORT_COLUMNS, sheetName: "Réservations", filename: "reservations.xlsx" });
@@ -147,7 +228,9 @@ const Reservation = () => {
     setDetailsError("");
     setDetailsLoading(true);
     try {
-      setDetails(await getReservation(reservation.id));
+      const completeReservation = await getReservation(reservation.id);
+      setDetails(completeReservation);
+      cacheReservationDetails(completeReservation);
     } catch (error) {
       setDetailsError(error?.response?.data?.message || "Impossible de charger cette réservation.");
     } finally {
@@ -155,9 +238,36 @@ const Reservation = () => {
     }
   };
 
+  const refreshAfterPayment = useCallback(async (reservationId) => {
+    const [detailsResult, listResult] = await Promise.allSettled([
+      getReservation(reservationId),
+      listReservations(),
+    ]);
+
+    const detailsUpdated = detailsResult.status === "fulfilled";
+    const listUpdated = listResult.status === "fulfilled";
+
+    if (detailsUpdated) {
+      setDetails(detailsResult.value);
+      cacheReservationDetails(detailsResult.value);
+    }
+
+    if (listUpdated) {
+      setReservations(listResult.value);
+    }
+
+    return {
+      ok: detailsUpdated && listUpdated,
+      partial: detailsUpdated !== listUpdated,
+      detailsUpdated,
+      listUpdated,
+    };
+  }, [cacheReservationDetails]);
+
   const openEdit = async (reservation) => {
     try {
       const completeReservation = await getReservation(reservation.id);
+      cacheReservationDetails(completeReservation);
       formState.openEdit(completeReservation);
     } catch (error) {
       Swal.fire("Erreur", error?.response?.data?.message || "Impossible de charger cette réservation.", "error");
@@ -165,10 +275,23 @@ const Reservation = () => {
   };
 
   const confirmReservation = async (reservation) => {
+    if (reservation.confirmation?.autorisee === false) {
+      await Swal.fire({
+        icon: "warning",
+        title: "Confirmation impossible",
+        text: reservation.confirmation.message || "Les conditions de paiement ne permettent pas la confirmation.",
+      });
+      return;
+    }
+
     const confirmation = await Swal.fire({
       icon: "question",
       title: "Confirmer la réservation ?",
-      text: reservation.reservation_num,
+      text: [
+        reservation.reservation_num,
+        reservation.politique_paiement?.label,
+        reservation.confirmation?.message,
+      ].filter(Boolean).join(" · "),
       showCancelButton: true,
       confirmButtonText: "Confirmer",
       cancelButtonText: "Retour",
@@ -251,6 +374,19 @@ const Reservation = () => {
               <option value="confirmé">Confirmé</option>
               <option value="annulé">Annulé</option>
             </Form.Select>
+            <Form.Select className="app-filter-select" value={paymentFilter} onChange={(event) => { setPaymentFilter(event.target.value); resetPage(); }}>
+              <option value="">Tous les règlements</option>
+              <option value="non_payee">Non payées</option>
+              <option value="partiellement_payee">Partiellement payées</option>
+              <option value="payee">Payées</option>
+            </Form.Select>
+            <Form.Select className="app-filter-select" value={deadlineFilter} onChange={(event) => { setDeadlineFilter(event.target.value); resetPage(); }}>
+              <option value="">Toutes les échéances</option>
+              <option value="a_jour">À jour</option>
+              <option value="du_aujourdhui">Dues aujourd’hui</option>
+              <option value="en_retard">En retard</option>
+              <option value="solde_regle">Soldes réglés</option>
+            </Form.Select>
             <ListFilterReset active={filtersActive} onReset={resetFilters} />
           </div>
         </div>
@@ -276,6 +412,10 @@ const Reservation = () => {
             onEdit={openEdit}
             onConfirm={confirmReservation}
             onCancel={showCancel}
+            expandedRoomRows={expandedRoomRows}
+            roomDetailsCache={roomDetailsCache}
+            onToggleRooms={toggleRoomDetails}
+            onRetryRooms={loadExpandedRoomDetails}
           />
         )}
 
@@ -288,6 +428,7 @@ const Reservation = () => {
           loading={detailsLoading}
           error={detailsError}
           onHide={() => setDetailsOpen(false)}
+          onPaymentChanged={refreshAfterPayment}
         />
 
         <CancelReservationModal

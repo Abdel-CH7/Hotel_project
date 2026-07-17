@@ -2,7 +2,7 @@ import { Form } from "react-bootstrap";
 
 const ReductionSelector = ({ options, value, error, onChange }) => (
   <section className="reservation-form-section">
-    <h3>5. Réduction</h3>
+    <h3>6. Réduction</h3>
     <Form.Group>
       <Form.Label>Réduction appliquée</Form.Label>
       <Form.Select value={value} onChange={(event) => onChange(event.target.value)} isInvalid={Boolean(error)}>

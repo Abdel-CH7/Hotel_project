@@ -4,6 +4,8 @@ namespace App\Http\Resources;
 
 use App\Support\DecimalMoney;
 use App\Support\ReservationClientData;
+use App\Support\ReservationPaymentData;
+use App\Support\ReservationPolicyData;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -11,6 +13,9 @@ class ReservationResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $paymentSummary = ReservationPaymentData::summary($this->resource);
+        $credit = ReservationPolicyData::credit($this->resource);
+
         return [
             'id' => $this->id,
             'reservation_num' => $this->reservation_num,
@@ -31,6 +36,8 @@ class ReservationResource extends JsonResource
                     'allocation_id' => $allocation->id,
                     'chambre_id' => $allocation->chambre_id,
                     'num_chambre' => $allocation->chambre?->num_chambre,
+                    'etage' => $allocation->chambre?->etage?->etage,
+                    'vue' => $allocation->chambre?->vue?->vue,
                     'type_chambre' => [
                         'id' => $allocation->type_chambre_id,
                         'nom_snapshot' => $allocation->type_chambre_nom_snapshot,
@@ -80,6 +87,14 @@ class ReservationResource extends JsonResource
                 'reduction' => $this->montant_reduction,
                 'total' => $this->montant_total,
             ],
+            'reglement' => $paymentSummary,
+            'politique_paiement' => ReservationPolicyData::policy($this->resource),
+            'echeance' => ReservationPolicyData::deadline($this->resource, $paymentSummary),
+            'confirmation' => ReservationPolicyData::confirmation($this->resource, $paymentSummary, $credit),
+            'credit' => $credit,
+            'paiements' => $this->whenLoaded('paiements', fn () => $this->paiements
+                ->map(fn ($payment): array => ReservationPaymentData::payment($payment))
+                ->values()),
             'cancellation' => [
                 'cancelled_at' => $this->cancelled_at?->toIso8601String(),
                 'reason' => $this->cancellation_reason,

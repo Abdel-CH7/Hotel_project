@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use App\Models\Reservation;
 
 class UpdateReservationRequest extends FormRequest
 {
@@ -17,6 +18,9 @@ class UpdateReservationRequest extends FormRequest
         return [
             'client_type' => ['required', Rule::in(['societe', 'particulier'])],
             'client_id' => ['required', 'integer'],
+            'politique_paiement' => ['required', Rule::in(Reservation::paymentPolicyCodes())],
+            'montant_acompte_requis' => ['nullable', 'numeric', 'decimal:0,2', 'max:9999999999.99'],
+            'date_limite_paiement' => ['nullable', 'date_format:Y-m-d'],
             'date_debut' => ['required', 'date_format:Y-m-d'],
             'date_fin' => ['required', 'date_format:Y-m-d', 'after:date_debut'],
             'chambres' => ['required', 'array', 'min:1'],
@@ -45,6 +49,17 @@ class UpdateReservationRequest extends FormRequest
             'chambres.*.segments' => ['prohibited'],
             'repas.*.prix_unitaire_snapshot' => ['prohibited'],
             'repas.*.montant_total' => ['prohibited'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'politique_paiement.required' => 'La politique de paiement est obligatoire.',
+            'politique_paiement.in' => 'La politique de paiement sélectionnée est invalide.',
+            'montant_acompte_requis.numeric' => 'Le montant de l’acompte doit être un nombre valide.',
+            'montant_acompte_requis.decimal' => 'Le montant de l’acompte ne peut pas contenir plus de deux décimales.',
+            'date_limite_paiement.date_format' => 'La date limite de paiement doit respecter le format AAAA-MM-JJ.',
         ];
     }
 }

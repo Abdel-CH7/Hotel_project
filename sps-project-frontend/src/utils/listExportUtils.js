@@ -4,6 +4,7 @@ import * as XLSX from "xlsx";
 
 const normalizeColumns = (rows, columns) => columns?.length ? columns : Object.keys(rows[0] || {}).map((key) => ({ key, label: key }));
 const displayValue = (value) => value === null || value === undefined ? "" : typeof value === "boolean" ? (value ? "Oui" : "Non") : String(value);
+const normalizePdfText = (value) => displayValue(value).replace(/[\u00A0\u202F]/g, " ");
 const escapeHtml = (value) => displayValue(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 const generationLabel = () => new Intl.DateTimeFormat("fr-FR", {
   dateStyle: "short",
@@ -45,15 +46,15 @@ export const exportToPdf = ({
   ]));
 
   document.setFontSize(12);
-  document.text(title, 8, 10);
+  document.text(normalizePdfText(title), 8, 10);
   document.setFontSize(7.5);
   document.setTextColor(100);
   document.text(`Généré le ${generationLabel()}`, 8, 15);
   document.setTextColor(0);
   document.autoTable({
     startY: 19,
-    head: [finalColumns.map((column) => column.label)],
-    body: rows.map((row) => finalColumns.map((column) => displayValue(row[column.key]))),
+    head: [finalColumns.map((column) => normalizePdfText(column.label))],
+    body: rows.map((row) => finalColumns.map((column) => normalizePdfText(row[column.key]))),
     margin: { top: 19, right: 6, bottom: 8, left: 6 },
     showHead: "everyPage",
     rowPageBreak: "avoid",

@@ -12,9 +12,11 @@ use App\Http\Resources\AvailableRoomResource;
 use App\Http\Resources\ReservationResource;
 use App\Http\Resources\ReservationSummaryResource;
 use App\Models\Reservation;
+use App\Models\ReservationPaiement;
 use App\Services\ReservationApplicationService;
 use App\Services\ReservationAvailabilityService;
 use App\Services\ReservationPricingService;
+use App\Services\ReservationPolicyService;
 use App\Services\ReservationTariffPeriodResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -26,7 +28,8 @@ class ReservationController extends Controller
         private readonly ReservationApplicationService $reservationService,
         private readonly ReservationAvailabilityService $availabilityService,
         private readonly ReservationTariffPeriodResolver $periodResolver,
-        private readonly ReservationPricingService $pricingService
+        private readonly ReservationPricingService $pricingService,
+        private readonly ReservationPolicyService $policyService
     ) {
     }
 
@@ -35,8 +38,17 @@ class ReservationController extends Controller
         $reservations = Reservation::query()
             ->with('client')
             ->withCount('reservationRooms')
+            ->withSum([
+                'paiements as valid_paid_amount' => fn ($query) => $query
+                    ->where('statut', ReservationPaiement::STATUS_VALIDE),
+            ], 'montant')
+            ->withCount([
+                'paiements as valid_payments_count' => fn ($query) => $query
+                    ->where('statut', ReservationPaiement::STATUS_VALIDE),
+            ])
             ->latest('id')
             ->get();
+        $this->policyService->attachCreditContexts($reservations);
 
         return ReservationSummaryResource::collection($reservations);
     }

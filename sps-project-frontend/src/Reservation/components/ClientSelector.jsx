@@ -3,6 +3,38 @@ import { formatMoney } from "../reservationUtils";
 
 const valueOrDash = (value) => (value === null || value === undefined || value === "" ? "—" : value);
 
+const RegisteredChildrenReference = ({ client }) => {
+  const children = Array.isArray(client?.enfants_enregistres) ? client.enfants_enregistres : [];
+  const visibleChildren = children.slice(0, 4);
+  const remaining = Math.max(children.length - visibleChildren.length, 0);
+
+  return (
+    <div className="reservation-client-children-reference">
+      <div className="reservation-client-children-heading">
+        <h4>Enfants enregistrés</h4>
+        <span>{children.length}</span>
+      </div>
+      {children.length > 0 ? (
+        <ul>
+          {visibleChildren.map((child) => (
+            <li key={child.id}>
+              {[child.prenom, child.nom].filter(Boolean).join(" ") || "Enfant sans nom"}
+              {" — "}
+              {child.age === null || child.age === undefined ? "Âge non renseigné" : `${child.age} ans`}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="reservation-client-children-empty">Aucun enfant enregistré pour ce client.</p>
+      )}
+      {remaining > 0 && <p className="reservation-client-children-more">+ {remaining} autre(s)</p>}
+      <p className="reservation-client-children-note">
+        Ces informations sont uniquement une référence. Indiquez dans chaque chambre les enfants participant réellement à ce séjour.
+      </p>
+    </div>
+  );
+};
+
 const ClientSelector = ({ form, clients, loading, errors, setField, fallbackClient }) => {
   const sourceOptions = clients[form.client_type] || [];
   const hasFallback = fallbackClient
@@ -61,14 +93,17 @@ const ClientSelector = ({ form, clients, loading, errors, setField, fallbackClie
           </div>
 
           {selectedClient.type === "particulier" ? (
-            <dl className="reservation-client-summary-grid">
-              <div><dt>Code</dt><dd>{valueOrDash(selectedClient.code)}</dd></div>
-              <div><dt>Nom complet</dt><dd>{valueOrDash(selectedClient.display_name)}</dd></div>
-              <div><dt>Pièce d’identité</dt><dd>{[selectedClient.type_piece, selectedClient.numero_piece].filter(Boolean).join(" ") || "—"}</dd></div>
-              <div><dt>Téléphone</dt><dd>{valueOrDash(selectedClient.telephone)}</dd></div>
-              <div><dt>Nationalité</dt><dd>{valueOrDash(selectedClient.nationalite)}</dd></div>
-              <div><dt>Pays / Région / Ville</dt><dd>{[selectedClient.pays, selectedClient.region, selectedClient.ville].filter(Boolean).join(" / ") || "—"}</dd></div>
-            </dl>
+            <>
+              <dl className="reservation-client-summary-grid">
+                <div><dt>Code</dt><dd>{valueOrDash(selectedClient.code)}</dd></div>
+                <div><dt>Nom complet</dt><dd>{valueOrDash(selectedClient.display_name)}</dd></div>
+                <div><dt>Pièce d’identité</dt><dd>{[selectedClient.type_piece, selectedClient.numero_piece].filter(Boolean).join(" ") || "—"}</dd></div>
+                <div><dt>Téléphone</dt><dd>{valueOrDash(selectedClient.telephone)}</dd></div>
+                <div><dt>Nationalité</dt><dd>{valueOrDash(selectedClient.nationalite)}</dd></div>
+                <div><dt>Pays / Région / Ville</dt><dd>{[selectedClient.pays, selectedClient.region, selectedClient.ville].filter(Boolean).join(" / ") || "—"}</dd></div>
+              </dl>
+              <RegisteredChildrenReference client={selectedClient} />
+            </>
           ) : (
             <>
               <dl className="reservation-client-summary-grid">

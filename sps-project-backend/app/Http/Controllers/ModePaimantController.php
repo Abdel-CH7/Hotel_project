@@ -74,6 +74,11 @@ class ModePaimantController extends Controller
     public function destroy($id)
     {
         $mode = ModePaimant::findOrFail($id);
+        if (DB::table('reservation_paiements')->where('mode_paiement_id', $mode->id)->exists()) {
+            return response()->json([
+                'message' => 'Ce mode de paiement ne peut pas être supprimé car il est utilisé par un paiement de réservation.',
+            ], 409);
+        }
         if ($this->isUsedByClient('mod_id', $mode->id)) {
             return response()->json([
                 'message' => 'Ce mode de paiement ne peut pas être supprimé car il est utilisé par un ou plusieurs clients.',

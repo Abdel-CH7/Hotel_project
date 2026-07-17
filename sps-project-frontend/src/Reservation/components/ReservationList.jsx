@@ -1,5 +1,13 @@
+import { Fragment } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faBan, faCheck, faEdit, faEye } from "@fortawesome/free-solid-svg-icons";
+import {
+  faBan,
+  faCheck,
+  faChevronDown,
+  faChevronUp,
+  faEdit,
+  faEye,
+} from "@fortawesome/free-solid-svg-icons";
 import ListPagination from "../../components/ListPagination";
 import {
   clientName,
@@ -7,6 +15,8 @@ import {
   formatDate,
   formatMoney,
   isReservationEditable,
+  paymentStatusClass,
+  paymentStatusLabel,
   statusClass,
   statusLabel,
 } from "../reservationUtils";
@@ -28,6 +38,10 @@ const ReservationList = ({
   onEdit,
   onConfirm,
   onCancel,
+  expandedRoomRows,
+  roomDetailsCache,
+  onToggleRooms,
+  onRetryRooms,
 }) => (
   <div className="app-card app-table-card reservation-table-card">
     <div className="app-table-wrapper reservation-table-wrapper">
@@ -42,58 +56,154 @@ const ReservationList = ({
             <th>Chambres</th>
             <th>Statut</th>
             <th>Montant total</th>
+            <th>Règlement</th>
             <th>Actions</th>
           </tr>
         </thead>
         <tbody>
           {reservations.length === 0 ? (
-            <tr><td colSpan="9" className="text-center">Aucune réservation disponible</td></tr>
+            <tr><td colSpan="10" className="text-center">Aucune réservation disponible</td></tr>
           ) : reservations.map((reservation) => {
             const editable = isReservationEditable(reservation);
+            const confirmationAllowed = reservation.confirmation?.autorisee !== false;
+            const cacheKey = String(reservation.id);
+            const expanded = Boolean(expandedRoomRows[cacheKey]);
+            const roomState = roomDetailsCache[cacheKey] || {};
+            const rooms = roomState.data?.chambres || [];
+
             return (
-              <tr key={reservation.id}>
-                <td>
-                  <strong>{reservation.reservation_num}</strong>
-                  {reservation.legacy_pricing && <span className="reservation-history-badge">Historique</span>}
-                </td>
-                <td>
-                  <div className="reservation-client-cell">
-                    <strong>{clientName(reservation)}</strong>
-                    <span className={`reservation-client-type-badge is-${reservation.client?.type}`}>
-                      {clientTypeLabel(reservation)}
-                    </span>
-                    {reservation.client?.code && <small>{reservation.client.code}</small>}
-                  </div>
-                </td>
-                <td>{formatDate(reservation.dates?.debut)}</td>
-                <td>{formatDate(reservation.dates?.fin)}</td>
-                <td>{nightsBetween(reservation.dates?.debut, reservation.dates?.fin)}</td>
-                <td>{reservation.room_count}</td>
-                <td><span className={`app-status-badge ${statusClass(reservation.status)}`}>{statusLabel(reservation.status)}</span></td>
-                <td>{formatMoney(reservation.total)}</td>
-                <td>
-                  <div className="app-table-actions reservation-table-actions">
-                    <button type="button" className="app-table-action is-muted" onClick={() => onView(reservation)} title="Voir" aria-label="Voir">
-                      <FontAwesomeIcon icon={faEye} />
+              <Fragment key={reservation.id}>
+                <tr>
+                  <td>
+                    <strong>{reservation.reservation_num}</strong>
+                    {reservation.legacy_pricing && <span className="reservation-history-badge">Historique</span>}
+                  </td>
+                  <td>
+                    <div className="reservation-client-cell">
+                      <strong>{clientName(reservation)}</strong>
+                      <span className={`reservation-client-type-badge is-${reservation.client?.type}`}>
+                        {clientTypeLabel(reservation)}
+                      </span>
+                      {reservation.client?.code && <small>{reservation.client.code}</small>}
+                    </div>
+                  </td>
+                  <td>{formatDate(reservation.dates?.debut)}</td>
+                  <td>{formatDate(reservation.dates?.fin)}</td>
+                  <td>{nightsBetween(reservation.dates?.debut, reservation.dates?.fin)}</td>
+                  <td>
+                    <button
+                      type="button"
+                      className="reservation-room-count-button"
+                      onClick={() => onToggleRooms(reservation)}
+                      aria-expanded={expanded}
+                      aria-label={`${expanded ? "Masquer" : "Afficher"} les chambres de la réservation ${reservation.reservation_num}`}
+                    >
+                      <span>{reservation.room_count}</span>
+                      <FontAwesomeIcon icon={expanded ? faChevronUp : faChevronDown} />
                     </button>
-                    {editable && (
-                      <button type="button" className="app-table-action is-edit" onClick={() => onEdit(reservation)} title="Modifier" aria-label="Modifier">
-                        <FontAwesomeIcon icon={faEdit} />
+                  </td>
+                  <td><span className={`app-status-badge ${statusClass(reservation.status)}`}>{statusLabel(reservation.status)}</span></td>
+                  <td>{formatMoney(reservation.total)}</td>
+                  <td>
+                    <div className="reservation-payment-cell">
+                      <span className={`app-status-badge ${paymentStatusClass(reservation.reglement?.statut)}`}>
+                        {reservation.reglement?.statut_label || paymentStatusLabel(reservation.reglement?.statut)}
+                      </span>
+                      <small>{formatMoney(reservation.reglement?.montant_paye)} / {formatMoney(reservation.reglement?.total)}</small>
+                      <small>{reservation.politique_paiement?.label || "—"}</small>
+                      {["du_aujourdhui", "en_retard"].includes(reservation.echeance?.statut) && (
+                        <span className={`app-status-badge ${reservation.echeance.statut === "en_retard" ? "is-danger" : "is-warning"}`}>
+                          {reservation.echeance.statut_label}
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td>
+                    <div className="app-table-actions reservation-table-actions">
+                      <button type="button" className="app-table-action is-muted" onClick={() => onView(reservation)} title="Voir" aria-label="Voir">
+                        <FontAwesomeIcon icon={faEye} />
                       </button>
-                    )}
-                    {editable && reservation.status === "en attente" && (
-                      <button type="button" className="app-table-action is-success" onClick={() => onConfirm(reservation)} title="Confirmer" aria-label="Confirmer">
-                        <FontAwesomeIcon icon={faCheck} />
-                      </button>
-                    )}
-                    {editable && ["en attente", "confirmé"].includes(reservation.status) && (
-                      <button type="button" className="app-table-action is-delete" onClick={() => onCancel(reservation)} title="Annuler" aria-label="Annuler">
-                        <FontAwesomeIcon icon={faBan} />
-                      </button>
-                    )}
-                  </div>
-                </td>
-              </tr>
+                      {editable && (
+                        <button type="button" className="app-table-action is-edit" onClick={() => onEdit(reservation)} title="Modifier" aria-label="Modifier">
+                          <FontAwesomeIcon icon={faEdit} />
+                        </button>
+                      )}
+                      {editable && reservation.status === "en attente" && (
+                        <button
+                          type="button"
+                          className={`app-table-action ${confirmationAllowed ? "is-success" : "is-muted"}`}
+                          onClick={() => onConfirm(reservation)}
+                          title={confirmationAllowed ? "Confirmer" : reservation.confirmation?.message}
+                          aria-label={confirmationAllowed ? "Confirmer" : "Afficher la condition de confirmation"}
+                        >
+                          <FontAwesomeIcon icon={faCheck} />
+                        </button>
+                      )}
+                      {editable && ["en attente", "confirmé"].includes(reservation.status) && (
+                        <button type="button" className="app-table-action is-delete" onClick={() => onCancel(reservation)} title="Annuler" aria-label="Annuler">
+                          <FontAwesomeIcon icon={faBan} />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+
+                {expanded && (
+                  <tr className="reservation-expanded-room-row">
+                    <td colSpan="10">
+                      <div className="reservation-expanded-room-content">
+                        {roomState.loading && <div className="reservation-inline-loading">Chargement des chambres…</div>}
+
+                        {!roomState.loading && roomState.error && (
+                          <div className="reservation-expanded-room-error" role="alert">
+                            <span>{roomState.error}</span>
+                            <button type="button" className="app-secondary-button" onClick={() => onRetryRooms(reservation.id)}>
+                              Réessayer
+                            </button>
+                          </div>
+                        )}
+
+                        {!roomState.loading && !roomState.error && roomState.data && (
+                          rooms.length === 0 ? (
+                            <p className="reservation-expanded-room-empty">Aucune chambre détaillée pour cette réservation.</p>
+                          ) : (
+                            <div className="reservation-expanded-room-table-wrapper">
+                              <table className="app-table reservation-expanded-room-table">
+                                <thead>
+                                  <tr>
+                                    <th>Numéro de chambre</th>
+                                    <th>Type</th>
+                                    <th>Étage</th>
+                                    <th>Vue</th>
+                                    <th>Adultes</th>
+                                    <th>Enfants occupants</th>
+                                    <th>Lits supplémentaires</th>
+                                    <th>Montant de la chambre</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {rooms.map((room) => (
+                                    <tr key={room.allocation_id || room.chambre_id}>
+                                      <td>{room.num_chambre || room.chambre_id || "—"}</td>
+                                      <td>{room.type_chambre?.nom_snapshot || "—"}</td>
+                                      <td>{room.etage || "—"}</td>
+                                      <td>{room.vue || "—"}</td>
+                                      <td>{room.adultes ?? "—"}</td>
+                                      <td>{room.enfants ?? "—"}</td>
+                                      <td>{room.lits_supplementaires ?? "—"}</td>
+                                      <td>{formatMoney(room.montant_total)}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             );
           })}
         </tbody>

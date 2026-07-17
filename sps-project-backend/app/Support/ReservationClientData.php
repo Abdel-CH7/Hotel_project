@@ -63,6 +63,9 @@ final class ReservationClientData
             $document !== '' ? $document : null,
             $client->tele,
         ], self::isPresent(...));
+        $children = $client->relationLoaded('info_clients')
+            ? $client->info_clients
+            : collect();
 
         return [
             'id' => (int) $client->id,
@@ -77,6 +80,12 @@ final class ReservationClientData
             'pays' => self::nullable(config('client_locations.countries.'.$client->pays_code)),
             'region' => self::nullable($client->region_nom),
             'ville' => self::nullable($client->ville),
+            'enfants_enregistres' => $children->map(fn ($child): array => [
+                'id' => (int) $child->id,
+                'nom' => self::nullable($child->name),
+                'prenom' => self::nullable($child->prenom),
+                'age' => $child->age === null ? null : (int) $child->age,
+            ])->values()->all(),
         ];
     }
 
