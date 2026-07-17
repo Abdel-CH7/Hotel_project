@@ -8,7 +8,25 @@ use Illuminate\Database\Eloquent\Model;
 class Client extends Model
 {
     use HasFactory;
+
+    public const ORGANIZATION_TYPES = [
+        'entreprise' => 'Entreprise',
+        'agence_voyages' => 'Agence de voyages',
+        'tour_operateur' => 'Tour-opérateur',
+        'organisme_public' => 'Administration / organisme public',
+        'association_ong' => 'Association / ONG',
+        'autre' => 'Autre',
+    ];
+
     protected $guarded=[];
+
+    protected function casts(): array
+    {
+        return [
+            'credit_autorise' => 'boolean',
+            'plafond_credit' => 'decimal:2',
+        ];
+    }
 
 
     public function user() {
@@ -32,6 +50,10 @@ class Client extends Model
 public function secteur()
 {
     return $this->belongsTo(SecteurClient::class ,'secteur_id');
+}
+public function modeReglement()
+{
+    return $this->belongsTo(ModePaimant::class, 'mod_id');
 }
 public function represantant()
 {

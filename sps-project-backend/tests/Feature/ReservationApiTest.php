@@ -368,7 +368,13 @@ class ReservationApiTest extends TestCase
         $list = $this->getJson('/api/reservations')->assertOk();
         $this->assertNotEmpty($list->json('data'));
         $this->assertArrayNotHasKey('chambres', $list->json('data.0'));
-        $this->assertSame([], $clientQueries);
+        $this->assertGreaterThanOrEqual(1, count($clientQueries));
+        $this->assertLessThanOrEqual(2, count($clientQueries));
+        $this->assertSame(
+            count($clientQueries),
+            count(array_unique($clientQueries)),
+            'Reservation list must eager-load each client table once instead of querying per row.'
+        );
 
         $this->getJson("/api/reservations/{$id}")
             ->assertOk()

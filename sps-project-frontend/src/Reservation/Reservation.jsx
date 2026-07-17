@@ -19,7 +19,7 @@ import {
   updateReservationStatus,
 } from "./api/reservationApi";
 import { useReservationForm } from "./hooks/useReservationForm";
-import { clientName, formatDate, formatMoney, statusLabel } from "./reservationUtils";
+import { clientName, clientTypeLabel, formatDate, formatMoney, statusLabel } from "./reservationUtils";
 import { exportToExcel, exportToPdf, printRows } from "../utils/listExportUtils";
 import { normalizeSearchValue } from "../utils/textUtils";
 import "../style.css";
@@ -27,6 +27,8 @@ import "./Reservation.css";
 
 const RESERVATION_EXPORT_COLUMNS = [
   { key: "number", label: "Numéro" },
+  { key: "clientType", label: "Type de client" },
+  { key: "clientCode", label: "Code client" },
   { key: "client", label: "Client" },
   { key: "arrival", label: "Arrivée" },
   { key: "departure", label: "Départ" },
@@ -94,6 +96,9 @@ const Reservation = () => {
       return [
         reservation.reservation_num,
         clientName(reservation),
+        reservation.client?.current_display_name,
+        reservation.client?.code,
+        clientTypeLabel(reservation),
         reservation.dates?.debut,
         reservation.dates?.fin,
         statusLabel(reservation.status),
@@ -121,6 +126,8 @@ const Reservation = () => {
 
   const exportRows = useMemo(() => filteredRows.map((reservation) => ({
     number: reservation.reservation_num,
+    clientType: clientTypeLabel(reservation),
+    clientCode: reservation.client?.code || "-",
     client: clientName(reservation),
     arrival: formatDate(reservation.dates?.debut),
     departure: formatDate(reservation.dates?.fin),

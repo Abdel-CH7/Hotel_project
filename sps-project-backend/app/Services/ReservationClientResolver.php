@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Exceptions\ReservationDomainException;
 use App\Models\Client;
 use App\Models\ClientParticulier;
+use App\Support\ReservationClientData;
 
 class ReservationClientResolver
 {
@@ -33,32 +34,8 @@ class ReservationClientResolver
         return [
             'client_type' => $clientType,
             'client_id' => $client->id,
-            'display_name' => $this->displayName($clientType, $client),
+            'display_name' => ReservationClientData::currentDisplayName($clientType, $client),
             'client' => $client,
         ];
-    }
-
-    private function displayName(string $clientType, object $client): string
-    {
-        if ($clientType === 'societe') {
-            return $this->firstNonEmpty($client->raison_sociale, $client->CodeClient);
-        }
-
-        return $this->firstNonEmpty(
-            trim(trim((string) $client->name).' '.trim((string) $client->prenom)),
-            $client->CodeClient
-        );
-    }
-
-    private function firstNonEmpty(?string ...$values): string
-    {
-        foreach ($values as $value) {
-            $trimmed = trim((string) $value);
-            if ($trimmed !== '') {
-                return $trimmed;
-            }
-        }
-
-        return '';
     }
 }

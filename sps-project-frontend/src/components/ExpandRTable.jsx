@@ -28,6 +28,7 @@ const ExpandRTable = ({
   uiVariant = "default",
   externalPagination = false,
   paginationComponent = null,
+  forceHorizontalScroll = false,
 }) => {
   const hasActions = handleEdit || handleDelete || renderCustomActions;
   const displayData = filteredData || data || [];
@@ -37,7 +38,7 @@ const isAppTable = uiVariant === "app";
 const scrollContainerRef = useRef(null);
 
 const checkboxColumnWidth = 50;
-const actionColumnWidth = 80;
+const actionColumnWidth = forceHorizontalScroll ? 92 : 80;
 
 const getColumnWidth = (column) => {
   return Number(column.width || column.minWidth || 140);
@@ -59,12 +60,14 @@ const totalMinWidth = fixedColumnsWidth + dataColumnsWidth;
 */
 const shouldScrollHorizontally =
   isAppTable &&
-  isMobile &&
   containerWidth > 0 &&
+  (forceHorizontalScroll || isMobile) &&
   totalMinWidth > containerWidth;
 
 const tableWidth =
-  isAppTable && containerWidth > 0
+  isAppTable && forceHorizontalScroll
+    ? totalMinWidth
+    : isAppTable && containerWidth > 0
     ? shouldScrollHorizontally
       ? totalMinWidth
       : containerWidth
@@ -80,6 +83,7 @@ const getEffectiveColumnWidth = (column) => {
 
   if (
     !isAppTable ||
+    forceHorizontalScroll ||
     shouldScrollHorizontally ||
     containerWidth <= 0 ||
     dataColumnsWidth <= 0
@@ -210,7 +214,7 @@ useEffect(() => {
         style={{
   width: "100%",
   overflowX: isAppTable
-    ? shouldScrollHorizontally
+    ? forceHorizontalScroll || shouldScrollHorizontally
       ? "auto"
       : "hidden"
     : "auto",
@@ -220,9 +224,9 @@ useEffect(() => {
         <table
           className={tableClassName}
           style={{
-  width: isAppTable && containerWidth > 0 ? `${tableWidth}px` : "100%",
+  width: isAppTable && (forceHorizontalScroll || containerWidth > 0) ? `${tableWidth}px` : "100%",
   minWidth:
-    isAppTable && containerWidth > 0
+    isAppTable && (forceHorizontalScroll || containerWidth > 0)
       ? `${tableWidth}px`
       : isMobile
       ? `${totalMinWidth}px`
@@ -270,7 +274,7 @@ maxWidth: `${checkboxColumnWidth}px`,
               {columns.map((column) => (
                 <th
                   key={column.key}
-                  className="sticky-header"
+                  className={`sticky-header ${column.stickyRight ? 'sticky-column-right sticky-shadow-right' : ''}`.trim()}
                   style={{
 width: isAppTable ? `${getEffectiveColumnWidth(column)}px` : undefined,
 minWidth: isAppTable
@@ -284,6 +288,12 @@ overflow: "hidden",
 textOverflow: "ellipsis",
 whiteSpace: "nowrap",
                     borderColor: isAppTable ? "#00afaa" : undefined,
+                    ...(column.stickyRight ? {
+                      position: 'sticky',
+                      right: `${column.stickyRightOffset ?? actionColumnWidth}px`,
+                      zIndex: 3,
+                      backgroundColor: '#00afaa',
+                    } : {}),
                   }}
                 >
                   {column.label}
@@ -299,6 +309,8 @@ minWidth: `${actionColumnWidth}px`,
 maxWidth: `${actionColumnWidth}px`,
                     padding: isAppTable ? '8px' : '10px',
                     textAlign: 'center',
+                    right: 0,
+                    zIndex: 4,
                   }}
                 >
                   Action
@@ -336,6 +348,7 @@ maxWidth: `${checkboxColumnWidth}px`,
                   {columns.map((column) => (
                     <td
                       key={`${item.id}-${column.key}`}
+                      className={column.stickyRight ? 'sticky-column-right sticky-shadow-right' : undefined}
                       style={{
                         width: isAppTable ? `${getEffectiveColumnWidth(column)}px` : undefined,
 minWidth: isAppTable ? `${getEffectiveColumnWidth(column)}px` : undefined,
@@ -347,6 +360,12 @@ overflow: "hidden",
 textOverflow: "ellipsis",
 whiteSpace: "nowrap",
 textAlign: isAppTable ? "center" : "left",
+                        ...(column.stickyRight ? {
+                          position: 'sticky',
+                          right: `${column.stickyRightOffset ?? actionColumnWidth}px`,
+                          zIndex: 2,
+                          backgroundColor: 'white',
+                        } : {}),
                       }}
                     >
                       {column.render
@@ -365,9 +384,15 @@ maxWidth: `${actionColumnWidth}px`,
                         padding: '8px',
                         borderBottom: '1px solid #eee',
                         textAlign: 'center',
+                        right: 0,
+                        zIndex: 3,
+                        backgroundColor: 'white',
                       }}
                     >
-                      <div className="app-table-actions">
+                      <div
+                        className="app-table-actions"
+                        style={forceHorizontalScroll ? { gap: '12px', flexWrap: 'nowrap' } : undefined}
+                      >
                         {handleEdit && (
                           <FontAwesomeIcon
                             onClick={() => handleEdit(item)}

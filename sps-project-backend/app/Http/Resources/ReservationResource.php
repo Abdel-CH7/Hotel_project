@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Support\DecimalMoney;
+use App\Support\ReservationClientData;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -16,11 +17,7 @@ class ReservationResource extends JsonResource
             'pricing_version' => $this->pricing_version,
             'legacy_pricing' => (bool) $this->legacy_pricing,
             'status' => $this->status,
-            'client' => [
-                'type' => $this->client_type,
-                'id' => $this->client_id,
-                'display_name' => $this->client_name_snapshot,
-            ],
+            'client' => ReservationClientData::reservationClient($this->resource, true),
             'dates' => [
                 'reservation' => $this->reservation_date?->format('Y-m-d'),
                 'debut' => $this->date_debut?->format('Y-m-d'),

@@ -3,6 +3,7 @@ import { faBan, faCheck, faEdit, faEye } from "@fortawesome/free-solid-svg-icons
 import ListPagination from "../../components/ListPagination";
 import {
   clientName,
+  clientTypeLabel,
   formatDate,
   formatMoney,
   isReservationEditable,
@@ -55,7 +56,15 @@ const ReservationList = ({
                   <strong>{reservation.reservation_num}</strong>
                   {reservation.legacy_pricing && <span className="reservation-history-badge">Historique</span>}
                 </td>
-                <td>{clientName(reservation)}</td>
+                <td>
+                  <div className="reservation-client-cell">
+                    <strong>{clientName(reservation)}</strong>
+                    <span className={`reservation-client-type-badge is-${reservation.client?.type}`}>
+                      {clientTypeLabel(reservation)}
+                    </span>
+                    {reservation.client?.code && <small>{reservation.client.code}</small>}
+                  </div>
+                </td>
                 <td>{formatDate(reservation.dates?.debut)}</td>
                 <td>{formatDate(reservation.dates?.fin)}</td>
                 <td>{nightsBetween(reservation.dates?.debut, reservation.dates?.fin)}</td>

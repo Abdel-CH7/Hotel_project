@@ -45,6 +45,21 @@ class ReservationClientDeletionProtectionTest extends TestCase
         $this->assertDatabaseMissing('clients_particulier', ['id' => $individual->id]);
     }
 
+    public function test_cancelled_reservation_still_protects_its_historical_client(): void
+    {
+        $company = $this->createCompanyClient();
+        $individual = $this->createIndividualClient();
+        $companyReservation = $this->reservationForClient('societe', $company->id);
+        $individualReservation = $this->reservationForClient('particulier', $individual->id);
+        $companyReservation->update(['status' => 'annulé', 'cancelled_at' => now()]);
+        $individualReservation->update(['status' => 'annulé', 'cancelled_at' => now()]);
+
+        $this->deleteJson("/api/clients/{$company->id}")->assertStatus(409);
+        $this->deleteJson("/api/clients_particulier/{$individual->id}")->assertStatus(409);
+        $this->assertDatabaseHas('clients', ['id' => $company->id]);
+        $this->assertDatabaseHas('clients_particulier', ['id' => $individual->id]);
+    }
+
     private function reservationForClient(string $type, int $clientId): Reservation
     {
         return Reservation::create([

@@ -30,11 +30,13 @@ axios.interceptors.response.use(
         return response;
     },
     error => {
-        console.error('Response Error:', {
-            status: error.response?.status,
-            data: error.response?.data,
-            headers: error.response?.headers
-        });
+        if (error.response?.status !== 422) {
+            console.error('Response Error:', {
+                status: error.response?.status,
+                data: error.response?.data,
+                headers: error.response?.headers
+            });
+        }
         return Promise.reject(error);
     }
 );
@@ -79,4 +81,4 @@ const authService = {
     }
 };
 
-export default authService; 
+export default authService;

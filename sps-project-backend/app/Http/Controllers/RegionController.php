@@ -6,6 +6,7 @@ use App\Models\Region;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
 class RegionController extends Controller
@@ -61,7 +62,32 @@ class RegionController extends Controller
      */
     public function destroy($id)
     {
-        Region::findOrFail($id)->delete();
+        $region = Region::findOrFail($id);
+        if ($this->isUsedByClient('region_id', $region->id)) {
+            return response()->json([
+                'message' => 'Cette région ne peut pas être supprimée car elle est utilisée par un ou plusieurs clients.',
+            ], 409);
+        }
+
+        try {
+            $region->delete();
+        } catch (QueryException $exception) {
+            return response()->json([
+                'message' => 'Cette région ne peut pas être supprimée car elle est utilisée par un ou plusieurs clients.',
+            ], 409);
+        }
+
         return response()->json(null, 204);
+    }
+
+    private function isUsedByClient(string $column, int $id): bool
+    {
+        foreach (['clients_particulier', 'clients', 'site_clients', 'site_clients_particulier'] as $table) {
+            if (DB::table($table)->where($column, $id)->exists()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\ModePaimant;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ModePaimantController extends Controller
 {
@@ -71,9 +73,32 @@ class ModePaimantController extends Controller
      */
     public function destroy($id)
     {
-        // Supprimer un mode de paiement
         $mode = ModePaimant::findOrFail($id);
-        $mode->delete();
-        return response()->json(null, 204); // 204 No Content
+        if ($this->isUsedByClient('mod_id', $mode->id)) {
+            return response()->json([
+                'message' => 'Ce mode de paiement ne peut pas être supprimé car il est utilisé par un ou plusieurs clients.',
+            ], 409);
+        }
+
+        try {
+            $mode->delete();
+        } catch (QueryException $exception) {
+            return response()->json([
+                'message' => 'Ce mode de paiement ne peut pas être supprimé car il est utilisé par un ou plusieurs clients.',
+            ], 409);
+        }
+
+        return response()->json(null, 204);
+    }
+
+    private function isUsedByClient(string $column, int $id): bool
+    {
+        foreach (['clients_particulier', 'clients', 'site_clients', 'site_clients_particulier'] as $table) {
+            if (DB::table($table)->where($column, $id)->exists()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

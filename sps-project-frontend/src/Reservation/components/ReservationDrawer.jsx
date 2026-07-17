@@ -66,6 +66,7 @@ const ReservationDrawer = ({ formState }) => {
         loading={clientsLoading}
         errors={errors}
         setField={setField}
+        fallbackClient={editingReservation?.client}
       />
 
       <section className="reservation-form-section">

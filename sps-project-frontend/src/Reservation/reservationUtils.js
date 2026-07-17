@@ -26,6 +26,11 @@ export const statusClass = (status) => ({
 
 export const clientName = (reservation) => reservation?.client?.display_name || "Client indisponible";
 
+export const clientTypeLabel = (reservation) => reservation?.client?.type_label || ({
+  societe: "Société",
+  particulier: "Particulier",
+}[reservation?.client?.type] || "-");
+
 export const escapeHtml = (value) => String(value ?? "").replace(/[&<>'"]/g, (character) => ({
   "&": "&amp;",
   "<": "&lt;",

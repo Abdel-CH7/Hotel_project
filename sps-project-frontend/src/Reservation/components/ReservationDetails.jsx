@@ -1,5 +1,5 @@
 import { Modal } from "react-bootstrap";
-import { clientName, formatDate, formatMoney, statusClass, statusLabel } from "../reservationUtils";
+import { clientName, clientTypeLabel, formatDate, formatMoney, statusClass, statusLabel } from "../reservationUtils";
 
 const ReservationDetails = ({ show, reservation, loading, error, onHide }) => (
   <Modal show={show} onHide={onHide} size="lg" centered scrollable>
@@ -19,8 +19,36 @@ const ReservationDetails = ({ show, reservation, loading, error, onHide }) => (
             <span className={`app-status-badge ${statusClass(reservation.status)}`}>{statusLabel(reservation.status)}</span>
           </div>
 
+          <section className="reservation-details-section reservation-details-client">
+            <h3>Client</h3>
+            <dl className="reservation-details-grid">
+              <div><dt>Type</dt><dd>{clientTypeLabel(reservation)}</dd></div>
+              <div><dt>Code</dt><dd>{reservation.client?.code || "—"}</dd></div>
+              <div><dt>Nom enregistré</dt><dd>{clientName(reservation)}</dd></div>
+              {reservation.client?.current_display_name
+                && reservation.client.current_display_name !== clientName(reservation) && (
+                  <div><dt>Nom actuel</dt><dd>{reservation.client.current_display_name}</dd></div>
+                )}
+              {reservation.client?.type === "societe" ? (
+                <>
+                  <div><dt>ICE</dt><dd>{reservation.client.ice || "—"}</dd></div>
+                  <div><dt>Type d’organisation</dt><dd>{reservation.client.type_organisation_label || "—"}</dd></div>
+                  <div><dt>Secteur</dt><dd>{reservation.client.secteur?.label || "—"}</dd></div>
+                  <div><dt>Téléphone</dt><dd>{reservation.client.telephone || "—"}</dd></div>
+                  <div><dt>Email</dt><dd>{reservation.client.email || "—"}</dd></div>
+                </>
+              ) : (
+                <>
+                  <div><dt>Pièce d’identité</dt><dd>{[reservation.client?.type_piece, reservation.client?.numero_piece].filter(Boolean).join(" ") || "—"}</dd></div>
+                  <div><dt>Téléphone</dt><dd>{reservation.client?.telephone || "—"}</dd></div>
+                  <div><dt>Nationalité</dt><dd>{reservation.client?.nationalite || "—"}</dd></div>
+                  <div><dt>Résidence</dt><dd>{[reservation.client?.pays, reservation.client?.region, reservation.client?.ville].filter(Boolean).join(" / ") || "—"}</dd></div>
+                </>
+              )}
+            </dl>
+          </section>
+
           <dl className="reservation-details-grid">
-            <div><dt>Client</dt><dd>{clientName(reservation)}</dd></div>
             <div><dt>Réservation</dt><dd>{formatDate(reservation.dates?.reservation)}</dd></div>
             <div><dt>Arrivée</dt><dd>{formatDate(reservation.dates?.debut)}</dd></div>
             <div><dt>Départ</dt><dd>{formatDate(reservation.dates?.fin)}</dd></div>

@@ -40,6 +40,39 @@
   white-space: normal;
 }
 
+.reservation-client-cell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 3px 8px;
+}
+
+.reservation-client-cell small {
+  grid-column: 1 / -1;
+  color: #64748b;
+  font-size: 11px;
+}
+
+.reservation-client-type-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 2px 7px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.reservation-client-type-badge.is-societe {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.reservation-client-type-badge.is-particulier {
+  background: #dcfce7;
+  color: #15803d;
+}
+
 .reservation-history-badge {
   display: inline-flex;
   align-items: center;
@@ -149,6 +182,64 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
+}
+
+.reservation-client-summary {
+  margin-top: 14px;
+  border: 1px solid #dbe3ea;
+  border-radius: 7px;
+  background: #f8fafc;
+  padding: 12px;
+}
+
+.reservation-client-summary-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.reservation-client-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+  margin: 0;
+}
+
+.reservation-client-summary-grid div {
+  min-width: 0;
+}
+
+.reservation-client-summary-grid dt {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.reservation-client-summary-grid dd {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.reservation-client-commercial {
+  margin-top: 12px;
+  border-top: 1px solid #dbe3ea;
+  padding-top: 12px;
+}
+
+.reservation-client-commercial h4 {
+  margin: 0 0 8px;
+  color: #0f172a;
+  font-size: 13px;
+}
+
+.reservation-client-commercial p {
+  margin: 10px 0 0;
+  color: #64748b;
+  font-size: 11px;
 }
 
 .reservation-section-heading {
@@ -415,6 +506,7 @@
   }
 
   .reservation-form-grid,
+  .reservation-client-summary-grid,
   .reservation-room-filters,
   .reservation-details-grid,
   .reservation-option-row {

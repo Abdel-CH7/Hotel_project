@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\ReservationClientData;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -12,11 +13,7 @@ class ReservationSummaryResource extends JsonResource
         return [
             'id' => $this->id,
             'reservation_num' => $this->reservation_num,
-            'client' => [
-                'type' => $this->client_type,
-                'id' => $this->client_id,
-                'display_name' => $this->client_name_snapshot,
-            ],
+            'client' => ReservationClientData::reservationClient($this->resource),
             'dates' => [
                 'reservation' => $this->reservation_date?->format('Y-m-d'),
                 'debut' => $this->date_debut?->format('Y-m-d'),

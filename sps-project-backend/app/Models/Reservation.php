@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class Reservation extends Model
 {
@@ -47,16 +48,9 @@ class Reservation extends Model
         'cancelled_at' => 'datetime',
     ];
 
-    protected $appends = ['client_data'];
-    protected $with = ['chambres'];
-
-    public function getClientDataAttribute()
+    public function client(): MorphTo
     {
-        if ($this->client_type === 'societe') {
-            return \App\Models\Client::find($this->client_id);
-        }
-
-        return \App\Models\ClientParticulier::find($this->client_id);
+        return $this->morphTo(__FUNCTION__, 'client_type', 'client_id');
     }
 
     public function chambres()

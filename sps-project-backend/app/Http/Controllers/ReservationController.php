@@ -33,7 +33,7 @@ class ReservationController extends Controller
     public function index(): AnonymousResourceCollection
     {
         $reservations = Reservation::query()
-            ->without('chambres')
+            ->with('client')
             ->withCount('reservationRooms')
             ->latest('id')
             ->get();

@@ -4,10 +4,13 @@ namespace App\Services;
 
 use App\Exceptions\ReservationDomainException;
 use App\Models\Reservation;
+use App\Models\Client;
+use App\Models\ClientParticulier;
 use App\Models\ReservationMeal;
 use App\Models\ReservationReduction;
 use App\Models\ReservationRoom;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -73,6 +76,13 @@ class ReservationApplicationService
             );
             $pricing = $this->pricingService->calculate($data);
 
+            $sameClient = $locked->client_type === $client['client_type']
+                && (int) $locked->client_id === (int) $client['client_id'];
+            $existingSnapshot = trim((string) $locked->client_name_snapshot);
+            $clientSnapshot = $sameClient && $existingSnapshot !== ''
+                ? $existingSnapshot
+                : $client['display_name'];
+
             $locked->reservationRooms()->delete();
             $locked->meals()->delete();
             $locked->reduction()->delete();
@@ -80,7 +90,7 @@ class ReservationApplicationService
             $locked->update([
                 'client_type' => $client['client_type'],
                 'client_id' => $client['client_id'],
-                'client_name_snapshot' => $client['display_name'],
+                'client_name_snapshot' => $clientSnapshot,
                 'date_debut' => $data['date_debut'],
                 'date_fin' => $data['date_fin'],
                 'pricing_version' => 2,
@@ -170,6 +180,12 @@ class ReservationApplicationService
     public function loadComplete(Reservation $reservation): Reservation
     {
         return $reservation->fresh()->load([
+            'client' => function (MorphTo $morphTo): void {
+                $morphTo->morphWith([
+                    Client::class => ['secteur', 'modeReglement'],
+                    ClientParticulier::class => [],
+                ]);
+            },
             'reservationRooms.chambre',
             'reservationRooms.priceSegments',
             'meals',

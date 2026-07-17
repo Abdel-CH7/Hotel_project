@@ -50,6 +50,7 @@ use App\Http\Controllers\ReclamationController;
 use App\Http\Controllers\ReservationController;
 use App\Http\Controllers\ReservationReadinessController;
 use App\Http\Controllers\ReservationFormOptionsController;
+use App\Http\Controllers\ReservationClientOptionsController;
 
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
@@ -161,6 +162,7 @@ Route::get('/desigs-reduction/{tarifReduction}', [TarifReductionController::clas
 Route::put('/desigs-reduction/{tarifReduction}', [TarifReductionController::class, 'updateDesiTarif'])->whereNumber('tarifReduction');
 Route::delete('/desigs-reduction/{tarifReduction}', [TarifReductionController::class, 'supprimerDesiTarif'])->whereNumber('tarifReduction');
 
+Route::get('client-particulier/location-options', [ClientParticulierController::class, 'locationOptions']);
 Route::get('clients_particulier/{clientId}/siteclients', [ClientParticulierController::class, 'siteclients']);
 Route::get('clients_particulier/{clientId}/bonslivraison', [ClientParticulierController::class, 'bonsLivraisonClient']);
 Route::get('clients_particulier', [ClientParticulierController::class, 'index']);
@@ -182,6 +184,7 @@ Route::delete('siteclients_particulier/{siteclient}', [SiteClientParticulierCont
 
 Route::get('clients/{clientId}/siteclients', [ClientController::class, 'siteclients']);
 Route::get('clients/{clientId}/bonslivraison', [ClientController::class, 'bonsLivraisonClient']);
+Route::get('client-societe/form-options', [ClientController::class, 'formOptions']);
 Route::get('clients', [ClientController::class, 'index']);
 Route::post('clients', [ClientController::class, 'store']);
 Route::get('clients/{client}', [ClientController::class, 'show']);
@@ -303,6 +306,7 @@ Route::prefix('reclamations')->group(function () {
 
 // Reservation API. Static routes must stay before identifier routes.
 Route::get('/reservations/readiness', ReservationReadinessController::class);
+Route::get('/reservations/client-options', ReservationClientOptionsController::class);
 Route::get('/reservations/form-options', ReservationFormOptionsController::class);
 Route::get('/reservations/available-rooms', [ReservationController::class, 'availableRooms']);
 Route::post('/reservations/calculate-price', [ReservationController::class, 'calculatePrice']);

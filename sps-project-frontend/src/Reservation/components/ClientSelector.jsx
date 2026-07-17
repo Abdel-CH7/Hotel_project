@@ -1,16 +1,19 @@
 import { Form } from "react-bootstrap";
+import { formatMoney } from "../reservationUtils";
 
-const companyName = (client) => client.raison_sociale || client.CodeClient || `Client ${client.id}`;
-const individualName = (client) => {
-  const fullName = [client.name, client.prenom].filter(Boolean).join(" ").trim();
-  return fullName || client.CodeClient || `Client ${client.id}`;
-};
+const valueOrDash = (value) => (value === null || value === undefined || value === "" ? "—" : value);
 
-const ClientSelector = ({ form, clients, loading, errors, setField }) => {
-  const options = clients[form.client_type] || [];
+const ClientSelector = ({ form, clients, loading, errors, setField, fallbackClient }) => {
+  const sourceOptions = clients[form.client_type] || [];
+  const hasFallback = fallbackClient
+    && fallbackClient.type === form.client_type
+    && String(fallbackClient.id) === String(form.client_id)
+    && !sourceOptions.some((client) => String(client.id) === String(form.client_id));
+  const options = hasFallback ? [fallbackClient, ...sourceOptions] : sourceOptions;
+  const selectedClient = options.find((client) => String(client.id) === String(form.client_id)) || null;
 
   return (
-    <section className="reservation-form-section">
+    <section className="reservation-form-section reservation-client-selector">
       <h3>1. Client</h3>
       <div className="reservation-form-grid">
         <Form.Group>
@@ -20,6 +23,7 @@ const ClientSelector = ({ form, clients, loading, errors, setField }) => {
             onChange={(event) => setField("client_type", event.target.value)}
             isInvalid={Boolean(errors.client_type)}
           >
+            <option value="">Sélectionner</option>
             <option value="societe">Société</option>
             <option value="particulier">Particulier</option>
           </Form.Select>
@@ -31,19 +35,65 @@ const ClientSelector = ({ form, clients, loading, errors, setField }) => {
           <Form.Select
             value={form.client_id}
             onChange={(event) => setField("client_id", event.target.value)}
-            disabled={loading}
+            disabled={!form.client_type || (loading && options.length === 0)}
             isInvalid={Boolean(errors.client_id)}
           >
-            <option value="">{loading ? "Chargement..." : "Sélectionner un client"}</option>
+            <option value="">
+              {!form.client_type ? "Sélectionner d’abord le type" : loading && options.length === 0 ? "Chargement..." : "Sélectionner un client"}
+            </option>
             {options.map((client) => (
-              <option key={client.id} value={client.id}>
-                {form.client_type === "particulier" ? individualName(client) : companyName(client)}
+              <option key={`${client.type}-${client.id}`} value={client.id}>
+                {client.select_label || client.display_name}
               </option>
             ))}
           </Form.Select>
           <Form.Control.Feedback type="invalid">{errors.client_id}</Form.Control.Feedback>
         </Form.Group>
       </div>
+
+      {selectedClient && (
+        <div className="reservation-client-summary">
+          <div className="reservation-client-summary-header">
+            <strong>{selectedClient.display_name}</strong>
+            <span className={`reservation-client-type-badge is-${selectedClient.type}`}>
+              {selectedClient.type === "societe" ? "Société" : "Particulier"}
+            </span>
+          </div>
+
+          {selectedClient.type === "particulier" ? (
+            <dl className="reservation-client-summary-grid">
+              <div><dt>Code</dt><dd>{valueOrDash(selectedClient.code)}</dd></div>
+              <div><dt>Nom complet</dt><dd>{valueOrDash(selectedClient.display_name)}</dd></div>
+              <div><dt>Pièce d’identité</dt><dd>{[selectedClient.type_piece, selectedClient.numero_piece].filter(Boolean).join(" ") || "—"}</dd></div>
+              <div><dt>Téléphone</dt><dd>{valueOrDash(selectedClient.telephone)}</dd></div>
+              <div><dt>Nationalité</dt><dd>{valueOrDash(selectedClient.nationalite)}</dd></div>
+              <div><dt>Pays / Région / Ville</dt><dd>{[selectedClient.pays, selectedClient.region, selectedClient.ville].filter(Boolean).join(" / ") || "—"}</dd></div>
+            </dl>
+          ) : (
+            <>
+              <dl className="reservation-client-summary-grid">
+                <div><dt>Code</dt><dd>{valueOrDash(selectedClient.code)}</dd></div>
+                <div><dt>Raison sociale</dt><dd>{valueOrDash(selectedClient.display_name)}</dd></div>
+                <div><dt>ICE</dt><dd>{valueOrDash(selectedClient.ice)}</dd></div>
+                <div><dt>Type d’organisation</dt><dd>{valueOrDash(selectedClient.type_organisation_label)}</dd></div>
+                <div><dt>Secteur</dt><dd>{valueOrDash(selectedClient.secteur?.label)}</dd></div>
+                <div><dt>Téléphone</dt><dd>{valueOrDash(selectedClient.telephone)}</dd></div>
+                <div><dt>Email</dt><dd>{valueOrDash(selectedClient.email)}</dd></div>
+              </dl>
+              <div className="reservation-client-commercial">
+                <h4>Conditions commerciales de référence</h4>
+                <dl className="reservation-client-summary-grid">
+                  <div><dt>Mode de règlement par défaut</dt><dd>{valueOrDash(selectedClient.commercial?.mode_reglement_label)}</dd></div>
+                  <div><dt>Paiement à crédit autorisé</dt><dd>{selectedClient.commercial?.credit_autorise ? "Oui" : "Non"}</dd></div>
+                  <div><dt>Délai</dt><dd>{selectedClient.commercial?.delai_paiement_jours ? `${selectedClient.commercial.delai_paiement_jours} jours` : "—"}</dd></div>
+                  <div><dt>Plafond de crédit</dt><dd>{selectedClient.commercial?.plafond_credit ? formatMoney(selectedClient.commercial.plafond_credit) : "—"}</dd></div>
+                </dl>
+                <p>Ces conditions sont informatives. Le règlement réel n’est pas enregistré dans cette réservation.</p>
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </section>
   );
 };

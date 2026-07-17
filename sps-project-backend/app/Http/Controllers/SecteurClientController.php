@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\SecteurClient; // Assurez-vous d'importer le modèle
 use Illuminate\Http\Request;
+use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class SecteurClientController extends Controller
@@ -93,8 +95,31 @@ public function store(Request $request)
     public function destroy($id)
     {
         $secteurClient = SecteurClient::findOrFail($id);
-        $secteurClient->delete(); // Supprime le secteur client
+        if ($this->isUsedByClient('secteur_id', $secteurClient->id)) {
+            return response()->json([
+                'message' => 'Ce secteur ne peut pas être supprimé car il est utilisé par un ou plusieurs clients.',
+            ], 409);
+        }
 
-        return response()->json(null, 204); // Retourne un code 204 No Content
+        try {
+            $secteurClient->delete();
+        } catch (QueryException $exception) {
+            return response()->json([
+                'message' => 'Ce secteur ne peut pas être supprimé car il est utilisé par un ou plusieurs clients.',
+            ], 409);
+        }
+
+        return response()->json(null, 204);
+    }
+
+    private function isUsedByClient(string $column, int $id): bool
+    {
+        foreach (['clients_particulier', 'clients', 'site_clients', 'site_clients_particulier'] as $table) {
+            if (DB::table($table)->where($column, $id)->exists()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

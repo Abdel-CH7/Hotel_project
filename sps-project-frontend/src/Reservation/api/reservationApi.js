@@ -3,6 +3,7 @@ import axios from "axios";
 const API_URL = (import.meta.env.VITE_API_URL || "/api").replace(/\/$/, "");
 
 const dataOf = (response) => response.data?.data ?? response.data;
+let clientOptionsRequest = null;
 
 export const listReservations = async () => {
   const response = await axios.get(`${API_URL}/reservations`);
@@ -50,8 +51,15 @@ export const updateReservationStatus = async (id, payload) => {
   return dataOf(response);
 };
 
-export const listClients = async (clientType) => {
-  const endpoint = clientType === "particulier" ? "all-data-client-particulier" : "all-data-client";
-  const response = await axios.get(`${API_URL}/${endpoint}`);
-  return Array.isArray(response.data?.clients) ? response.data.clients : [];
+export const getReservationClientOptions = async () => {
+  if (!clientOptionsRequest) {
+    clientOptionsRequest = axios
+      .get(`${API_URL}/reservations/client-options`)
+      .then(dataOf)
+      .finally(() => {
+        clientOptionsRequest = null;
+      });
+  }
+
+  return clientOptionsRequest;
 };

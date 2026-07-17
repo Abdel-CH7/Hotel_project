@@ -3,8 +3,8 @@ import {
   calculatePrice,
   createReservation,
   getAvailableRooms,
+  getReservationClientOptions,
   getReservationFormOptions,
-  listClients,
   updateReservation,
 } from "../api/reservationApi";
 
@@ -22,7 +22,7 @@ const newRoomRow = (adultes = "1", enfants = "0") => ({
 });
 
 const initialForm = () => ({
-  client_type: "societe",
+  client_type: "",
   client_id: "",
   date_debut: "",
   date_fin: "",
@@ -100,23 +100,25 @@ export const useReservationForm = ({ onSaved }) => {
   const [saving, setSaving] = useState(false);
   const [availabilityVersion, setAvailabilityVersion] = useState(0);
 
-  useEffect(() => {
-    let active = true;
-    Promise.all([listClients("societe"), listClients("particulier")])
-      .then(([companies, individuals]) => {
-        if (active) setClients({ societe: companies, particulier: individuals });
-      })
-      .catch(() => {
-        if (active) setActionError("Impossible de charger la liste des clients.");
-      })
-      .finally(() => {
-        if (active) setClientsLoading(false);
+  const refreshClients = useCallback(async () => {
+    setClientsLoading(true);
+    try {
+      const options = await getReservationClientOptions();
+      setClients({
+        societe: Array.isArray(options?.societe) ? options.societe : [],
+        particulier: Array.isArray(options?.particulier) ? options.particulier : [],
       });
-
-    return () => {
-      active = false;
-    };
+      setActionError("");
+    } catch (error) {
+      setActionError(apiMessage(error, "Impossible de charger la liste des clients."));
+    } finally {
+      setClientsLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    void refreshClients();
+  }, [refreshClients]);
 
   const openCreate = useCallback(() => {
     setEditingReservation(null);
@@ -128,12 +130,13 @@ export const useReservationForm = ({ onSaved }) => {
     setPreview(null);
     setPreviewError("");
     setIsOpen(true);
-  }, []);
+    void refreshClients();
+  }, [refreshClients]);
 
   const openEdit = useCallback((reservation) => {
     setEditingReservation(reservation);
     setForm({
-      client_type: reservation.client?.type || "societe",
+      client_type: reservation.client?.type || "",
       client_id: reservation.client?.id ? String(reservation.client.id) : "",
       date_debut: reservation.dates?.debut || "",
       date_fin: reservation.dates?.fin || "",
@@ -168,7 +171,8 @@ export const useReservationForm = ({ onSaved }) => {
     setPreview(null);
     setPreviewError("");
     setIsOpen(true);
-  }, []);
+    void refreshClients();
+  }, [refreshClients]);
 
   const close = useCallback(() => {
     setIsOpen(false);
@@ -191,6 +195,7 @@ export const useReservationForm = ({ onSaved }) => {
     setErrors((current) => {
       const next = { ...current };
       delete next[field];
+      if (field === "client_type") delete next.client_id;
       return next;
     });
     setActionError("");

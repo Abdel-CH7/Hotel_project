@@ -2028,3 +2028,518 @@ body .swal2-container {
     width: 100%;
   }
 }
+
+.clients-particulier-page .client-form-field-row {
+  display: flex;
+  align-items: flex-start;
+}
+
+.clients-particulier-page {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+.clients-particulier-page .client-guest-filter-controls {
+  flex: 1 1 620px !important;
+  min-width: 0;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.clients-particulier-page .client-guest-filter-controls .app-filter-select {
+  flex: 1 1 170px;
+  width: auto;
+  min-width: 150px;
+  max-width: 220px;
+}
+
+.clients-particulier-page .client-guest-filter-controls .app-filter-reset {
+  flex: 0 0 auto;
+}
+
+.clients-particulier-page .client-form-field-row > .form-label {
+  flex: 1;
+  margin: 7px 20px 0 10px;
+}
+
+.clients-particulier-page .client-form-control-stack {
+  flex: 2;
+  min-width: 0;
+}
+
+.clients-particulier-page .client-form-control-stack > .form-control,
+.clients-particulier-page .client-form-control-stack > .form-select {
+  width: 100%;
+}
+
+.clients-particulier-page .client-form-control-stack > .invalid-feedback {
+  margin-top: 4px;
+}
+
+.clients-particulier-page .client-guest-drawer {
+  right: -100%;
+  width: min(720px, 100vw);
+  max-width: 100%;
+  overflow-y: auto;
+  transition: right 0.25s ease;
+}
+
+.clients-particulier-page .client-guest-drawer.is-open {
+  right: 0;
+}
+
+.clients-particulier-page .client-guest-form-section {
+  padding: 14px 4px 4px;
+  border-top: 1px solid #dbe4e8;
+}
+
+.clients-particulier-page .client-guest-form-section:first-of-type {
+  border-top: 0;
+}
+
+.clients-particulier-page .client-guest-form-section h5 {
+  margin: 0 0 12px;
+  color: #176d6a;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.clients-particulier-page .client-guest-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 18px;
+}
+
+.clients-particulier-page .client-guest-field {
+  min-width: 0;
+}
+
+.clients-particulier-page .client-guest-field > .form-label {
+  display: block;
+  margin: 0 0 5px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.clients-particulier-page .client-required-mark {
+  color: #b91c1c;
+}
+
+.clients-particulier-page .client-guest-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.clients-particulier-page .client-guest-section-heading h5 {
+  margin: 0;
+}
+
+.clients-particulier-page .client-children-editor {
+  max-height: 240px;
+}
+
+.clients-particulier-page .client-guest-table-wrapper {
+  margin-top: 12px;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.clients-particulier-page .client-guest-table-wrapper .app-table-scroll {
+  overflow-x: auto !important;
+  overflow-y: visible;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.clients-particulier-page .client-guest-table-wrapper .app-table-actions .app-table-action {
+  margin-right: 0;
+}
+
+.clients-particulier-page .client-expanded-children {
+  position: sticky;
+  left: 0;
+  width: min(760px, calc(100vw - 190px));
+  max-width: calc(100vw - 190px);
+  min-width: 0;
+  padding: 12px;
+  border-radius: 6px;
+  background: #f8fafc;
+  box-sizing: border-box;
+}
+
+.clients-particulier-page .client-expanded-children-empty {
+  margin: 0;
+  color: #64748b;
+  text-align: left;
+}
+
+.clients-particulier-page .client-form-children-table {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.clients-particulier-page .client-form-children-table > .app-table {
+  width: 100% !important;
+  min-width: 0 !important;
+  table-layout: fixed;
+}
+
+.clients-particulier-page .client-form-children-table th,
+.clients-particulier-page .client-form-children-table td {
+  padding: 6px;
+  overflow: hidden;
+}
+
+.clients-particulier-page .client-form-children-table .form-control,
+.clients-particulier-page .client-form-children-table .form-select {
+  width: 100%;
+  min-width: 0;
+}
+
+.clients-particulier-page .client-form-children-table .app-table-action {
+  margin: 0;
+}
+
+@media (max-width: 760px) {
+  .clients-particulier-page .app-controls-row {
+    align-items: stretch;
+  }
+
+  .clients-particulier-page .app-add-button,
+  .clients-particulier-page .client-guest-filter-controls,
+  .clients-particulier-page .client-guest-filter-controls .app-filter-select,
+  .clients-particulier-page .client-guest-filter-controls .app-filter-reset {
+    width: 100%;
+    max-width: none;
+  }
+
+  .clients-particulier-page .client-guest-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .clients-particulier-page .client-guest-section-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .clients-particulier-page .client-guest-section-heading .app-secondary-button {
+    width: 100%;
+  }
+
+  .clients-particulier-page .client-form-children-table {
+    overflow-x: auto;
+  }
+
+  .clients-particulier-page .client-form-children-table > .app-table {
+    min-width: 440px !important;
+  }
+
+  .clients-particulier-page .client-expanded-children {
+    width: calc(100vw - 48px);
+    max-width: calc(100vw - 48px);
+  }
+}
+
+/* Clients Société: hotel corporate-customer workflow. */
+.clients-societe-page {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+.clients-societe-page .company-filter-controls {
+  flex: 1 1 760px !important;
+  min-width: 0;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.clients-societe-page .company-filter-controls .app-filter-select {
+  flex: 1 1 170px;
+  width: auto;
+  min-width: 150px;
+  max-width: 230px;
+}
+
+.clients-societe-page .company-filter-controls .app-filter-reset {
+  flex: 0 0 auto;
+}
+
+.clients-societe-page .company-drawer {
+  right: -100%;
+  width: min(760px, 100vw);
+  max-width: 100%;
+  overflow-y: auto;
+  transition: right 0.25s ease;
+}
+
+.clients-societe-page .company-drawer.is-open {
+  right: 0;
+}
+
+.clients-societe-page .company-form-section {
+  padding: 14px 4px 4px;
+  border-top: 1px solid #dbe4e8;
+}
+
+.clients-societe-page .company-form-section:first-of-type {
+  border-top: 0;
+}
+
+.clients-societe-page .company-form-section h5 {
+  margin: 0 0 12px;
+  color: #176d6a;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.clients-societe-page .company-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 18px;
+}
+
+.clients-societe-page .company-form-field,
+.clients-societe-page .company-form-control-stack {
+  min-width: 0;
+}
+
+.clients-societe-page .company-form-field > .form-label {
+  display: block;
+  margin: 0 0 5px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.clients-societe-page .company-form-control-stack > .form-control,
+.clients-societe-page .company-form-control-stack > .form-select {
+  width: 100%;
+}
+
+.clients-societe-page .company-required-mark {
+  color: #b91c1c;
+}
+
+.clients-societe-page .company-lookup-control,
+.company-lookup-editor {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.clients-societe-page .company-lookup-control .form-select,
+.company-lookup-editor .form-control {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.clients-societe-page .company-lookup-control .app-secondary-button {
+  flex: 0 0 38px;
+  width: 38px;
+  min-width: 38px;
+  padding: 7px;
+}
+
+.clients-societe-page .company-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.clients-societe-page .company-section-heading h5 {
+  margin: 0;
+}
+
+.clients-societe-page .company-contact-editor,
+.company-lookup-table {
+  width: 100%;
+  max-width: 100%;
+  margin-top: 12px;
+  overflow-x: hidden;
+}
+
+.clients-societe-page .company-contact-editor > .app-table {
+  width: 100% !important;
+  min-width: 0 !important;
+  table-layout: fixed;
+}
+
+.clients-societe-page .company-contact-editor th,
+.clients-societe-page .company-contact-editor td {
+  padding: 6px;
+  overflow: hidden;
+  vertical-align: top;
+}
+
+.clients-societe-page .company-contact-editor .form-control {
+  width: 100%;
+  min-width: 0;
+}
+
+.clients-societe-page .company-contact-editor .invalid-feedback {
+  white-space: normal;
+}
+
+.clients-societe-page .company-table-wrapper {
+  overflow: hidden;
+  min-width: 0;
+}
+
+.clients-societe-page .company-table-wrapper .app-table-scroll {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto !important;
+  overflow-y: visible;
+}
+
+.clients-societe-page .company-table-wrapper .app-table-actions .app-table-action {
+  margin-right: 0;
+}
+
+.company-lookup-modal .company-lookup-action-button {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  outline: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  line-height: 1 !important;
+  cursor: pointer;
+}
+
+.company-lookup-modal .company-lookup-action-button:hover,
+.company-lookup-modal .company-lookup-action-button:focus,
+.company-lookup-modal .company-lookup-action-button:active {
+  border: 0 !important;
+  outline: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.company-lookup-modal
+  .company-lookup-action-button
+  .app-table-action {
+  width: 16px;
+  height: 16px;
+  margin: 0 !important;
+}
+
+.company-lookup-modal .company-lookup-action-button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.company-contacts-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 48px;
+  min-height: 30px;
+  padding: 4px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 16px;
+  background: #f8fafc;
+  color: #475569;
+}
+
+.company-contacts-count.has-contacts {
+  border-color: #00afaa;
+  color: #087f7b;
+  cursor: pointer;
+}
+
+.clients-societe-page .company-expanded-contacts {
+  position: sticky;
+  left: 0;
+  width: min(760px, calc(100vw - 190px));
+  max-width: calc(100vw - 190px);
+  min-width: 0;
+  padding: 12px;
+  border-radius: 6px;
+  background: #f8fafc;
+  box-sizing: border-box;
+}
+
+.clients-societe-page .company-contacts-details-header {
+  margin-bottom: 8px;
+  color: #176d6a;
+  font-weight: 700;
+}
+
+.clients-societe-page .company-contacts-details-table {
+  width: 100%;
+}
+
+.clients-societe-page .company-expanded-contacts-empty {
+  margin: 0;
+  color: #64748b;
+}
+
+@media (max-width: 760px) {
+  .clients-societe-page .app-controls-row {
+    align-items: stretch;
+  }
+
+  .clients-societe-page .app-add-button,
+  .clients-societe-page .company-filter-controls,
+  .clients-societe-page .company-filter-controls .app-filter-select,
+  .clients-societe-page .company-filter-controls .app-filter-reset {
+    width: 100%;
+    max-width: none;
+  }
+
+  .clients-societe-page .company-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .clients-societe-page .company-section-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .clients-societe-page .company-contact-editor {
+    overflow-x: auto;
+  }
+
+  .clients-societe-page .company-contact-editor > .app-table {
+    min-width: 620px !important;
+  }
+
+  .clients-societe-page .company-expanded-contacts {
+    width: calc(100vw - 48px);
+    max-width: calc(100vw - 48px);
+  }
+}

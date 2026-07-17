@@ -13,7 +13,7 @@ class ClientSeeder extends Seeder
      */
     public function run(): void
     {
-        $types = ['Prospect', 'Client'];
+        $types = ['entreprise', 'agence_voyages'];
         $categories = ['Premium', 'Direct', 'Revendeur'];
         $villes = ['Casablanca', "Rabat", "Tanger", "Safi", "Tetouan", "Nador", "Ouarzazat"];
         $jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
@@ -24,7 +24,7 @@ class ClientSeeder extends Seeder
                 'CodeClient' => 'C'.$timestamp.'001',
                 'raison_sociale' => 'Client A',
                 'adresse' => '123 Rue Example, Casablanca',
-                'type_client' => $types[1],
+                'type_organisation' => $types[1],
                 'categorie' => $categories[0],
                 'tele' => '0612345678',
                 'jour' => $jours[0],
@@ -44,7 +44,7 @@ class ClientSeeder extends Seeder
                 'CodeClient' => 'C'.$timestamp.'002',
                 'raison_sociale' => 'Client B',
                 'adresse' => '456 Rue Example, Rabat',
-                'type_client' => $types[0],
+                'type_organisation' => $types[0],
                 "secteur_id" => 1,
                 'categorie' => $categories[1],
                 'tele' => '0623456789',
@@ -65,7 +65,7 @@ class ClientSeeder extends Seeder
                 "secteur_id" => 2,
                 'raison_sociale' => 'Client C',
                 'adresse' => '789 Rue Example, Marrakech',
-                'type_client' => $types[1],
+                'type_organisation' => $types[1],
                 'categorie' => $categories[2],
                 'tele' => '0634567890',
                 'ville' => $villes[3],
@@ -84,7 +84,7 @@ class ClientSeeder extends Seeder
                 'CodeClient' => 'C'.$timestamp.'004',
                 'raison_sociale' => 'Client D',
                 'adresse' => '321 Rue Example, Fes',
-                'type_client' => $types[0],
+                'type_organisation' => $types[0],
                 'categorie' => $categories[0],
                 'tele' => '0645678901',
                 "seince" => 20,
@@ -104,7 +104,7 @@ class ClientSeeder extends Seeder
                 'CodeClient' => 'C'.$timestamp.'005',
                 'raison_sociale' => 'Client E',
                 'adresse' => '654 Rue Example, Agadir',
-                'type_client' => $types[1],
+                'type_organisation' => $types[1],
                 'categorie' => $categories[1],
                 "secteur_id" => 2,
                 'tele' => '0656789012',
@@ -124,7 +124,7 @@ class ClientSeeder extends Seeder
                 'CodeClient' => 'C'.$timestamp.'006',
                 'raison_sociale' => 'Client F',
                 'adresse' => '987 Rue Example, Tanger',
-                'type_client' => $types[0],
+                'type_organisation' => $types[0],
                 'categorie' => $categories[2],
                 "secteur_id" => 2,
                 'tele' => '0667890123',
@@ -144,7 +144,7 @@ class ClientSeeder extends Seeder
                 'CodeClient' => 'C'.$timestamp.'007',
                 'raison_sociale' => 'Client G',
                 'adresse' => '135 Rue Example, Oujda',
-                'type_client' => $types[1],
+                'type_organisation' => $types[1],
                 "secteur_id" => 1,
                 'categorie' => $categories[0],
                 'tele' => '0678901234',
@@ -164,7 +164,7 @@ class ClientSeeder extends Seeder
                 'CodeClient' => 'C'.$timestamp.'008',
                 'raison_sociale' => 'Client H',
                 'adresse' => '246 Rue Example, Kenitra',
-                'type_client' => $types[0],
+                'type_organisation' => $types[0],
                 "secteur_id" => 1,
                 'categorie' => $categories[1],
                 'tele' => '0689012345',
@@ -184,7 +184,7 @@ class ClientSeeder extends Seeder
                 'CodeClient' => 'C'.$timestamp.'009',
                 'raison_sociale' => 'Client I',
                 'adresse' => '357 Rue Example, Settat',
-                'type_client' => $types[1],
+                'type_organisation' => $types[1],
                 'categorie' => $categories[2],
                 'tele' => '0690123456',
                 'ville' => $villes[0],
@@ -204,7 +204,7 @@ class ClientSeeder extends Seeder
                 'CodeClient' => 'C'.$timestamp.'010',
                 'raison_sociale' => 'Client J',
                 'adresse' => '468 Rue Example, Safi',
-                'type_client' => $types[0],
+                'type_organisation' => $types[0],
                 'categorie' => $categories[0],
                 'tele' => '0701234567',
                 'ville' => $villes[0],

@@ -14,7 +14,6 @@ class ClientParticulierSeeder extends Seeder
     public function run(): void
     {
         $timestamp = time();
-        $types = ['Prospect', 'Client'];
         $categories = ['Premium', 'Direct', 'Revendeur'];
         $villes = ['Casablanca', "Rabat", "Tanger", "Safi", "Tetouan", "Nador", "Ouarzazat"];
 
@@ -27,7 +26,6 @@ class ClientParticulierSeeder extends Seeder
                 'civilite' => 'Monsieur',
                 'nationalite' => 'Marocain',
                 'adresse' => '123 Rue Example, Casablanca',
-                'type_client' => $types[1],
                 'categorie' => $categories[0],
                 'tele' => '0612345678',
                 'ville' => $villes[0],
@@ -51,7 +49,6 @@ class ClientParticulierSeeder extends Seeder
                 'civilite' => 'Monsieur',
                 'nationalite' => 'Marocain',
                 'adresse' => '456 Rue Example, Rabat',
-                'type_client' => $types[0],
                 "secteur_id" => 1,
                 'categorie' => $categories[1],
                 'tele' => '0623456789',
@@ -76,7 +73,6 @@ class ClientParticulierSeeder extends Seeder
                 'nationalite' => 'Marocain',
                 "secteur_id" => 2,
                 'adresse' => '789 Rue Example, Marrakech',
-                'type_client' => $types[1],
                 'categorie' => $categories[2],
                 'tele' => '0634567890',
                 'ville' => $villes[3],
@@ -99,7 +95,6 @@ class ClientParticulierSeeder extends Seeder
                 'civilite' => 'Monsieur',
                 'nationalite' => 'Marocain',
                 'adresse' => '321 Rue Example, Fes',
-                'type_client' => $types[0],
                 'categorie' => $categories[0],
                 'tele' => '0645678901',
                 "seince" => 20,
@@ -123,7 +118,6 @@ class ClientParticulierSeeder extends Seeder
                 'civilite' => 'Monsieur',
                 'nationalite' => 'Marocain',
                 'adresse' => '654 Rue Example, Agadir',
-                'type_client' => $types[1],
                 'categorie' => $categories[1],
                 "secteur_id" => 2,
                 'tele' => '0656789012',
@@ -147,7 +141,6 @@ class ClientParticulierSeeder extends Seeder
                 'civilite' => 'Monsieur',
                 'nationalite' => 'Marocain',
                 'adresse' => '987 Rue Example, Tanger',
-                'type_client' => $types[0],
                 'categorie' => $categories[2],
                 "secteur_id" => 2,
                 'tele' => '0667890123',
@@ -171,7 +164,6 @@ class ClientParticulierSeeder extends Seeder
                 'civilite' => 'Monsieur',
                 'nationalite' => 'Marocain',
                 'adresse' => '135 Rue Example, Oujda',
-                'type_client' => $types[1],
                 "secteur_id" => 1,
                 'categorie' => $categories[0],
                 'tele' => '0678901234',
@@ -195,7 +187,6 @@ class ClientParticulierSeeder extends Seeder
                 'civilite' => 'Monsieur',
                 'nationalite' => 'Marocain',
                 'adresse' => '246 Rue Example, Kenitra',
-                'type_client' => $types[0],
                 "secteur_id" => 1,
                 'categorie' => $categories[1],
                 'tele' => '0689012345',
@@ -219,7 +210,6 @@ class ClientParticulierSeeder extends Seeder
                 'civilite' => 'Monsieur',
                 'nationalite' => 'Marocain',
                 'adresse' => '357 Rue Example, Meknes',
-                'type_client' => $types[1],
                 "secteur_id" => 1,
                 'categorie' => $categories[2],
                 'tele' => '0690123456',
@@ -243,7 +233,6 @@ class ClientParticulierSeeder extends Seeder
                 'civilite' => 'Monsieur',
                 'nationalite' => 'Marocain',
                 'adresse' => '468 Rue Example, Tetouan',
-                'type_client' => $types[0],
                 "secteur_id" => 1,
                 'categorie' => $categories[0],
                 'tele' => '0601234567',
