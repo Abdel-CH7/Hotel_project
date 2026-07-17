@@ -1,295 +1,177 @@
-import React, { useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import {
-  Box,
-  Container,
-  Typography,
-  TextField,
-  Button,
-  Paper,
-  Grid,
-  Link,
-  InputAdornment,
-  IconButton,
   Alert,
+  Box,
+  Button,
   CircularProgress,
+  Container,
+  IconButton,
+  InputAdornment,
+  Paper,
+  TextField,
+  Typography,
 } from "@mui/material";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
 import { useAuth } from "../AuthContext";
 import AnimatedBackground from "../components/AnimatedBackground";
 
+const CREDENTIALS_ERROR = "Adresse e-mail ou mot de passe incorrect.";
+const NETWORK_ERROR = "Serveur inaccessible. Vérifiez que l’API Laravel est démarrée.";
+const GENERIC_ERROR = "Connexion impossible. Veuillez réessayer.";
+
 const Login = () => {
-  const [isLogin, setIsLogin] = useState(true);
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
-  });
+  const [formData, setFormData] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const [submitting, setSubmitting] = useState(false);
+  const { login, user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+  if (user && isAuthenticated) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+    setFormData((previous) => ({ ...previous, [name]: value }));
+    if (error) setError("");
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    if (submitting) return;
+
     setError("");
-    setLoading(true);
-
+    setSubmitting(true);
     try {
-      if (isLogin) {
-        await login(formData.email, formData.password);
-        const requestedRoute = location.state?.from;
-        const destination = requestedRoute
-          ? `${requestedRoute.pathname}${requestedRoute.search || ""}${requestedRoute.hash || ""}`
-          : "/";
-        navigate(destination, { replace: true });
-      } else {
-        if (formData.password !== formData.confirmPassword) {
-          throw new Error("Passwords do not match");
-        }
-        // Add registration logic here
-        const response = await fetch("http://localhost:8000/api/register", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            name: formData.name,
-            email: formData.email,
-            password: formData.password,
-          }),
-        });
-
-        if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.message || "Registration failed");
-        }
-
-        // After successful registration, switch to login form
-        setIsLogin(true);
-        setFormData({
-          name: "",
-          email: "",
-          password: "",
-          confirmPassword: "",
-        });
-      }
-    } catch (error) {
-      setError(error.response?.data?.message || error.message || "Connexion impossible.");
+      await login(formData.email.trim(), formData.password);
+      const requestedRoute = location.state?.from;
+      const destination = requestedRoute
+        ? `${requestedRoute.pathname}${requestedRoute.search || ""}${requestedRoute.hash || ""}`
+        : "/dashboard";
+      navigate(destination, { replace: true });
+    } catch (requestError) {
+      if (!requestError.response) setError(NETWORK_ERROR);
+      else if ([401, 422].includes(requestError.response.status)) setError(CREDENTIALS_ERROR);
+      else setError(GENERIC_ERROR);
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
   return (
-    <>
+    <Box className="login-page" sx={{ minHeight: "100dvh", overflowX: "hidden" }}>
       <AnimatedBackground />
-      <Container 
-        component="main" 
-        maxWidth="xs" 
+      <Container
+        component="main"
+        maxWidth="xs"
         sx={{
-          minHeight: '100vh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
+          minHeight: "100dvh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          px: 2,
+          py: 3,
         }}
       >
-        <Box
+        <Paper
+          elevation={3}
           sx={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
+            position: "relative",
             width: "100%",
+            maxWidth: 420,
+            boxSizing: "border-box",
+            p: { xs: 3, sm: 4 },
+            borderRadius: 2,
+            backgroundColor: "rgba(255, 255, 255, 0.95)",
+            backdropFilter: "blur(10px)",
           }}
         >
-          <Paper
-            elevation={3}
-            sx={{
-              padding: 4,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              width: "100%",
-              borderRadius: 2,
-              backgroundColor: "rgba(255, 255, 255, 0.95)",
-              backdropFilter: "blur(10px)",
-            }}
-          >
-            <Box
-              component="img"
-              src="/sps-logo.svg"
-              alt="SPS Technologies"
-              sx={{
-                width: 180,
-                mb: 3,
-                filter: 'drop-shadow(0px 2px 2px rgba(0, 0, 0, 0.15))',
+          <Box
+            component="img"
+            src="/sps-logo.svg"
+            alt="SPS Technologies"
+            sx={{ display: "block", width: "min(180px, 70%)", mx: "auto", mb: 3 }}
+          />
+
+          <Typography component="h1" variant="h5" align="center" sx={{ color: "#0b4d54", fontWeight: 700 }}>
+            Connexion
+          </Typography>
+          <Typography align="center" color="text.secondary" sx={{ mt: 1, mb: 3 }}>
+            Accédez à votre espace de gestion hôtelière
+          </Typography>
+
+          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+
+          <Box component="form" onSubmit={handleSubmit} noValidate>
+            <TextField
+              required
+              fullWidth
+              autoFocus
+              type="email"
+              id="email"
+              name="email"
+              label="Adresse e-mail"
+              autoComplete="email"
+              value={formData.email}
+              onChange={handleChange}
+              disabled={submitting}
+              sx={{ mb: 2 }}
+            />
+
+            <TextField
+              required
+              fullWidth
+              id="password"
+              name="password"
+              label="Mot de passe"
+              type={showPassword ? "text" : "password"}
+              autoComplete="current-password"
+              value={formData.password}
+              onChange={handleChange}
+              disabled={submitting}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      edge="end"
+                      disabled={submitting}
+                      onClick={() => setShowPassword((visible) => !visible)}
+                      aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                    >
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
               }}
             />
-            <Typography component="h1" variant="h5" sx={{ mb: 3 }}>
-              {isLogin ? "Sign In" : "Create Account"}
-            </Typography>
 
-            {error && (
-              <Alert severity="error" sx={{ width: "100%", mb: 2 }}>
-                {error}
-              </Alert>
-            )}
-
-            <Box component="form" onSubmit={handleSubmit} sx={{ width: "100%" }}>
-              {!isLogin && (
-                <TextField
-                  margin="normal"
-                  required
-                  fullWidth
-                  id="name"
-                  label="Full Name"
-                  name="name"
-                  autoComplete="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  sx={{ mb: 2 }}
-                />
-              )}
-
-              <TextField
-                margin="normal"
-                required
-                fullWidth
-                id="email"
-                label="Email Address"
-                name="email"
-                autoComplete="email"
-                value={formData.email}
-                onChange={handleChange}
-                sx={{ mb: 2 }}
-              />
-
-              <TextField
-                margin="normal"
-                required
-                fullWidth
-                name="password"
-                label="Password"
-                type={showPassword ? "text" : "password"}
-                id="password"
-                autoComplete="current-password"
-                value={formData.password}
-                onChange={handleChange}
-                InputProps={{
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton
-                        aria-label="toggle password visibility"
-                        onClick={() => setShowPassword(!showPassword)}
-                        edge="end"
-                      >
-                        {showPassword ? <VisibilityOff /> : <Visibility />}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                }}
-                sx={{ mb: 2 }}
-              />
-
-              {!isLogin && (
-                <TextField
-                  margin="normal"
-                  required
-                  fullWidth
-                  name="confirmPassword"
-                  label="Confirm Password"
-                  type={showConfirmPassword ? "text" : "password"}
-                  id="confirmPassword"
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  InputProps={{
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton
-                          aria-label="toggle password visibility"
-                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                          edge="end"
-                        >
-                          {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
-                        </IconButton>
-                      </InputAdornment>
-                    ),
-                  }}
-                  sx={{ mb: 2 }}
-                />
-              )}
-
-              <Button
-                type="submit"
-                fullWidth
-                variant="contained"
-                sx={{
-                  mt: 3,
-                  mb: 2,
-                  py: 1.5,
-                  backgroundColor: "#0b4d54",
-                  "&:hover": {
-                    backgroundColor: "#0b4d54",
-                    opacity: 0.9,
-                  },
-                }}
-                disabled={loading}
-              >
-                {loading ? (
-                  <CircularProgress size={24} color="inherit" />
-                ) : isLogin ? (
-                  "Sign In"
-                ) : (
-                  "Create Account"
-                )}
-              </Button>
-
-              <Grid container justifyContent="center">
-                <Grid item>
-                  <Link
-                    component="button"
-                    variant="body2"
-                    onClick={() => {
-                      setIsLogin(!isLogin);
-                      setError("");
-                      setFormData({
-                        name: "",
-                        email: "",
-                        password: "",
-                        confirmPassword: "",
-                      });
-                    }}
-                    sx={{
-                      color: "#0b4d54",
-                      textDecoration: "none",
-                      "&:hover": {
-                        textDecoration: "underline",
-                      },
-                    }}
-                  >
-                    {isLogin
-                      ? "Don't have an account? Sign Up"
-                      : "Already have an account? Sign In"}
-                  </Link>
-                </Grid>
-              </Grid>
-            </Box>
-          </Paper>
-        </Box>
+            <Button
+              type="submit"
+              fullWidth
+              variant="contained"
+              disabled={submitting}
+              sx={{
+                mt: 3,
+                minHeight: 48,
+                backgroundColor: "#0b4d54",
+                textTransform: "none",
+                "&:hover": { backgroundColor: "#0b4d54", opacity: 0.92 },
+                "&:focus-visible": { outline: "3px solid rgba(11, 77, 84, 0.35)", outlineOffset: 2 },
+              }}
+            >
+              {submitting ? (
+                <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 1 }}>
+                  <CircularProgress size={20} color="inherit" /> Connexion…
+                </Box>
+              ) : "Se connecter"}
+            </Button>
+          </Box>
+        </Paper>
       </Container>
-    </>
+    </Box>
   );
 };
 

@@ -58,7 +58,7 @@ let redirectingToLogin = false;
 
 const isLoginRequest = (config) => /(^|\/)login(?:\?|$)/.test(String(config?.url || ""));
 
-apiClient.interceptors.request.use((config) => {
+const attachToken = (config) => {
   const token = getStoredAuthToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -68,25 +68,30 @@ apiClient.interceptors.request.use((config) => {
     delete config.headers.Authorization;
   }
   return config;
-});
+};
 
-apiClient.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401 && !isLoginRequest(error.config)) {
-      clearStoredAuthentication();
+const handleResponseError = (error) => {
+  if (error.response?.status === 401 && !isLoginRequest(error.config)) {
+    clearStoredAuthentication();
 
-      if (typeof window !== "undefined" && !redirectingToLogin) {
-        redirectingToLogin = true;
-        window.dispatchEvent(new Event(AUTH_UNAUTHORIZED_EVENT));
-        if (window.location.pathname !== "/login") {
-          window.location.replace("/login");
-        }
+    if (typeof window !== "undefined" && !redirectingToLogin) {
+      redirectingToLogin = true;
+      window.dispatchEvent(new Event(AUTH_UNAUTHORIZED_EVENT));
+      if (window.location.pathname !== "/login") {
+        window.location.replace("/login");
       }
     }
-
-    return Promise.reject(error);
   }
-);
+
+  return Promise.reject(error);
+};
+
+const installAuthInterceptors = (client) => {
+  client.interceptors.request.use(attachToken);
+  client.interceptors.response.use((response) => response, handleResponseError);
+};
+
+installAuthInterceptors(apiClient);
+installAuthInterceptors(axios);
 
 export default apiClient;

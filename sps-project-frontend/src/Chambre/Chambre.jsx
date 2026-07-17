@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import Swal from "sweetalert2";
 import { sanitizeInput } from '../utils/sanitizeInput';
@@ -209,6 +209,8 @@ const [typeFilter, setTypeFilter] = useState('');
   const [editingEtage, setEditingEtage] = useState([]);
   const [editingVue, setEditingVue] = useState([]);
   const [showAddCategory, setShowAddCategory] = useState(false); // Gère l'affichage du formulaire
+  const roomTypeModalBodyRef = useRef(null);
+  const roomTypeTableRef = useRef(null);
   const [showAddCategorySite, setShowAddCategorySite] = useState(false); // Gère l'affichage du formulaire
 
   const [showAddRegein, setShowAddRegein] = useState(false); // Gère l'affichage du formulaire
@@ -237,6 +239,26 @@ const [typeFilter, setTypeFilter] = useState('');
   const { dynamicStyles } = useOpen();
   const [selectedProductsData, setSelectedProductsData] = useState([]);
   const [selectedProductsDataRep, setSelectedProductsDataRep] = useState([]);
+
+  const resetRoomTypeModalScroll = useCallback(() => {
+    if (roomTypeModalBodyRef.current) {
+      roomTypeModalBodyRef.current.scrollTop = 0;
+    }
+
+    if (roomTypeTableRef.current) {
+      roomTypeTableRef.current.scrollTop = 0;
+      roomTypeTableRef.current.scrollLeft = 0;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!showAddCategory) {
+      return undefined;
+    }
+
+    const frameId = window.requestAnimationFrame(resetRoomTypeModalScroll);
+    return () => window.cancelAnimationFrame(frameId);
+  }, [resetRoomTypeModalScroll, showAddCategory]);
 
 
   const fetchChambres = async () => {
@@ -2877,16 +2899,24 @@ const columns = [
   </Fab>
       </Form.Group>
     </Modal>
-                  <Modal show={showAddCategory} onHide={() => {
-  resetAddTypeChambreForm();
-  setShowAddCategory(false);
-}}>
+                  <Modal
+                    show={showAddCategory}
+                    onHide={() => {
+                      resetAddTypeChambreForm();
+                      setShowAddCategory(false);
+                    }}
+                    onEntered={resetRoomTypeModalScroll}
+                    size="xl"
+                    centered
+                    scrollable
+                    dialogClassName="room-type-management-modal"
+                  >
         <Modal.Header closeButton>
-          <Modal.Title>Ajouter un Type</Modal.Title>
+          <Modal.Title>Ajouter et gérer les types de chambre</Modal.Title>
         </Modal.Header>
-        <Modal.Body>
-          <Form>
-            <Form.Group className="mb-3">
+        <Modal.Body ref={roomTypeModalBodyRef} className="room-type-management-body">
+          <Form className="room-type-management-form">
+            <Form.Group className="room-type-form-field room-type-form-field-wide">
   <Form.Label>Mode de création</Form.Label>
   <Form.Select
     value={typeCreationMode}
@@ -2909,7 +2939,7 @@ const columns = [
   </Form.Select>
 </Form.Group>
 
-          <Form.Group>
+          <Form.Group className="room-type-form-field">
               <Form.Label>Code</Form.Label>
 <Form.Control
   type="text"
@@ -2927,7 +2957,7 @@ const columns = [
   {typeErrors.codeAdd}
 </Form.Control.Feedback>
             </Form.Group>
-<Form.Group className="mb-3">
+<Form.Group className="room-type-form-field">
   <Form.Label>Type Chambre</Form.Label>
 
   {typeCreationMode === "preset" ? (
@@ -2962,7 +2992,7 @@ const columns = [
     {typeErrors.type_chambreAdd}
   </Form.Control.Feedback>
 </Form.Group>            
-            <Form.Group>
+            <Form.Group className="room-type-form-field">
               <Form.Label>Nombre de Lit</Form.Label>
 <Form.Control
   type="number"
@@ -2982,7 +3012,7 @@ const columns = [
   {typeErrors.nb_litAdd}
 </Form.Control.Feedback>
             </Form.Group>
-            <Form.Group>
+            <Form.Group className="room-type-form-field">
               <Form.Label>Nombre de Salle</Form.Label>
 <Form.Control
   type="number"
@@ -3002,7 +3032,7 @@ const columns = [
   {typeErrors.nb_salleAdd}
 </Form.Control.Feedback>
             </Form.Group>
-            <Form.Group className="mt-3">
+            <Form.Group className="room-type-form-field">
               <Form.Label>Capacité standard</Form.Label>
               <Form.Control
                 type="number"
@@ -3024,7 +3054,7 @@ const columns = [
                 {typeErrors.capacite_standardAdd}
               </Form.Control.Feedback>
             </Form.Group>
-            <Form.Group className="mt-3">
+            <Form.Group className="room-type-form-field">
               <Form.Label>Lits supplémentaires maximum</Form.Label>
               <Form.Control
                 type="number"
@@ -3046,7 +3076,7 @@ const columns = [
               </Form.Control.Feedback>
             </Form.Group>
             
-            <Form.Group>
+            <Form.Group className="room-type-form-field room-type-form-field-wide">
               <Form.Label>Commentaire</Form.Label>
 <Form.Control
   as="textarea"
@@ -3062,72 +3092,89 @@ const columns = [
 />
             </Form.Group>
           
-            <Form.Group className="mt-3">
-            <div className="form-group mt-3" style={{maxHeight:'500px',overflowY:'auto'}}>
-            <table className="table table-bordred">
+            <section className="room-type-existing-section room-type-form-field-wide">
+              <div className="room-type-existing-heading">
+                <div>
+                  <h3>Types de chambre existants</h3>
+                  <p>Faites défiler horizontalement pour voir toutes les informations.</p>
+                </div>
+                <span className="room-type-existing-count">
+                  {types?.length ?? 0} {(types?.length ?? 0) === 1 ? "type" : "types"}
+                </span>
+              </div>
+            <div ref={roomTypeTableRef} className="room-type-table-wrapper">
+            <table className="table table-bordered room-type-management-table">
               <thead>
                 <tr>
-                  <th>Code Chambre</th>
-                  <th>Type Chambre</th>
-                  <th>Nombre de Lit</th>
-                  <th>Nombre de Salle</th>
+                  <th className="room-type-cell-nowrap">Code</th>
+                  <th>Type</th>
+                  <th className="room-type-cell-nowrap">Lits</th>
+                  <th className="room-type-cell-nowrap">Salles</th>
                   <th>Capacité</th>
-                  <th>Lits supplémentaires</th>
-                  <th>Commentaire</th>
-                  <th>Action</th>
+                  <th className="room-type-cell-nowrap">Lits suppl.</th>
+                  <th className="room-type-cell-nowrap">Statut</th>
+                  <th className="room-type-comment-cell">Commentaire</th>
+                  <th className="room-type-cell-nowrap">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {types?.map(categ => (
                   <tr key={categ.id}>
-                    <td>{categ.code}</td>
-                    <td>
-                      <span>{categ.type_chambre}</span>
-                      {!isTypeReservationReady(categ) && (
-                        <span className="app-status-badge is-warning type-readiness-badge">
-                          Non prêt
-                        </span>
-                      )}
+                    <td className="room-type-cell-nowrap">{categ.code}</td>
+                    <td>{categ.type_chambre}</td>
+                    <td className="room-type-cell-nowrap">{categ.nb_lit}</td>
+                    <td className="room-type-cell-nowrap">{categ.nb_salle}</td>
+                    <td className="room-type-cell-nowrap">
+                      {categ.capacite_standard ?? "Non configurée"}
                     </td>
-                    <td>{categ.nb_lit}</td>
-                    <td>{categ.nb_salle}</td>
-                    <td>{categ.capacite_standard ?? "Non configurée"}</td>
-                    <td>{categ.lits_supplementaires_max ?? "Non configuré"}</td>
-                    <td>{categ.commentaire}</td>
-                    <td>
-                   
-    <FontAwesomeIcon
-                                  onClick={() => handleEditTypeChambre(categ)}
-                                  icon={faEdit}
-                                  style={{
-                                    color: "#007bff",
-                                    cursor: "pointer",
-                                  }}
-                                />
-                                <span style={{ margin: "0 8px" }}></span>
-                                <FontAwesomeIcon
-                                  onClick={() => handleDeleteTypeChambre(categ.id)}
-                                  icon={faTrash}
-                                  style={{
-                                    color: "#ff0000",
-                                    cursor: "pointer",
-                                  }}
-                                />
+                    <td className="room-type-cell-nowrap">
+                      {categ.lits_supplementaires_max ?? "Non configuré"}
+                    </td>
+                    <td className="room-type-cell-nowrap">
+                      <span
+                        className={`app-status-badge ${
+                          isTypeReservationReady(categ) ? "is-success" : "is-warning"
+                        }`}
+                      >
+                        {isTypeReservationReady(categ) ? "Prêt" : "Non prêt"}
+                      </span>
+                    </td>
+                    <td className="room-type-comment-cell">{categ.commentaire || "—"}</td>
+                    <td className="room-type-cell-nowrap">
+                      <div className="app-table-actions">
+                        <button
+                          type="button"
+                          className="room-type-action-button"
+                          onClick={() => handleEditTypeChambre(categ)}
+                          title="Modifier ce type"
+                          aria-label="Modifier ce type"
+                        >
+                          <FontAwesomeIcon icon={faEdit} className="app-table-action is-edit" />
+                        </button>
+                        <button
+                          type="button"
+                          className="room-type-action-button"
+                          onClick={() => handleDeleteTypeChambre(categ.id)}
+                          title="Supprimer ce type"
+                          aria-label="Supprimer ce type"
+                        >
+                          <FontAwesomeIcon icon={faTrash} className="app-table-action is-delete" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-            </Form.Group>
+            </section>
             
           </Form>
         </Modal.Body>
         
           
           
-        <Form.Group className=" d-flex justify-content-center">
-        
+        <Modal.Footer className="room-type-management-footer">
         <Fab
     variant="extended"
     className="btn-sm Fab mb-2 mx-2"
@@ -3139,12 +3186,14 @@ const columns = [
   <Fab
     variant="extended"
     className="btn-sm FabAnnule mb-2 mx-2"
-    onClick={() => setShowAddCategory(false)}
+    onClick={() => {
+      resetAddTypeChambreForm();
+      setShowAddCategory(false);
+    }}
   >
     Annuler
   </Fab>
-  </Form.Group>
-        
+        </Modal.Footer>
       </Modal>
 
 <div className="row">

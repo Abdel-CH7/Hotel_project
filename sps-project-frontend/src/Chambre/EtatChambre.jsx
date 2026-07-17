@@ -6,19 +6,25 @@ import "../style.css";
 import Box from "@mui/material/Box";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
+  faBed,
+  faCheckCircle,
   faPen,
   faPlus,
+  faTriangleExclamation,
   faTrash,
   faToggleOff,
   faToggleOn,
+  faWrench,
 } from "@fortawesome/free-solid-svg-icons";
 
 import { useOpen } from "../Acceuil/OpenProvider";
 import SearchWithExport from "../components/SearchWithExport";
+import AppStats from "../components/AppStats";
 import ListFilterReset from "../components/ListFilterReset";
 import ListPagination from "../components/ListPagination";
 import ListState from "../components/ListState";
 import useListControls from "../components/useListControls";
+import apiClient from "../utils/apiClient";
 import {
   exportToExcel as exportRowsToExcel,
   exportToPdf as exportRowsToPdf,
@@ -106,24 +112,21 @@ const firstValidationMessages = (errors = {}) =>
   );
 
 const requestJson = async (url, options = {}) => {
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      Accept: "application/json",
-      ...(options.body ? { "Content-Type": "application/json" } : {}),
-      ...options.headers,
-    },
-  });
-  const data = await response.json().catch(() => ({}));
-
-  if (!response.ok) {
+  try {
+    const response = await apiClient.request({
+      url,
+      method: options.method || "GET",
+      headers: options.headers,
+      data: options.body ? JSON.parse(options.body) : undefined,
+    });
+    return response.data;
+  } catch (requestError) {
+    const data = requestError.response?.data || {};
     const error = new Error(data.message || "Une erreur est survenue.");
-    error.status = response.status;
+    error.status = requestError.response?.status;
     error.data = data;
     throw error;
   }
-
-  return data;
 };
 
 const EtatChambre = () => {
@@ -841,6 +844,13 @@ const EtatChambre = () => {
       dateFinMaintenance
   );
 
+  const roomStateStats = useMemo(() => [
+    { key: "total", title: "Total chambres", value: chambres.length, icon: faBed, variant: "primary" },
+    { key: "clean", title: "Nettoyées", value: chambres.filter((room) => room.status === "nettoyée").length, icon: faCheckCircle, variant: "success" },
+    { key: "dirty", title: "Non nettoyées", value: chambres.filter((room) => room.status === "non nettoyée").length, icon: faTriangleExclamation, variant: "warning" },
+    { key: "maintenance", title: "En maintenance", value: chambres.filter((room) => maintenanceToOuiNon(room.maintenance) === "oui").length, icon: faWrench, variant: "danger" },
+  ], [chambres]);
+
   const resetFilters = useCallback(() => {
     setSearchTerm("");
     setSelectedStatus("");
@@ -928,6 +938,8 @@ const EtatChambre = () => {
           loading={loading}
           exportsDisabled={loading || totalRows === 0}
         />
+
+        <AppStats items={roomStateStats} loading={loading} />
 
         <div className="app-controls-row justify-content-end">
           <div className="app-filter-controls etat-chambre-filter-controls">
@@ -1058,6 +1070,7 @@ const EtatChambre = () => {
           <div className="app-section">
             <ChambreTable
               filteredChambres={visibleChambres}
+              searchTerm={searchTerm}
               maintenanceTypes={maintenanceTypes}
               handleEditClick={handleEditClick}
               handleMarkAsClean={openQuickCleanModal}

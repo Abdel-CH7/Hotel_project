@@ -1,8 +1,9 @@
 import { formatDate, formatDateTime, eventLabel } from "../reclamationUtils";
+import { highlightText } from "../../utils/textUtils";
 
 const value = (candidate) => candidate || "—";
 
-const ReclamationExpandedRow = ({ detail, loading, error, onRetry }) => {
+const ReclamationExpandedRow = ({ detail, searchTerm, loading, error, onRetry }) => {
   if (loading) return <div className="reclamation-expanded-state">Chargement du détail…</div>;
   if (error) {
     return <div className="reclamation-expanded-state is-error" role="alert"><span>{error}</span><button type="button" className="app-secondary-button" onClick={onRetry}>Réessayer</button></div>;
@@ -17,16 +18,16 @@ const ReclamationExpandedRow = ({ detail, loading, error, onRetry }) => {
       <section className="reclamation-detail-section">
         <h3>Détails de la réclamation</h3>
         <dl className="reclamation-detail-grid">
-          <div><dt>Description</dt><dd>{value(detail.description)}</dd></div>
-          <div><dt>Canal</dt><dd>{value(channel)}</dd></div>
-          <div><dt>Client</dt><dd>{value(detail.client?.display_name)}</dd></div>
-          <div><dt>Réservation</dt><dd>{value(detail.reservation?.numero)}</dd></div>
-          <div><dt>Chambre</dt><dd>{value(detail.chambre?.numero)}</dd></div>
-          <div><dt>Département</dt><dd>{value(detail.departement?.nom)}</dd></div>
-          <div><dt>Priorité</dt><dd>{value(detail.priorite_label)}</dd></div>
-          <div><dt>Réponse</dt><dd>{value(detail.reponse)}</dd></div>
-          <div><dt>Résolution</dt><dd>{detail.resolved_at ? formatDate(detail.resolved_at) : "—"}</dd></div>
-          <div><dt>Annulation</dt><dd>{detail.cancellation?.cancelled_at ? `${formatDate(detail.cancellation.cancelled_at)} — ${value(detail.cancellation.reason)}` : "—"}</dd></div>
+          <div><dt>Description</dt><dd>{highlightText(value(detail.description), searchTerm)}</dd></div>
+          <div><dt>Canal</dt><dd>{highlightText(value(channel), searchTerm)}</dd></div>
+          <div><dt>Client</dt><dd>{highlightText(value(detail.client?.display_name), searchTerm)}</dd></div>
+          <div><dt>Réservation</dt><dd>{highlightText(value(detail.reservation?.numero), searchTerm)}</dd></div>
+          <div><dt>Chambre</dt><dd>{highlightText(value(detail.chambre?.numero), searchTerm)}</dd></div>
+          <div><dt>Département</dt><dd>{highlightText(value(detail.departement?.nom), searchTerm)}</dd></div>
+          <div><dt>Priorité</dt><dd>{highlightText(value(detail.priorite_label), searchTerm)}</dd></div>
+          <div><dt>Réponse</dt><dd>{highlightText(value(detail.reponse), searchTerm)}</dd></div>
+          <div><dt>Résolution</dt><dd>{highlightText(detail.resolved_at ? formatDate(detail.resolved_at) : "—", searchTerm)}</dd></div>
+          <div><dt>Annulation</dt><dd>{highlightText(detail.cancellation?.cancelled_at ? `${formatDate(detail.cancellation.cancelled_at)} — ${value(detail.cancellation.reason)}` : "—", searchTerm)}</dd></div>
         </dl>
       </section>
       <section className="reclamation-timeline-section">

@@ -53,24 +53,36 @@ class ClientSocieteHotelApiTest extends TestCase
         $this->postJson('/api/clients', [])
             ->assertUnprocessable()
             ->assertJsonValidationErrors([
-                'CodeClient', 'raison_sociale', 'ice', 'type_organisation',
+                'raison_sociale', 'ice', 'type_organisation',
                 'tele', 'email', 'pays_code', 'ville', 'adresse',
             ])
-            ->assertJsonPath('errors.CodeClient.0', 'Le code client est obligatoire.')
             ->assertJsonPath('errors.raison_sociale.0', 'La raison sociale est obligatoire.');
     }
 
-    public function test_company_code_and_tax_identifier_are_unique(): void
+    public function test_company_code_is_generated_immutable_and_tax_identifier_is_unique(): void
     {
-        $created = $this->postJson('/api/clients', $this->companyPayload())->assertCreated();
+        $created = $this->postJson('/api/clients', $this->companyPayload([
+            'CodeClient' => 'USER-SUPPLIED-CODE',
+        ]))->assertCreated();
+        $second = $this->postJson('/api/clients', $this->companyPayload([
+            'CodeClient' => 'USER-SUPPLIED-CODE',
+        ]))->assertCreated();
 
-        $this->postJson('/api/clients', $this->companyPayload([
-            'CodeClient' => $created->json('client.CodeClient'),
-        ]))->assertUnprocessable()->assertJsonValidationErrors('CodeClient');
+        $firstCode = $created->json('client.CodeClient');
+        $secondCode = $second->json('client.CodeClient');
+        $this->assertMatchesRegularExpression('/^CS-\d{6}$/', $firstCode);
+        $this->assertMatchesRegularExpression('/^CS-\d{6}$/', $secondCode);
+        $this->assertNotSame('USER-SUPPLIED-CODE', $firstCode);
+        $this->assertNotSame($firstCode, $secondCode);
 
         $this->postJson('/api/clients', $this->companyPayload([
             'ice' => $created->json('client.ice'),
         ]))->assertUnprocessable()->assertJsonValidationErrors('ice');
+
+        $this->putJson('/api/clients/'.$created->json('client.id'), $this->companyPayload([
+            'CodeClient' => 'CS-999999',
+            'ice' => $created->json('client.ice'),
+        ]))->assertOk()->assertJsonPath('client.CodeClient', $firstCode);
     }
 
     public function test_moroccan_company_requires_a_fifteen_digit_ice(): void

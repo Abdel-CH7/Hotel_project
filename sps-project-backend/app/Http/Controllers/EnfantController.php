@@ -39,7 +39,11 @@ private function saveEnfants(Request $request)
         'infos.*.type' => 'nullable|string|max:10',
         'infos.*.name' => 'required_with:infos|string|max:255',
         'infos.*.prenom' => 'nullable|string|max:255',
-        'infos.*.age' => 'nullable|integer|min:0',
+        'infos.*.age' => 'nullable|integer|min:0|max:17',
+    ], [
+        'infos.*.age.integer' => 'L’âge de l’enfant doit être compris entre 0 et 17 ans.',
+        'infos.*.age.min' => 'L’âge de l’enfant doit être compris entre 0 et 17 ans.',
+        'infos.*.age.max' => 'L’âge de l’enfant doit être compris entre 0 et 17 ans.',
     ]);
 
     if ($validator->fails()) {

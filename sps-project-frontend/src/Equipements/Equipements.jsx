@@ -19,6 +19,7 @@ import {
   faTimesCircle,
 } from "@fortawesome/free-solid-svg-icons";
 import SearchWithExport from "../components/SearchWithExport";
+import AppStats from "../components/AppStats";
 import ListFilterReset from "../components/ListFilterReset";
 import ListPagination from "../components/ListPagination";
 import ListState from "../components/ListState";
@@ -880,59 +881,15 @@ const handleShowForm = () => {
 
           
 
-          {/* Stats Cards */}
-{/* Stats Cards */}
-<div className="app-section app-stats-grid">
-  {[
-    {
-      title: "Total Équipements",
-      value: stats.total || 0,
-      color: "#00afaa",
-      icon: faTools,
-    },
-    {
-      title: "En service",
-      value: stats.disponible || 0,
-      color: "#28a745",
-      icon: faCheckCircle,
-    },
-    {
-      title: "En maintenance",
-      value: stats.en_maintenance || 0,
-      color: "#ffc107",
-      icon: faWrench,
-    },
-    {
-      title: "Hors service",
-      value: stats.hors_service || 0,
-      color: "#dc3545",
-      icon: faTimesCircle,
-    },
-  ].map((stat, index) => (
-    <div
-      key={index}
-      className="app-stat-card"
-      style={{ borderTopColor: stat.color }}
-    >
-      <div
-        className="app-stat-icon"
-        style={{ backgroundColor: `${stat.color}20` }}
-      >
-        <FontAwesomeIcon
-          icon={stat.icon}
-          style={{ color: stat.color, fontSize: "20px" }}
-        />
-      </div>
-
-      <div>
-        <div className="app-stat-title">{stat.title}</div>
-        <div className="app-stat-value" style={{ color: stat.color }}>
-          {stat.value}
-        </div>
-      </div>
-    </div>
-  ))}
-</div>
+          <AppStats
+            loading={loading}
+            items={[
+              { key: "total", title: "Total Équipements", value: stats.total ?? 0, icon: faTools, variant: "primary" },
+              { key: "service", title: "En service", value: stats.disponible ?? 0, icon: faCheckCircle, variant: "success" },
+              { key: "maintenance", title: "En maintenance", value: stats.en_maintenance ?? 0, icon: faWrench, variant: "warning" },
+              { key: "hors-service", title: "Hors service", value: stats.hors_service ?? 0, icon: faTimesCircle, variant: "danger" },
+            ]}
+          />
 
 <div className="app-controls-row">
   <button

@@ -3,6 +3,12 @@
 namespace Tests\Feature;
 
 use App\Exceptions\ReservationDomainException;
+use App\Models\CategorieEquipement;
+use App\Models\Departement;
+use App\Models\Equipement;
+use App\Models\Reclamation;
+use App\Models\ReclamationCanal;
+use App\Models\ReclamationType;
 use App\Services\ReservationAvailabilityService;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -103,6 +109,82 @@ class ReservationAvailabilityServiceTest extends TestCase
             'maintenance_overlap',
             409
         );
+    }
+
+    public function test_room_level_maintenance_controls_available_room_results(): void
+    {
+        $room = $this->createRoom();
+        $service = app(ReservationAvailabilityService::class);
+        $start = '2091-05-20';
+        $end = '2091-05-22';
+
+        $this->assertContains($room->id, collect($service->availableRooms($start, $end))->pluck('id'));
+
+        DB::table('etat_chambre')->where('num_chambre', $room->num_chambre)->update([
+            'maintenance' => true,
+            'date_debut_maintenance' => null,
+            'date_fin_maintenance' => null,
+        ]);
+        $this->assertNotContains($room->id, collect($service->availableRooms($start, $end))->pluck('id'));
+
+        DB::table('etat_chambre')->where('num_chambre', $room->num_chambre)->update([
+            'maintenance' => false,
+        ]);
+        $this->assertContains($room->id, collect($service->availableRooms($start, $end))->pluck('id'));
+    }
+
+    public function test_complaints_and_equipment_maintenance_do_not_block_a_room(): void
+    {
+        $room = $this->createRoom();
+        $department = Departement::create([
+            'nom' => 'Département disponibilité '.uniqid(),
+            'actif' => true,
+        ]);
+        $type = ReclamationType::create([
+            'nom' => 'Type disponibilité '.uniqid(),
+            'actif' => true,
+        ]);
+        $channel = ReclamationCanal::create([
+            'nom' => 'Canal disponibilité '.uniqid(),
+            'est_autre' => false,
+            'actif' => true,
+        ]);
+        Reclamation::create([
+            'reclamation_num' => 'AVAIL-REC-'.uniqid(),
+            'chambre_id' => $room->id,
+            'reclamation_type_id' => $type->id,
+            'description' => 'Réclamation liée à une chambre disponible.',
+            'reclamation_canal_id' => $channel->id,
+            'date_reclamation' => '2091-05-20',
+            'departement_id' => $department->id,
+            'priorite' => 'urgente',
+            'suivi' => Reclamation::STATUS_IN_PROGRESS,
+        ]);
+
+        $category = CategorieEquipement::create([
+            'nom' => 'Catégorie disponibilité '.uniqid(),
+        ]);
+        Equipement::create([
+            'nom' => 'Équipement de chambre en maintenance',
+            'numero_serie' => 'AVAIL-EQ-'.uniqid(),
+            'modele' => 'Test',
+            'marque' => 'Test',
+            'date_acquisition' => '2091-05-01',
+            'localisation' => (string) $room->num_chambre,
+            'chambre_id' => $room->id,
+            'statut' => 'en_maintenance',
+            'categorie_id' => $category->id,
+        ]);
+
+        $availableIds = collect(app(ReservationAvailabilityService::class)
+            ->availableRooms('2091-05-20', '2091-05-22'))
+            ->pluck('id');
+
+        $this->assertContains($room->id, $availableIds);
+        $this->assertDatabaseHas('etat_chambre', [
+            'num_chambre' => $room->num_chambre,
+            'maintenance' => false,
+        ]);
     }
 
     public function test_maintenance_outside_half_open_stay_does_not_block(): void

@@ -20,6 +20,7 @@ import "../style.css";
 const API_URL = "http://localhost:8000/api";
 const OTHER_CITY = "Autre ville";
 const DOCUMENT_TYPES = ["CIN", "Passeport", "Carte de séjour", "Autre"];
+const CIVILITIES = ["Monsieur", "Madame", "Mademoiselle"];
 
 const INITIAL_FORM = {
   CodeClient: "",
@@ -38,7 +39,6 @@ const INITIAL_FORM = {
 };
 
 const REQUIRED_MESSAGES = {
-  CodeClient: "Le code client est obligatoire.",
   name: "Le nom est obligatoire.",
   prenom: "Le prénom est obligatoire.",
   type_piece: "Le type de pièce est obligatoire.",
@@ -218,6 +218,8 @@ const ClientParticulierr = () => {
     && formData.ville
     && formData.ville !== OTHER_CITY
     && !currentMoroccoCities.includes(formData.ville);
+  const legacyCivilite = formData.civilite
+    && !CIVILITIES.includes(formData.civilite);
 
   const openCreate = () => {
     setEditingClient(null);
@@ -311,19 +313,22 @@ const ClientParticulierr = () => {
       nextErrors.ville_autre = "La ville est obligatoire.";
     }
 
-    const normalizedCode = normalizeSearchValue(formData.CodeClient);
     const normalizedDocument = normalizeSearchValue(formData.cin);
     const editingId = String(editingClient?.id ?? "");
-    if (normalizedCode && clients.some((client) =>
-      String(client.id) !== editingId && normalizeSearchValue(client.CodeClient) === normalizedCode
-    )) {
-      nextErrors.CodeClient = "Ce code client existe déjà.";
-    }
     if (normalizedDocument && clients.some((client) =>
       String(client.id) !== editingId && normalizeSearchValue(client.cin) === normalizedDocument
     )) {
       nextErrors.cin = "Ce numéro de pièce existe déjà.";
     }
+
+    childrenRows.forEach((child, index) => {
+      const value = child.age;
+      if (value === "" || value === null || value === undefined) return;
+      const parsed = Number(value);
+      if (!Number.isInteger(parsed) || parsed < 0 || parsed > 17) {
+        nextErrors[`infos.${index}.age`] = "L’âge de l’enfant doit être compris entre 0 et 17 ans.";
+      }
+    });
 
     setErrors(nextErrors);
     const firstField = Object.keys(nextErrors)[0];
@@ -354,7 +359,6 @@ const ClientParticulierr = () => {
     if (!validateForm()) return;
 
     const payload = {
-      CodeClient: formData.CodeClient.trim(),
       name: formData.name.trim(),
       prenom: formData.prenom.trim(),
       type_piece: formData.type_piece,
@@ -404,6 +408,7 @@ const ClientParticulierr = () => {
     setChildrenRows((previous) => previous.map((child, childIndex) =>
       childIndex === index ? { ...child, name: formData.name, [field]: value } : child
     ));
+    clearFieldErrors(`infos.${index}.${field}`);
   };
 
   const removeChild = async (index) => {
@@ -803,8 +808,18 @@ const ClientParticulierr = () => {
           <section className="client-guest-form-section">
             <h5>Identité</h5>
             <div className="client-guest-form-grid">
-              <GuestField label="Code client" required error={getFieldError("CodeClient")}>
-                <Form.Control name="CodeClient" value={formData.CodeClient} onChange={handleChange} isInvalid={Boolean(getFieldError("CodeClient"))} />
+              <GuestField label="Code client">
+                <Form.Control
+                  name="CodeClient"
+                  value={editingClient ? formData.CodeClient : "CP-######"}
+                  readOnly
+                  aria-readonly="true"
+                />
+                {!editingClient && (
+                  <Form.Text className="client-generated-code-help">
+                    Généré automatiquement lors de l’enregistrement.
+                  </Form.Text>
+                )}
               </GuestField>
               <GuestField label="Nom" required error={getFieldError("name")}>
                 <Form.Control name="name" value={formData.name} onChange={handleChange} isInvalid={Boolean(getFieldError("name"))} />
@@ -822,7 +837,11 @@ const ClientParticulierr = () => {
                 <Form.Control name="cin" value={formData.cin} onChange={handleChange} isInvalid={Boolean(getFieldError("cin"))} />
               </GuestField>
               <GuestField label="Civilité" error={getFieldError("civilite")}>
-                <Form.Control name="civilite" value={formData.civilite} onChange={handleChange} isInvalid={Boolean(getFieldError("civilite"))} />
+                <Form.Select name="civilite" value={formData.civilite} onChange={handleChange} isInvalid={Boolean(getFieldError("civilite"))}>
+                  <option value="">Sélectionner une civilité</option>
+                  {legacyCivilite && <option value={formData.civilite}>{formData.civilite} (ancienne valeur)</option>}
+                  {CIVILITIES.map((civilite) => <option key={civilite} value={civilite}>{civilite}</option>)}
+                </Form.Select>
               </GuestField>
               <GuestField label="Nationalité" required error={getFieldError("nationalite")}>
                 <Form.Control name="nationalite" value={formData.nationalite} onChange={handleChange} isInvalid={Boolean(getFieldError("nationalite"))} />
@@ -892,7 +911,7 @@ const ClientParticulierr = () => {
 
           <section className="client-guest-form-section">
             <div className="client-guest-section-heading">
-              <h5>Famille</h5>
+              <h5>Enfants</h5>
               <button type="button" className="app-secondary-button" onClick={addChild}>
                 <FontAwesomeIcon icon={faPlus} /> Ajouter un enfant
               </button>
@@ -912,7 +931,25 @@ const ClientParticulierr = () => {
                     <tr key={child.id || `new-child-${index}`}>
                       <td><Form.Control value={formData.name} disabled /></td>
                       <td><Form.Control value={child.prenom ?? ""} onChange={(event) => changeChild(index, "prenom", event.target.value)} /></td>
-                      <td><Form.Control type="number" min="0" value={child.age ?? ""} onChange={(event) => changeChild(index, "age", event.target.value)} /></td>
+                      <td>
+                        <div className="client-child-age-field">
+                          <Form.Control
+                            name={`infos.${index}.age`}
+                            type="number"
+                            min="0"
+                            max="17"
+                            step="1"
+                            value={child.age ?? ""}
+                            onChange={(event) => changeChild(index, "age", event.target.value)}
+                            isInvalid={Boolean(getFieldError(`infos.${index}.age`))}
+                          />
+                          {getFieldError(`infos.${index}.age`) && (
+                            <div className="invalid-feedback d-block">
+                              {getFieldError(`infos.${index}.age`)}
+                            </div>
+                          )}
+                        </div>
+                      </td>
                       <td><button type="button" className="app-table-action is-delete" title="Supprimer" aria-label="Supprimer" onClick={() => removeChild(index)}><FontAwesomeIcon icon={faTrash} /></button></td>
                     </tr>
                   ))}

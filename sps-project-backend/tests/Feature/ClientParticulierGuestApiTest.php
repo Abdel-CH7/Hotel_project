@@ -63,24 +63,69 @@ class ClientParticulierGuestApiTest extends TestCase
         $this->postJson('/api/clients_particulier', [])
             ->assertUnprocessable()
             ->assertJsonValidationErrors([
-                'CodeClient', 'name', 'prenom', 'type_piece', 'cin',
+                'name', 'prenom', 'type_piece', 'cin',
                 'nationalite', 'tele', 'pays_code', 'ville',
             ])
-            ->assertJsonPath('errors.CodeClient.0', 'Le code client est obligatoire.')
             ->assertJsonPath('errors.cin.0', 'Le numéro de pièce est obligatoire.');
     }
 
-    public function test_code_and_document_number_remain_unique(): void
+    public function test_code_is_generated_immutable_and_document_number_remains_unique(): void
     {
-        $created = $this->postJson('/api/clients_particulier', $this->guestPayload())->assertCreated();
+        $created = $this->postJson('/api/clients_particulier', $this->guestPayload([
+            'CodeClient' => 'USER-SUPPLIED-CODE',
+        ]))->assertCreated();
+        $second = $this->postJson('/api/clients_particulier', $this->guestPayload([
+            'CodeClient' => 'USER-SUPPLIED-CODE',
+        ]))->assertCreated();
 
-        $this->postJson('/api/clients_particulier', $this->guestPayload([
-            'CodeClient' => $created->json('client.CodeClient'),
-        ]))->assertUnprocessable()->assertJsonValidationErrors('CodeClient');
+        $firstCode = $created->json('client.CodeClient');
+        $secondCode = $second->json('client.CodeClient');
+        $this->assertMatchesRegularExpression('/^CP-\d{6}$/', $firstCode);
+        $this->assertMatchesRegularExpression('/^CP-\d{6}$/', $secondCode);
+        $this->assertNotSame('USER-SUPPLIED-CODE', $firstCode);
+        $this->assertNotSame($firstCode, $secondCode);
 
         $this->postJson('/api/clients_particulier', $this->guestPayload([
             'cin' => $created->json('client.cin'),
         ]))->assertUnprocessable()->assertJsonValidationErrors('cin');
+
+        $this->putJson('/api/clients_particulier/'.$created->json('client.id'), $this->guestPayload([
+            'CodeClient' => 'CP-999999',
+            'cin' => $created->json('client.cin'),
+        ]))->assertOk()->assertJsonPath('client.CodeClient', $firstCode);
+    }
+
+    public function test_child_age_accepts_boundaries_and_rejects_invalid_values(): void
+    {
+        $client = $this->postJson('/api/clients_particulier', $this->guestPayload())
+            ->assertCreated()
+            ->json('client');
+        $baseChild = [
+            'idClient' => $client['id'],
+            'type' => 'C',
+            'name' => $client['name'],
+            'prenom' => 'Enfant',
+        ];
+
+        $this->postJson('/api/infoClient', [
+            'client_id' => $client['id'],
+            'infos' => [
+                array_merge($baseChild, ['prenom' => 'Nouveau-né', 'age' => 0]),
+                array_merge($baseChild, ['prenom' => 'Adolescent', 'age' => 17]),
+            ],
+        ])->assertOk()->assertJsonCount(2, 'enfants');
+
+        foreach ([-1, 18, 4.5] as $invalidAge) {
+            $response = $this->postJson('/api/infoClient', [
+                'client_id' => $client['id'],
+                'infos' => [array_merge($baseChild, ['age' => $invalidAge])],
+            ])->assertUnprocessable()->assertJsonValidationErrors('infos.0.age');
+
+            $this->assertSame(
+                'L’âge de l’enfant doit être compris entre 0 et 17 ans.',
+                $response->json('errors')['infos.0.age'][0]
+            );
+        }
     }
 
     public function test_valid_morocco_region_and_city_pair_creates_a_guest(): void

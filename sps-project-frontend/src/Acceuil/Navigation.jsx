@@ -11,7 +11,7 @@ import MenuIcon from "@mui/icons-material/Menu";
 import { BiSolidPurchaseTag,BiSolidDashboard,BiSolidUser,BiSolidBuilding } from "react-icons/bi";
 import {
    FaFileCircleQuestion,FaUsers,FaMoneyBillWave,
-   FaFileInvoiceDollar,FaPercent, FaChartLine, FaBed } from "react-icons/fa6";
+   FaCalendarCheck,FaFileInvoiceDollar,FaPercent, FaChartLine, FaBed } from "react-icons/fa6";
 import { 
   MdOutlineRestaurant,
   MdOutlineMeetingRoom,
@@ -69,7 +69,15 @@ const Drawer = styled(MuiDrawer, {
   shouldForwardProp: (prop) => prop !== "open",
 })(({ theme, open }) => ({
   "& .MuiDrawer-paper": {
-    position: "relative",
+    position: "fixed",
+    top: 0,
+    left: 0,
+    bottom: 0,
+    height: "100dvh",
+    minHeight: "100vh",
+    display: "flex",
+    flexDirection: "column",
+    overflow: "hidden",
     whiteSpace: "nowrap",
     width: drawerWidth,
     transition: theme.transitions.create("width", {
@@ -113,7 +121,6 @@ const Navigation = () => {
   const [client, setClient] = useState(false);
   const [tarif, setTarif] = useState(false);
   const [chambre, setChambre] = useState(false);
-  const [equipement, setEquipement] = useState(false);
   const [production, setProduction] = useState(false);
   const [logistic, setLogistic] = useState(false);
 
@@ -159,9 +166,6 @@ const Navigation = () => {
     }
     if(opt==='tarif'){
       setTarif(!tarif);
-    }
-    if(opt==='equipement'){
-      setEquipement(!equipement);
     }
   };
   const handleCommandsClick = () => {
@@ -283,26 +287,7 @@ const Navigation = () => {
   // };
   return (
     <ThemeProvider theme={defaultTheme}>
-      <Box sx={{
-        zIndex: 1400,
-        marginLeft:'-9px',
-        marginTop:'-20px',
-  position: 'fixed',
-  maxHeight: '1010px',
-  overflowY: 'auto',
-  scrollbarWidth: 'thin', /* For Firefox */
-  scrollbarColor: '#2c767c #e0e0e0', /* Scrollbar colors for Firefox */
-  '&::-webkit-scrollbar': {
-    width: '8px', /* Adjust width as needed */
-  },
-  '&::-webkit-scrollbar-thumb': {
-    backgroundColor: '#2c767c',
-  },
-  '&::-webkit-scrollbar-track': {
-    backgroundColor: '#2c767c',
-  },
-}}
->
+      <Box sx={{ zIndex: 1400 }}>
         <CssBaseline />
         <AppBar position="fixed" open={open} className="beige-appbar">
           <Toolbar
@@ -335,33 +320,49 @@ const Navigation = () => {
             </IconButton>
           </Toolbar>
         </AppBar>
-        <Drawer variant="permanent"
-          position="fixed"  open={open}>
-
-<Box
-          sx={{
-            
-            alignItems: "center",
-            justifyContent: "center",
-            marginBottom:'-60px'
-          }}
-        >
-          <img src={'../../images/SPS2.png'} loading="lazy" alt="Logo" style={{ width: "52%", height: "auto", paddingTop:"10px", marginLeft:"60px" }} />
-        </Box>
+        <Drawer variant="permanent" position="fixed" open={open}>
+          <Box sx={{ flexShrink: 0 }}>
           <Toolbar
             sx={{
-              
               display: "flex",
               alignItems: "center",
-              justifyContent: "flex-end",
+              justifyContent: open ? "space-between" : "center",
+              minHeight: "72px !important",
               px: [1],
             }}
           >
+            {open && (
+              <img
+                src="../../images/SPS2.png"
+                loading="lazy"
+                alt="Logo SPS"
+                style={{ width: "145px", maxWidth: "70%", height: "auto" }}
+              />
+            )}
             <IconButton onClick={handleToggle}>
               <ChevronLeftIcon />
             </IconButton>
           </Toolbar>
           <Divider />
+          </Box>
+          <Box
+            className="navigation-menu-scroll"
+            sx={{
+              flex: 1,
+              minHeight: 0,
+              overflowY: "auto",
+              overflowX: "hidden",
+              overscrollBehavior: "contain",
+              scrollbarWidth: "thin",
+              scrollbarColor: "rgba(255, 255, 255, 0.5) transparent",
+              "&::-webkit-scrollbar": { width: "7px" },
+              "&::-webkit-scrollbar-thumb": {
+                backgroundColor: "rgba(255, 255, 255, 0.45)",
+                borderRadius: "8px",
+              },
+              "&::-webkit-scrollbar-track": { backgroundColor: "transparent" },
+            }}
+          >
           <List>
           <ListItem
                         button
@@ -372,50 +373,97 @@ const Navigation = () => {
                       <ListItemIcon>
                       <BiSolidDashboard className="iconSedBar"/>
                       </ListItemIcon>   
-                      <ListItemText primary="Dashboard" />
+                      <ListItemText primary="Tableau de bord" />
                     </ListItem>
           </List>
           <List>
-                  <ListItem
-                  button
-                  onClick={()=>toggleSubmenu('client')}
-                  className="sidBarcomposantColore"
-              >
-                
-                <ListItemIcon>
-                <BiSolidUser className="iconSedBar"/>
-
-                </ListItemIcon>
-                
-
-                <ListItemText primary="Clients" />
-                {client ? <ChevronRightIcon /> : <ChevronLeftIcon />}
-              </ListItem>
-
-              <Collapse in={client} timeout="auto" unmountOnExit>
-                    <ListItem
-                        button
-                        component={Link}
-                        to="/clients_particulier"
-                        className="sidBarSucomposantColore"
-                    >
-                         <ListItemIcon>
-                         <FaUsers  className="iconSedBar"/>
+            <ListItem
+              button
+              component={Link}
+              to="/reservation"
+              className="sidBarcomposantColore"
+            >
+              <ListItemIcon>
+                <FaCalendarCheck className="iconSedBar"/>
               </ListItemIcon>
-                      <ListItemText primary="Clients Particulier" />
-                    </ListItem>
-                    <ListItem
-                        button
-                        component={Link}
-                        to="/clients_societe"
-                        className="sidBarSucomposantColore"
-                    >
-                      <ListItemIcon>
-                      <BiSolidBuilding className="iconSedBar"/>
-                      </ListItemIcon>
-                      <ListItemText primary="Clients Societe" />
-                    </ListItem>
-                  </Collapse>
+              <ListItemText primary="Réservations" />
+            </ListItem>
+          </List>
+          <List>
+            <ListItem
+              button
+              onClick={()=>toggleSubmenu('client')}
+              className="sidBarcomposantColore"
+            >
+              <ListItemIcon>
+                <BiSolidUser className="iconSedBar"/>
+              </ListItemIcon>
+              <ListItemText primary="Clients" />
+              {client ? <ChevronRightIcon /> : <ChevronLeftIcon />}
+            </ListItem>
+
+            <Collapse in={client} timeout="auto" unmountOnExit>
+              <ListItem
+                button
+                component={Link}
+                to="/clients_particulier"
+                className="sidBarSucomposantColore"
+              >
+                <ListItemIcon>
+                  <FaUsers className="iconSedBar"/>
+                </ListItemIcon>
+                <ListItemText primary="Clients particuliers" />
+              </ListItem>
+              <ListItem
+                button
+                component={Link}
+                to="/clients_societe"
+                className="sidBarSucomposantColore"
+              >
+                <ListItemIcon>
+                  <BiSolidBuilding className="iconSedBar"/>
+                </ListItemIcon>
+                <ListItemText primary="Clients sociétés" />
+              </ListItem>
+            </Collapse>
+          </List>
+          <List>
+            <ListItem
+              button
+              onClick={()=>toggleSubmenu('chambre')}
+              className="sidBarcomposantColore"
+            >
+              <ListItemIcon>
+                <MdOutlineMeetingRoom className="iconSedBar"/>
+              </ListItemIcon>
+              <ListItemText primary="Chambres" />
+              {chambre ? <ChevronRightIcon /> : <ChevronLeftIcon />}
+            </ListItem>
+
+            <Collapse in={chambre} timeout="auto" unmountOnExit>
+              <ListItem
+                button
+                component={Link}
+                to="/chambre"
+                className="sidBarSucomposantColore"
+              >
+                <ListItemIcon>
+                  <FaBed className="iconSedBar"/>
+                </ListItemIcon>
+                <ListItemText primary="Gestion des chambres" />
+              </ListItem>
+              <ListItem
+                button
+                component={Link}
+                to="/etat-chambre"
+                className="sidBarSucomposantColore"
+              >
+                <ListItemIcon>
+                  <MdCleaningServices className="iconSedBar"/>
+                </ListItemIcon>
+                <ListItemText primary="État des chambres" />
+              </ListItem>
+            </Collapse>
           </List>
           <List>
                   <ListItem
@@ -435,13 +483,13 @@ const Navigation = () => {
                     <ListItem
                         button
                         component={Link}
-                        to="/tarifs_repas"
+                        to="/tarifs_actuel"
                         className="sidBarSucomposantColore"
                     >
                          <ListItemIcon>
-                         <MdOutlineRestaurant className="iconSedBar"/>
+                         <FaChartLine className="iconSedBar"/>
               </ListItemIcon>
-                      <ListItemText primary="Tarifs de Repas" />
+                      <ListItemText primary="Périodes tarifaires" />
                     </ListItem>
                     <ListItem
                         button
@@ -452,7 +500,18 @@ const Navigation = () => {
                       <ListItemIcon>
                       <MdOutlineMeetingRoom className="iconSedBar"/>
                       </ListItemIcon>
-                      <ListItemText primary="Tarifs de Chambre" />
+                      <ListItemText primary="Tarifs des chambres" />
+                    </ListItem>
+                    <ListItem
+                        button
+                        component={Link}
+                        to="/tarifs_repas"
+                        className="sidBarSucomposantColore"
+                    >
+                        <ListItemIcon>
+                        <MdOutlineRestaurant className="iconSedBar"/>
+              </ListItemIcon>
+                      <ListItemText primary="Tarifs des repas" />
                     </ListItem>
                     <ListItem
                         button
@@ -460,88 +519,25 @@ const Navigation = () => {
                         to="/tarifs_reduction"
                         className="sidBarSucomposantColore"
                     >
-                        <ListItemIcon>
-                        <FaPercent className="iconSedBar"/>
-              </ListItemIcon>
-                      <ListItemText primary="Tarifs de Reduction" />
-                    </ListItem>
-                    <ListItem
-                        button
-                        component={Link}
-                        to="/tarifs_actuel"
-                        className="sidBarSucomposantColore"
-                    >
                       <ListItemIcon>
-                      <FaChartLine className="iconSedBar"/>
+                      <FaPercent className="iconSedBar"/>
                       </ListItemIcon>   
-                      <ListItemText primary="Tarifs Actuel" />
+                      <ListItemText primary="Réductions" />
                     </ListItem>
                   </Collapse>
           </List>
           <List>
-          <ListItem
-                        button
-                        onClick={()=>toggleSubmenu('chambre')}
-                        className="sidBarcomposantColore"
-                    >
-                      <ListItemIcon>
-                      <MdOutlineMeetingRoom className="iconSedBar"/>
-                      </ListItemIcon>
-                      <ListItemText primary="Chambres" />
-                      {chambre ? <ChevronRightIcon /> : <ChevronLeftIcon />}
-                    </ListItem>
-
-                    <Collapse in={chambre} timeout="auto" unmountOnExit>
-                      <ListItem
-                        button
-                        component={Link}
-                        to="/chambre"
-                        className="sidBarSucomposantColore"
-                      >
-                        <ListItemIcon>
-                          <FaBed className="iconSedBar"/>
-                        </ListItemIcon>
-                        <ListItemText primary="Gestion Chambres" />
-                      </ListItem>
-                      <ListItem
-                        button
-                        component={Link}
-                        to="/etat-chambre"
-                        className="sidBarSucomposantColore"
-                      >
-                        <ListItemIcon>
-                          <MdCleaningServices className="iconSedBar"/>
-                        </ListItemIcon>
-                        <ListItemText primary="État des Chambres" />
-                      </ListItem>
-                    </Collapse>
-          </List>
-          <List>
             <ListItem
               button
-              onClick={()=>toggleSubmenu('equipement')}
+              component={Link}
+              to="/equipements"
               className="sidBarcomposantColore"
             >
               <ListItemIcon>
                 <MdOutlineBuild className="iconSedBar"/>
               </ListItemIcon>
               <ListItemText primary="Équipements" />
-              {equipement ? <ChevronRightIcon /> : <ChevronLeftIcon />}
             </ListItem>
-
-            <Collapse in={equipement} timeout="auto" unmountOnExit>
-              <ListItem
-                button
-                component={Link}
-                to="/equipements"
-                className="sidBarSucomposantColore"
-              >
-                <ListItemIcon>
-                  <MdOutlineBuild className="iconSedBar"/>
-                </ListItemIcon>
-                <ListItemText primary="Gestion des Équipements" />
-              </ListItem>
-            </Collapse>
           </List>
           <List>
             <ListItem
@@ -556,27 +552,22 @@ const Navigation = () => {
               <ListItemText primary="Réclamations" />
             </ListItem>
           </List>
-          <List>
-            <ListItem
-              button
-              component={Link}
-              to="/reservation"
-              className="sidBarcomposantColore"
-            >
-              <ListItemIcon>
-                <FaBed className="iconSedBar"/>
-              </ListItemIcon>
-              <ListItemText primary="Réservations" />
-            </ListItem>
-          </List>
-          <List>
+          </Box>
+          <Box
+            sx={{
+              flexShrink: 0,
+              borderTop: "1px solid rgba(255, 255, 255, 0.22)",
+              backgroundColor: "#2c767c",
+            }}
+          >
+            <List disablePadding>
             <ListItem
               button
               onClick={() => {
                 handleLogoutClick();
                 handleLogout();
               }}
-              style={{ color: "red", background: "white" ,marginTop:"20px"}}
+              style={{ color: "red", background: "white" }}
             >
               <ListItemIcon>
                 <ExitToAppIcon style={{ color: "red" }} />
@@ -584,6 +575,7 @@ const Navigation = () => {
               <ListItemText primary="Se déconnecter" />
             </ListItem>
           </List>
+          </Box>
         </Drawer>
       </Box>
     </ThemeProvider>

@@ -2,11 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Box from "@mui/material/Box";
 import { Form } from "react-bootstrap";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faPlus } from "@fortawesome/free-solid-svg-icons";
+import { faCalendarDays, faCircleCheck, faCircleXmark, faClock, faPlus } from "@fortawesome/free-solid-svg-icons";
 import Swal from "sweetalert2";
 import ListFilterReset from "../components/ListFilterReset";
 import ListState from "../components/ListState";
 import SearchWithExport from "../components/SearchWithExport";
+import AppStats from "../components/AppStats";
 import useListControls from "../components/useListControls";
 import { useOpen } from "../Acceuil/OpenProvider";
 import CancelReservationModal from "./components/CancelReservationModal";
@@ -151,6 +152,13 @@ const Reservation = () => {
   }, [cacheReservationDetails, loadReservations]);
 
   const formState = useReservationForm({ onSaved: handleSaved });
+
+  const reservationStats = useMemo(() => [
+    { key: "total", title: "Total réservations", value: reservations.length, icon: faCalendarDays, variant: "primary" },
+    { key: "pending", title: "En attente", value: reservations.filter((row) => row.status === "en attente").length, icon: faClock, variant: "warning" },
+    { key: "confirmed", title: "Confirmées", value: reservations.filter((row) => row.status === "confirmé").length, icon: faCircleCheck, variant: "success" },
+    { key: "cancelled", title: "Annulées", value: reservations.filter((row) => row.status === "annulé").length, icon: faCircleXmark, variant: "danger" },
+  ], [reservations]);
 
   const filterReservations = useCallback((rows, currentSearchTerm) => {
     const needle = normalizeSearchValue(currentSearchTerm);
@@ -358,6 +366,8 @@ const Reservation = () => {
           exportsDisabled={totalRows === 0}
         />
 
+        <AppStats items={reservationStats} loading={loading} />
+
         <div className="app-controls-row reservation-controls">
           <button type="button" className="app-add-button" onClick={formState.openCreate}>
             <FontAwesomeIcon icon={faPlus} /> Ajouter une réservation
@@ -403,6 +413,7 @@ const Reservation = () => {
         {!loading && !loadError && totalRows > 0 && (
           <ReservationList
             reservations={visibleRows}
+            searchTerm={searchTerm}
             totalRows={totalRows}
             page={page}
             rowsPerPage={rowsPerPage}

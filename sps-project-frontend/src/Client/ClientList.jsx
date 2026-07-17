@@ -49,7 +49,6 @@ const INITIAL_FORM = {
 };
 
 const REQUIRED_MESSAGES = {
-  CodeClient: "Le code client est obligatoire.",
   raison_sociale: "La raison sociale est obligatoire.",
   ice: "L’ICE / identifiant fiscal est obligatoire.",
   type_organisation: "Le type d’organisation est obligatoire.",
@@ -442,11 +441,7 @@ const ClientList = () => {
     }
 
     const editingId = String(editingClient?.id ?? "");
-    const normalizedCode = normalizeSearchValue(formData.CodeClient);
     const normalizedIce = normalizeSearchValue(formData.ice);
-    if (normalizedCode && clients.some((client) => (
-      String(client.id) !== editingId && normalizeSearchValue(client.CodeClient) === normalizedCode
-    ))) nextErrors.CodeClient = "Ce code client existe déjà.";
     if (normalizedIce && clients.some((client) => (
       String(client.id) !== editingId && normalizeSearchValue(client.ice) === normalizedIce
     ))) nextErrors.ice = "Cet ICE / identifiant fiscal existe déjà.";
@@ -479,7 +474,6 @@ const ClientList = () => {
       .filter(({ contact }) => !isBlankContact(contact));
 
     const payload = {
-      CodeClient: formData.CodeClient.trim(),
       raison_sociale: formData.raison_sociale.trim(),
       ice: formData.ice.trim(),
       type_organisation: formData.type_organisation,
@@ -905,8 +899,18 @@ const ClientList = () => {
             <section className="company-form-section">
               <h5>Identité de l’entreprise</h5>
               <div className="company-form-grid">
-                <CompanyField label="Code client" required error={getFieldError("CodeClient")}>
-                  <Form.Control name="CodeClient" value={formData.CodeClient} onChange={handleChange} isInvalid={Boolean(getFieldError("CodeClient"))} />
+                <CompanyField label="Code client">
+                  <Form.Control
+                    name="CodeClient"
+                    value={editingClient ? formData.CodeClient : "CS-######"}
+                    readOnly
+                    aria-readonly="true"
+                  />
+                  {!editingClient && (
+                    <Form.Text className="company-generated-code-help">
+                      Généré automatiquement lors de l’enregistrement.
+                    </Form.Text>
+                  )}
                 </CompanyField>
                 <CompanyField label="Raison sociale" required error={getFieldError("raison_sociale")}>
                   <Form.Control name="raison_sociale" value={formData.raison_sociale} onChange={handleChange} isInvalid={Boolean(getFieldError("raison_sociale"))} />

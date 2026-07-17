@@ -8,6 +8,7 @@ use App\Models\ModePaimant;
 use App\Models\Reservation;
 use App\Models\SecteurClient;
 use App\Models\SiteClient;
+use App\Support\GeneratedRecordCode;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -100,7 +101,11 @@ class ClientController extends Controller
 
         $client = DB::transaction(function () use ($companyData, $contacts): Client {
             $companyData['user_id'] = Auth::id();
+            $companyData['CodeClient'] = GeneratedRecordCode::temporary('CS');
             $client = Client::create($companyData);
+            $client->forceFill([
+                'CodeClient' => GeneratedRecordCode::fromId('CS', $client->id),
+            ])->save();
             $this->persistContacts($client, $contacts);
 
             return $client->load('secteur', 'contact_clients');
@@ -193,7 +198,6 @@ class ClientController extends Controller
             ->all();
 
         $request->merge([
-            'CodeClient' => trim((string) $request->input('CodeClient')),
             'raison_sociale' => trim((string) $request->input('raison_sociale')),
             'ice' => trim((string) $request->input('ice')),
             'tele' => trim((string) $request->input('tele')),
@@ -207,7 +211,6 @@ class ClientController extends Controller
         ]);
 
         $validator = Validator::make($request->all(), [
-            'CodeClient' => ['required', 'string', 'max:255', Rule::unique('clients', 'CodeClient')->ignore($client?->id)],
             'raison_sociale' => ['required', 'string', 'max:255'],
             'ice' => ['required', 'string', 'max:80', Rule::unique('clients', 'ice')->ignore($client?->id)],
             'type_organisation' => ['required', 'string', Rule::in(array_keys(Client::ORGANIZATION_TYPES))],
@@ -232,8 +235,6 @@ class ClientController extends Controller
             'contacts.*.telephone' => ['nullable', 'string', 'max:30'],
             'contacts.*.email' => ['nullable', 'email', 'max:255'],
         ], [
-            'CodeClient.required' => 'Le code client est obligatoire.',
-            'CodeClient.unique' => 'Ce code client existe déjà.',
             'raison_sociale.required' => 'La raison sociale est obligatoire.',
             'ice.required' => 'L’ICE / identifiant fiscal est obligatoire.',
             'ice.unique' => 'Cet ICE / identifiant fiscal existe déjà.',

@@ -1,160 +1,181 @@
-import React, { useEffect, useState } from "react";
-import axios from "axios";
-import Card from "@mui/material/Card";
-import CardContent from "@mui/material/CardContent";
-import Typography from "@mui/material/Typography";
-import { createTheme, ThemeProvider } from "@mui/material/styles";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Box from "@mui/material/Box";
-import Grid from "@mui/material/Grid";
-import BusinessIcon from "@mui/icons-material/Business";
-import PersonIcon from "@mui/icons-material/Person";
-import { Toolbar } from "@mui/material";
-import { styled } from '@mui/material/styles';
-import DashboardChart from "./DashboardChart"; // Import du graphique
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faBed,
+  faBroom,
+  faCalendarCheck,
+  faComments,
+  faDoorOpen,
+  faPersonWalkingArrowRight,
+  faRotate,
+  faScrewdriverWrench,
+  faUsers,
+} from "@fortawesome/free-solid-svg-icons";
+import { useOpen } from "../Acceuil/OpenProvider";
+import AppStats from "../components/AppStats";
+import apiClient from "../utils/apiClient";
+import "../style.css";
 
-// Styles personnalisés
-const DashboardContainer = styled(Box)({
-  display: 'flex',
-  backgroundColor: '#f8f9fa',
-  minHeight: '100vh'
-});
-
-const ContentContainer = styled(Box)(({ theme }) => ({
-  flexGrow: 1,
-  padding: theme.spacing(3),
-  marginLeft: '300px', // Ajustez selon la largeur de votre menu
-  transition: theme.transitions.create('margin', {
-    easing: theme.transitions.easing.sharp,
-    duration: theme.transitions.duration.leavingScreen,
-  }),
-}));
-
-const StatCard = styled(Card)(({ theme }) => ({
-  height: '180px',
-  display: 'flex',
-  flexDirection: 'column',
-  justifyContent: 'center',
-  borderRadius: '12px',
-  boxShadow: '0 6px 10px rgba(0,0,0,0.08)',
-  transition: 'all 0.3s cubic-bezier(.25,.8,.25,1)',
-  '&:hover': {
-    boxShadow: '0 10px 20px rgba(0,0,0,0.12)'
-  },
-  position: 'relative',
-  overflow: 'hidden'
-}));
-
-const CardHeader = styled(Typography)({
-  fontWeight: 600,
-  marginBottom: '16px',
-  color: '#424242'
-});
-
-const CardValue = styled(Typography)({
-  fontWeight: 700,
-  fontSize: '2.5rem',
-  marginBottom: '8px'
-});
-
-const CardIcon = styled(Box)({
-  position: 'absolute',
-  right: '20px',
-  bottom: '20px',
-  opacity: 0.2,
-  transform: 'scale(2)'
-});
+const EMPTY_SUMMARY = {
+  total_clients: 0,
+  total_chambres: 0,
+  reservations_confirmees: 0,
+  arrivees_aujourdhui: 0,
+  departs_aujourdhui: 0,
+  chambres_non_nettoyees: 0,
+  reclamations_ouvertes: 0,
+  equipements_en_maintenance: 0,
+};
 
 const Dashboard = () => {
-  const [clientsParticuliers, setClientsParticuliers] = useState(0);
-  const [clientsSocietes, setClientsSocietes] = useState(0);
+  const { dynamicStyles } = useOpen();
+  const [summary, setSummary] = useState(EMPTY_SUMMARY);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState("");
 
-  const fetchCounts = async () => {
+  const fetchSummary = useCallback(async ({ refresh = false } = {}) => {
+    if (refresh) setRefreshing(true);
+    else setLoading(true);
+
+    setError("");
+
     try {
-      const particuliersResponse = await axios.get("http://localhost:8000/api/DachbordeDataclients_particulier");
-      setClientsParticuliers(particuliersResponse.data.clients);
-
-      const societesResponse = await axios.get("http://localhost:8000/api/DachbordeDataclients");
-      setClientsSocietes(societesResponse.data.clients);
-
+      const response = await apiClient.get("/dashboard/summary");
+      setSummary({ ...EMPTY_SUMMARY, ...(response.data?.data || {}) });
+    } catch (requestError) {
+      console.error("Impossible de charger le tableau de bord:", requestError);
+      setError("Impossible de charger les statistiques du tableau de bord.");
+    } finally {
       setLoading(false);
-    } catch (error) {
-      console.error("Error fetching counts:", error);
-      setLoading(false);
+      setRefreshing(false);
     }
-  };
-
-  useEffect(() => {
-    fetchCounts();
   }, []);
 
-  if (loading) {
-    return (
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        height: '100vh',
-        marginLeft: '240px'
-      }}>
-        <Typography variant="h6">Chargement en cours...</Typography>
-      </Box>
-    );
-  }
+  useEffect(() => {
+    fetchSummary();
+  }, [fetchSummary]);
+
+  const stats = useMemo(
+    () => [
+      {
+        key: "total-clients",
+        title: "Total clients",
+        value: summary.total_clients,
+        icon: faUsers,
+        variant: "primary",
+      },
+      {
+        key: "total-chambres",
+        title: "Total chambres",
+        value: summary.total_chambres,
+        icon: faBed,
+        variant: "info",
+      },
+      {
+        key: "reservations-confirmees",
+        title: "Réservations confirmées",
+        value: summary.reservations_confirmees,
+        icon: faCalendarCheck,
+        variant: "success",
+      },
+      {
+        key: "arrivees-aujourdhui",
+        title: "Arrivées aujourd’hui",
+        value: summary.arrivees_aujourdhui,
+        icon: faDoorOpen,
+        variant: "primary",
+      },
+      {
+        key: "departs-aujourdhui",
+        title: "Départs aujourd’hui",
+        value: summary.departs_aujourdhui,
+        icon: faPersonWalkingArrowRight,
+        variant: "info",
+      },
+      {
+        key: "chambres-non-nettoyees",
+        title: "Chambres non nettoyées",
+        value: summary.chambres_non_nettoyees,
+        icon: faBroom,
+        variant: "warning",
+      },
+      {
+        key: "reclamations-ouvertes",
+        title: "Réclamations ouvertes",
+        value: summary.reclamations_ouvertes,
+        icon: faComments,
+        variant: "danger",
+      },
+      {
+        key: "equipements-maintenance",
+        title: "Équipements en maintenance",
+        value: summary.equipements_en_maintenance,
+        icon: faScrewdriverWrench,
+        variant: "warning",
+      },
+    ],
+    [summary]
+  );
 
   return (
-    <ThemeProvider theme={createTheme()}>
-      <DashboardContainer>
-        <ContentContainer>
-          <Toolbar /> {/* Compensation pour la AppBar */}
-          
-          <Grid container spacing={3}>
-            {/* Carte Clients Particuliers */}
-            <Grid item xs={12} sm={6} md={4}>
-              <StatCard sx={{ 
-                backgroundColor: '#ff52521a', 
-                borderLeft: '4px solid #ff5252',
-              }}>
-                <CardContent>
-                  <CardHeader variant="h6">Clients Particuliers</CardHeader>
-                  <CardValue>{clientsParticuliers}</CardValue>
-                  <CardIcon>
-                    <PersonIcon style={{ fontSize: 60, color: '#ff5252' }} />
-                  </CardIcon>
-                </CardContent>
-              </StatCard>
-            </Grid>
+    <Box
+      sx={{
+        ...dynamicStyles,
+        width: "auto",
+        maxWidth: "100%",
+        minWidth: 0,
+        overflow: "hidden",
+      }}
+    >
+      <Box
+        component="main"
+        className="app-page dashboard-page"
+        sx={{
+          flexGrow: 1,
+          p: 3,
+          width: "100%",
+          maxWidth: "100%",
+          minWidth: 0,
+        }}
+      >
+        <header className="dashboard-page-heading">
+          <div>
+            <h1>Tableau de bord</h1>
+            <p>Vue d’ensemble de l’activité de l’hôtel</p>
+          </div>
+          <button
+            type="button"
+            className="app-secondary-button dashboard-refresh-button"
+            onClick={() => fetchSummary({ refresh: true })}
+            disabled={loading || refreshing}
+            title="Actualiser les statistiques"
+            aria-label="Actualiser les statistiques"
+          >
+            <FontAwesomeIcon icon={faRotate} spin={refreshing} />
+            <span>{refreshing ? "Actualisation…" : "Actualiser"}</span>
+          </button>
+        </header>
 
-            {/* Carte Clients Sociétés */}
-            <Grid item xs={12} sm={6} md={4}>
-              <StatCard sx={{ 
-                backgroundColor: '#00afa91c', 
-                borderLeft: '4px solid rgba(0, 175, 169, 0.71)'
-              }}>
-                <CardContent>
-                  <CardHeader variant="h6">Clients Sociétés</CardHeader>
-                  <CardValue>{clientsSocietes}</CardValue>
-                  <CardIcon>
-                    <BusinessIcon style={{ fontSize: 60, color: '#00afaa' }} />
-                  </CardIcon>
-                </CardContent>
-              </StatCard>
-            </Grid>
-            <Grid container spacing={6} style={{marginTop: '20px'}}>
-                    <Grid item xs={15}>
-                        <DashboardChart />
-                    </Grid>
-                </Grid>
-            {/* Vous pouvez ajouter d'autres cartes ici avec la même structure */}
-          </Grid>
-          
-        </ContentContainer>
-      </DashboardContainer>
-    </ThemeProvider>
-    
-    
+        {error ? (
+          <div className="dashboard-error" role="alert">
+            <p>{error}</p>
+            <button
+              type="button"
+              className="app-secondary-button"
+              onClick={() => fetchSummary()}
+              disabled={loading}
+            >
+              Réessayer
+            </button>
+          </div>
+        ) : (
+          <AppStats items={stats} loading={loading} />
+        )}
+      </Box>
+    </Box>
   );
-  
-}
+};
 
 export default Dashboard;

@@ -1,6 +1,5 @@
 <?php
 
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\VueController;
 use App\Http\Controllers\InfoController;
@@ -54,6 +53,7 @@ use App\Http\Controllers\ReclamationOptionsController;
 use App\Http\Controllers\ReclamationReservationContextController;
 use App\Http\Controllers\ReclamationStatusController;
 use App\Http\Controllers\ReclamationTypeController;
+use App\Http\Controllers\DashboardController;
 
 use App\Http\Controllers\ReservationController;
 use App\Http\Controllers\ReservationReadinessController;
@@ -61,13 +61,12 @@ use App\Http\Controllers\ReservationFormOptionsController;
 use App\Http\Controllers\ReservationClientOptionsController;
 
 
-Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
-    return $request->user();
-});
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
 
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login', [AuthController::class, 'login']);
-Route::middleware('auth:sanctum')->post('/logout', [AuthController::class, 'logout']);
+Route::middleware('auth:sanctum')->group(function () {
+Route::get('/user', [AuthController::class, 'user']);
+Route::post('/logout', [AuthController::class, 'logout']);
+Route::get('/dashboard/summary', [DashboardController::class, 'summary']);
 
 // Client Particulier routes: Tested
 Route::get('/clients-particulier', [ClientParticulierController::class, 'getAll']);
@@ -297,8 +296,7 @@ Route::apiResource('maintenance-types', MaintenanceTypeController::class)
 Route::apiResource('employes', EmployeController::class)
     ->whereNumber('employe');
 
-Route::middleware('auth:sanctum')->group(function () {
-    Route::prefix('reclamations')->group(function () {
+Route::prefix('reclamations')->group(function () {
         Route::get('/form-options', ReclamationOptionsController::class);
         Route::get('/reservations/{reservation}/context', ReclamationReservationContextController::class)
             ->whereNumber('reservation');
@@ -313,7 +311,7 @@ Route::middleware('auth:sanctum')->group(function () {
             ->whereNumber('reclamation');
         Route::patch('/{reclamation}/cancel', [ReclamationStatusController::class, 'cancel'])
             ->whereNumber('reclamation');
-    });
+});
 
     Route::get('/reclamation-types', [ReclamationTypeController::class, 'index']);
     Route::post('/reclamation-types', [ReclamationTypeController::class, 'store']);
@@ -335,9 +333,6 @@ Route::middleware('auth:sanctum')->group(function () {
         ->whereNumber('departement');
     Route::patch('/reclamation-departements/{departement}/active', [ReclamationDepartmentController::class, 'active'])
         ->whereNumber('departement');
-});
-
-
 // Reservation API. Static routes must stay before identifier routes.
 Route::get('/reservations/readiness', ReservationReadinessController::class);
 Route::get('/reservations/client-options', ReservationClientOptionsController::class);
@@ -371,3 +366,4 @@ Route::put('/reservations/{reservationReference}', [ReservationController::class
     ->where('reservationReference', 'R[A-Za-z0-9]+');
 Route::delete('/reservations/{reservationReference}', [ReservationController::class, 'cancelByNumberFromDelete'])
     ->where('reservationReference', 'R[A-Za-z0-9]+');
+});

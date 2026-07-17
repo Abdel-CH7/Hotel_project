@@ -5,9 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\TarifChambre;
 use App\Models\TarifChambreDetail;
 use App\Models\TypeChambre;
+use App\Support\GeneratedRecordCode;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class TarifChambreDetailController extends Controller
@@ -28,7 +29,16 @@ class TarifChambreDetailController extends Controller
             return $locked;
         }
 
-        $detail = TarifChambreDetail::create($data);
+        $detail = DB::transaction(function () use ($data): TarifChambreDetail {
+            $detail = TarifChambreDetail::create(array_merge($data, [
+                'code' => GeneratedRecordCode::temporary('TC'),
+            ]));
+            $detail->forceFill([
+                'code' => GeneratedRecordCode::fromId('TC', $detail->id),
+            ])->save();
+
+            return $detail;
+        });
 
         return response()->json($detail->load(['roomType', 'roomRateGrid']), 201);
     }
@@ -66,7 +76,6 @@ class TarifChambreDetailController extends Controller
     private function validatedData(Request $request, ?TarifChambreDetail $detail = null): array
     {
         $input = [
-            'code' => trim((string) $request->input('code', $detail?->code ?? $this->generateCode())),
             'tarif_chambre_id' => $request->input('tarif_chambre_id', $request->input('tarif_chambre')),
             'type_chambre_id' => $request->input('type_chambre_id', $request->input('type_chambre')),
             'prix_1_personne' => $this->nullableMoney($request->input('prix_1_personne', $request->input('single'))),
@@ -76,7 +85,6 @@ class TarifChambreDetailController extends Controller
         ];
 
         $validator = Validator::make($input, [
-            'code' => ['required', 'string', 'max:255', Rule::unique('tarif_chambre_detail', 'code')->ignore($detail?->id)],
             'tarif_chambre_id' => ['required', 'integer', 'exists:tarifs_chambre,id'],
             'type_chambre_id' => [
                 'required',
@@ -122,12 +130,4 @@ class TarifChambreDetailController extends Controller
         return $value === '' ? null : $value;
     }
 
-    private function generateCode(): string
-    {
-        do {
-            $code = 'TC-'.Str::upper((string) Str::ulid());
-        } while (TarifChambreDetail::where('code', $code)->exists());
-
-        return $code;
-    }
 }

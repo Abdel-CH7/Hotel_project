@@ -6,6 +6,7 @@ import {
   faEdit,
   faBroom,
 } from "@fortawesome/free-solid-svg-icons";
+import { highlightText } from "../utils/textUtils";
 
 export const maintenanceToOuiNon = (value) => {
   if (value === true || value === 1) return "oui";
@@ -61,6 +62,7 @@ const shortenComment = (comment, limit = 48) => {
 
 const ChambreTable = ({
   filteredChambres,
+  searchTerm,
   maintenanceTypes,
   totalRows,
   rowsPerPage,
@@ -103,35 +105,39 @@ const ChambreTable = ({
 
                 return (
                   <tr key={chambre.id || chambre.num_chambre}>
-                    <td>{chambre.num_chambre}</td>
+                    <td>{highlightText(chambre.num_chambre, searchTerm)}</td>
                     <td>
                       <span
                         className={`app-status-badge ${
                           isClean ? "is-success" : "is-warning"
                         }`}
                       >
-                        {isClean ? "Nettoyée" : "Non nettoyée"}
+                        {highlightText(isClean ? "Nettoyée" : "Non nettoyée", searchTerm)}
                       </span>
                     </td>
-                    <td>{formatFrenchDate(chambre.date_nettoyage)}</td>
-                    <td>{getCleanerLabel(chambre)}</td>
+                    <td>{highlightText(formatFrenchDate(chambre.date_nettoyage), searchTerm)}</td>
+                    <td>{highlightText(getCleanerLabel(chambre), searchTerm)}</td>
                     <td>
                       {isUnderMaintenance ? (
                         <div className="etat-chambre-maintenance-cell">
                           <span className="app-status-badge is-danger">
-                            En maintenance
+                            {highlightText("En maintenance", searchTerm)}
                           </span>
                           <strong>
-                            {getMaintenanceTypeLabel(maintenanceType) || "-"}
+                            {highlightText(getMaintenanceTypeLabel(maintenanceType) || "-", searchTerm)}
                           </strong>
                           <span className="etat-chambre-maintenance-period">
-                            {formatFrenchDate(chambre.date_debut_maintenance)} →{" "}
-                            {formatFrenchDate(chambre.date_fin_maintenance)}
+                            {highlightText(
+                              `${formatFrenchDate(chambre.date_debut_maintenance)} → ${formatFrenchDate(
+                                chambre.date_fin_maintenance
+                              )}`,
+                              searchTerm
+                            )}
                           </span>
                         </div>
                       ) : (
                         <span className="app-status-badge is-success">
-                          Aucune
+                          {highlightText("Aucune", searchTerm)}
                         </span>
                       )}
                     </td>
@@ -140,7 +146,7 @@ const ChambreTable = ({
                         className="etat-chambre-comment"
                         title={chambre.commentaire || ""}
                       >
-                        {shortenComment(chambre.commentaire)}
+                        {highlightText(shortenComment(chambre.commentaire), searchTerm)}
                       </span>
                     </td>
                     <td>

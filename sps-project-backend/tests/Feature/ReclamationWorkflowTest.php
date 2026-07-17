@@ -21,6 +21,8 @@ class ReclamationWorkflowTest extends TestCase
     use BuildsReservationDomainFixtures;
     use DatabaseTransactions;
 
+    protected bool $authenticateApiRequests = false;
+
     public function test_normalized_schema_foreign_keys_and_legacy_rows_are_preserved(): void
     {
         $this->assertTrue(Schema::hasColumns('reclamations', [

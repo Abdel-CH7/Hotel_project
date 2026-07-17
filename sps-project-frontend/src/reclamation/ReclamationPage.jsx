@@ -1,10 +1,11 @@
 import { useCallback, useMemo, useState, useEffect } from "react";
 import Box from "@mui/material/Box";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faPlus } from "@fortawesome/free-solid-svg-icons";
+import { faCircleExclamation, faClock, faComments, faSpinner, faPlus } from "@fortawesome/free-solid-svg-icons";
 import Swal from "sweetalert2";
 import { useOpen } from "../Acceuil/OpenProvider";
 import SearchWithExport from "../components/SearchWithExport";
+import AppStats from "../components/AppStats";
 import ListFilterReset from "../components/ListFilterReset";
 import ListState from "../components/ListState";
 import useListControls from "../components/useListControls";
@@ -126,6 +127,12 @@ const ReclamationPage = () => {
 
   const setFilter = (setter) => (event) => { setter(event.target.value); resetPage(); };
   const filtersActive = Boolean(searchTerm || departmentFilter || statusFilter || priorityFilter || typeFilter || channelFilter || dateFrom || dateTo);
+  const reclamationStats = useMemo(() => [
+    { key: "total", title: "Total réclamations", value: reclamations.length, icon: faComments, variant: "primary" },
+    { key: "pending", title: "En attente", value: reclamations.filter((row) => row.statut === "En attente").length, icon: faClock, variant: "warning" },
+    { key: "progress", title: "En cours", value: reclamations.filter((row) => row.statut === "En cours").length, icon: faSpinner, variant: "info" },
+    { key: "urgent-open", title: "Urgentes ouvertes", value: reclamations.filter((row) => row.priorite === "urgente" && !["Résolu", "Annulé"].includes(row.statut)).length, icon: faCircleExclamation, variant: "danger" },
+  ], [reclamations]);
   const resetFilters = () => {
     setSearchTerm(""); setDepartmentFilter(""); setStatusFilter(""); setPriorityFilter("");
     setTypeFilter(""); setChannelFilter(""); setDateFrom(""); setDateTo(""); resetPage();
@@ -272,6 +279,8 @@ const ReclamationPage = () => {
     <Box sx={{ ...dynamicStyles, width: "auto", maxWidth: "100%", minWidth: 0, overflow: "hidden" }}>
       <Box component="main" className="app-page reclamation-page" sx={{ flexGrow: 1, p: 3, mt: 0, width: "100%", maxWidth: "100%", minWidth: 0 }}>
         <SearchWithExport Title="Liste des Réclamations" searchValue={searchTerm} onSearchChange={setSearchTerm} resultCount={totalRows} loading={loading} exportsDisabled={exportsDisabled} printTable={() => printRows({ rows: exportRows, columns: EXPORT_COLUMNS, title: "Liste des Réclamations", orientation: "landscape" })} exportToPDF={() => exportToPdf({ rows: exportRows, columns: EXPORT_COLUMNS, title: "Liste des Réclamations", filename: "reclamations.pdf", orientation: "landscape" })} exportToExcel={() => exportToExcel({ rows: exportRows, columns: EXPORT_COLUMNS, sheetName: "Réclamations", filename: "reclamations.xlsx" })} />
+
+        <AppStats items={reclamationStats} loading={loading} />
 
         <div className="app-controls-row reclamation-controls-row">
           <button type="button" className="app-add-button" onClick={openCreate}><FontAwesomeIcon icon={faPlus} /> Ajouter une réclamation</button>

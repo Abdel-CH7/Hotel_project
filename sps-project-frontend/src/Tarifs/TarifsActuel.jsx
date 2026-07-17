@@ -14,6 +14,7 @@ import { useOpen } from "../Acceuil/OpenProvider";
 import { exportToExcel as exportExcelRows, exportToPdf, printRows } from "../utils/listExportUtils";
 import {
   getDateSearchVariants,
+  highlightText,
   matchesNormalizedSearch,
   normalizeSearchValue,
 } from "../utils/textUtils";
@@ -392,8 +393,8 @@ const TarifsActuel = () => {
                   <React.Fragment key={period.id}>
                     <tr>
                       <td><input type="checkbox" checked={selectedItems.includes(period.id)} disabled={period.statut !== "brouillon"} onChange={() => toggleSelection(period.id)} aria-label={`Sélectionner ${period.designation}`} title={period.statut !== "brouillon" ? "Seuls les brouillons peuvent être supprimés" : "Sélectionner la période"} /></td>
-                      <td>{period.designation || "-"}</td><td>{formatDate(period.date_debut)}</td><td>{formatDate(period.date_fin)}</td><td>{roomGridOf(period)?.designation ?? "Aucune"}</td><td>{mealGridOf(period)?.designation ?? "Aucune"}</td><td>{reductionGridOf(period)?.designation ?? "Aucune"}</td>
-                      <td><span className={`tariff-status-badge is-${period.statut}`}>{STATUS_LABELS[period.statut] ?? period.statut}</span></td>
+                      <td>{highlightText(period.designation || "-", searchTerm)}</td><td>{highlightText(formatDate(period.date_debut), searchTerm)}</td><td>{highlightText(formatDate(period.date_fin), searchTerm)}</td><td>{highlightText(roomGridOf(period)?.designation ?? "Aucune", searchTerm)}</td><td>{highlightText(mealGridOf(period)?.designation ?? "Aucune", searchTerm)}</td><td>{highlightText(reductionGridOf(period)?.designation ?? "Aucune", searchTerm)}</td>
+                      <td><span className={`tariff-status-badge is-${period.statut}`}>{highlightText(STATUS_LABELS[period.statut] ?? period.statut, searchTerm)}</span></td>
                       <td><div className="app-table-actions">
                         <button type="button" className="tariff-action-button" onClick={() => setExpandedPeriodId((current) => Number(current) === Number(period.id) ? null : period.id)} title="Afficher les détails des plans" aria-label="Afficher les détails des plans"><FontAwesomeIcon icon={faList} className="app-table-action is-muted" /></button>
                         <button type="button" className="tariff-action-button" onClick={() => openEditDrawer(period)} disabled={period.statut === "archive"} title={period.statut === "archive" ? "Période archivée en lecture seule" : period.statut === "actif" ? "Archiver la période" : "Modifier ou activer la période"} aria-label="Modifier la période"><FontAwesomeIcon icon={faEdit} className="app-table-action is-edit" /></button>

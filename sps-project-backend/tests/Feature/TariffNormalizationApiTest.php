@@ -110,6 +110,7 @@ class TariffNormalizationApiTest extends TestCase
         $secondGrid = $this->roomGrid();
 
         $first = $this->postJson('/api/tarifs-chambre', [
+            'code' => 'USER-SUPPLIED-CODE',
             'tarif_chambre_id' => $firstGrid->id,
             'type_chambre_id' => $type->id,
             'prix_1_personne' => 100,
@@ -124,7 +125,9 @@ class TariffNormalizationApiTest extends TestCase
 
         $firstCode = $first->json('code');
         $secondCode = $second->json('code');
-        $this->assertMatchesRegularExpression('/^TC-[A-Z0-9]+$/', $firstCode);
+        $this->assertMatchesRegularExpression('/^TC-\d{6}$/', $firstCode);
+        $this->assertMatchesRegularExpression('/^TC-\d{6}$/', $secondCode);
+        $this->assertNotSame('USER-SUPPLIED-CODE', $firstCode);
         $this->assertNotSame($firstCode, $secondCode);
 
         $this->putJson("/api/tarifs-chambre/{$first->json('id')}", [
@@ -133,6 +136,33 @@ class TariffNormalizationApiTest extends TestCase
             'prix_1_personne' => 130,
             'prix_lit_supplementaire' => 0,
         ])->assertOk()->assertJsonPath('code', $firstCode);
+
+        $legacyGrid = $this->roomGrid();
+        $legacyType = TypeChambre::create([
+            'code' => 'LEGACY-TYPE-'.uniqid(),
+            'type_chambre' => 'Type historique '.uniqid(),
+            'nb_lit' => 1,
+            'nb_salle' => 1,
+            'capacite_standard' => 1,
+            'lits_supplementaires_max' => 0,
+        ]);
+        $legacyCode = 'TC'.strtoupper(substr(uniqid(), -10));
+        $legacyDetail = TarifChambreDetail::create([
+            'code' => $legacyCode,
+            'tarif_chambre_id' => $legacyGrid->id,
+            'type_chambre_id' => $legacyType->id,
+            'prix_1_personne' => 100,
+            'prix_2_personnes' => null,
+            'prix_3_personnes' => null,
+            'prix_lit_supplementaire' => 0,
+        ]);
+        $this->putJson("/api/tarifs-chambre/{$legacyDetail->id}", [
+            'code' => 'TC-999999',
+            'tarif_chambre_id' => $legacyGrid->id,
+            'type_chambre_id' => $legacyType->id,
+            'prix_1_personne' => 125,
+            'prix_lit_supplementaire' => 0,
+        ])->assertOk()->assertJsonPath('code', $legacyCode);
     }
 
     public function test_all_zero_room_occupancy_prices_are_rejected_but_one_positive_price_is_accepted(): void

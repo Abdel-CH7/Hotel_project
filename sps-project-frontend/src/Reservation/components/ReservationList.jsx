@@ -9,6 +9,7 @@ import {
   faEye,
 } from "@fortawesome/free-solid-svg-icons";
 import ListPagination from "../../components/ListPagination";
+import { highlightText } from "../../utils/textUtils";
 import {
   clientName,
   clientTypeLabel,
@@ -29,6 +30,7 @@ const nightsBetween = (start, end) => {
 
 const ReservationList = ({
   reservations,
+  searchTerm,
   totalRows,
   page,
   rowsPerPage,
@@ -75,20 +77,20 @@ const ReservationList = ({
               <Fragment key={reservation.id}>
                 <tr>
                   <td>
-                    <strong>{reservation.reservation_num}</strong>
+                    <strong>{highlightText(reservation.reservation_num, searchTerm)}</strong>
                     {reservation.legacy_pricing && <span className="reservation-history-badge">Historique</span>}
                   </td>
                   <td>
                     <div className="reservation-client-cell">
-                      <strong>{clientName(reservation)}</strong>
+                      <strong>{highlightText(clientName(reservation), searchTerm)}</strong>
                       <span className={`reservation-client-type-badge is-${reservation.client?.type}`}>
-                        {clientTypeLabel(reservation)}
+                        {highlightText(clientTypeLabel(reservation), searchTerm)}
                       </span>
-                      {reservation.client?.code && <small>{reservation.client.code}</small>}
+                      {reservation.client?.code && <small>{highlightText(reservation.client.code, searchTerm)}</small>}
                     </div>
                   </td>
-                  <td>{formatDate(reservation.dates?.debut)}</td>
-                  <td>{formatDate(reservation.dates?.fin)}</td>
+                  <td>{highlightText(formatDate(reservation.dates?.debut), searchTerm)}</td>
+                  <td>{highlightText(formatDate(reservation.dates?.fin), searchTerm)}</td>
                   <td>{nightsBetween(reservation.dates?.debut, reservation.dates?.fin)}</td>
                   <td>
                     <button
@@ -102,18 +104,25 @@ const ReservationList = ({
                       <FontAwesomeIcon icon={expanded ? faChevronUp : faChevronDown} />
                     </button>
                   </td>
-                  <td><span className={`app-status-badge ${statusClass(reservation.status)}`}>{statusLabel(reservation.status)}</span></td>
-                  <td>{formatMoney(reservation.total)}</td>
+                  <td><span className={`app-status-badge ${statusClass(reservation.status)}`}>{highlightText(statusLabel(reservation.status), searchTerm)}</span></td>
+                  <td>{highlightText(formatMoney(reservation.total), searchTerm)}</td>
                   <td>
                     <div className="reservation-payment-cell">
                       <span className={`app-status-badge ${paymentStatusClass(reservation.reglement?.statut)}`}>
-                        {reservation.reglement?.statut_label || paymentStatusLabel(reservation.reglement?.statut)}
+                        {highlightText(
+                          reservation.reglement?.statut_label || paymentStatusLabel(reservation.reglement?.statut),
+                          searchTerm
+                        )}
                       </span>
-                      <small>{formatMoney(reservation.reglement?.montant_paye)} / {formatMoney(reservation.reglement?.total)}</small>
-                      <small>{reservation.politique_paiement?.label || "—"}</small>
+                      <small>
+                        {highlightText(formatMoney(reservation.reglement?.montant_paye), searchTerm)}
+                        {" / "}
+                        {highlightText(formatMoney(reservation.reglement?.total), searchTerm)}
+                      </small>
+                      <small>{highlightText(reservation.politique_paiement?.label || "—", searchTerm)}</small>
                       {["du_aujourdhui", "en_retard"].includes(reservation.echeance?.statut) && (
                         <span className={`app-status-badge ${reservation.echeance.statut === "en_retard" ? "is-danger" : "is-warning"}`}>
-                          {reservation.echeance.statut_label}
+                          {highlightText(reservation.echeance.statut_label, searchTerm)}
                         </span>
                       )}
                     </div>
@@ -184,14 +193,14 @@ const ReservationList = ({
                                 <tbody>
                                   {rooms.map((room) => (
                                     <tr key={room.allocation_id || room.chambre_id}>
-                                      <td>{room.num_chambre || room.chambre_id || "—"}</td>
-                                      <td>{room.type_chambre?.nom_snapshot || "—"}</td>
-                                      <td>{room.etage || "—"}</td>
-                                      <td>{room.vue || "—"}</td>
-                                      <td>{room.adultes ?? "—"}</td>
-                                      <td>{room.enfants ?? "—"}</td>
-                                      <td>{room.lits_supplementaires ?? "—"}</td>
-                                      <td>{formatMoney(room.montant_total)}</td>
+                                      <td>{highlightText(room.num_chambre || room.chambre_id || "—", searchTerm)}</td>
+                                      <td>{highlightText(room.type_chambre?.nom_snapshot || "—", searchTerm)}</td>
+                                      <td>{highlightText(room.etage || "—", searchTerm)}</td>
+                                      <td>{highlightText(room.vue || "—", searchTerm)}</td>
+                                      <td>{highlightText(room.adultes ?? "—", searchTerm)}</td>
+                                      <td>{highlightText(room.enfants ?? "—", searchTerm)}</td>
+                                      <td>{highlightText(room.lits_supplementaires ?? "—", searchTerm)}</td>
+                                      <td>{highlightText(formatMoney(room.montant_total), searchTerm)}</td>
                                     </tr>
                                   ))}
                                 </tbody>

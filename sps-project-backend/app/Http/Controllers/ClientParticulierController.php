@@ -6,6 +6,7 @@ use App\Models\ClientParticulier;
 use App\Models\Enfant;
 use App\Models\Reservation;
 use App\Models\SiteClientParticulier;
+use App\Support\GeneratedRecordCode;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -96,7 +97,11 @@ class ClientParticulierController extends Controller
 
         return DB::transaction(function () use ($request, $validatedData) {
             $validatedData['user_id'] = Auth::id();
+            $validatedData['CodeClient'] = GeneratedRecordCode::temporary('CP');
             $client = ClientParticulier::create($validatedData);
+            $client->forceFill([
+                'CodeClient' => GeneratedRecordCode::fromId('CP', $client->id),
+            ])->save();
             $this->createLegacySingleChild($request, $client);
 
             return response()->json([
@@ -149,7 +154,6 @@ class ClientParticulierController extends Controller
     private function validateGuest(Request $request, ?ClientParticulier $client = null): array
     {
         $request->merge([
-            'CodeClient' => trim((string) $request->input('CodeClient')),
             'name' => trim((string) $request->input('name')),
             'prenom' => trim((string) $request->input('prenom')),
             'cin' => trim((string) $request->input('cin')),
@@ -160,10 +164,6 @@ class ClientParticulierController extends Controller
         ]);
 
         $validator = Validator::make($request->all(), [
-            'CodeClient' => [
-                'required', 'string', 'max:255',
-                Rule::unique('clients_particulier', 'CodeClient')->ignore($client?->id),
-            ],
             'name' => ['required', 'string', 'max:255'],
             'prenom' => ['required', 'string', 'max:255'],
             'type_piece' => ['required', 'string', Rule::in(config('client_locations.document_types', []))],
@@ -180,9 +180,8 @@ class ClientParticulierController extends Controller
             'ville_autre' => ['nullable', 'string', 'max:255'],
             'adresse' => ['nullable', 'string', 'max:500'],
             'code_postal' => ['nullable', 'string', 'max:30'],
+            'enfantAge' => ['nullable', 'integer', 'min:0', 'max:17'],
         ], [
-            'CodeClient.required' => 'Le code client est obligatoire.',
-            'CodeClient.unique' => 'Ce code client existe déjà.',
             'name.required' => 'Le nom est obligatoire.',
             'prenom.required' => 'Le prénom est obligatoire.',
             'type_piece.required' => 'Le type de pièce est obligatoire.',
@@ -196,6 +195,9 @@ class ClientParticulierController extends Controller
             'pays_code.in' => 'Le pays de résidence sélectionné est invalide.',
             'ville.required' => 'La ville est obligatoire.',
             'code_postal.max' => 'Le code postal ne doit pas dépasser 30 caractères.',
+            'enfantAge.integer' => 'L’âge de l’enfant doit être compris entre 0 et 17 ans.',
+            'enfantAge.min' => 'L’âge de l’enfant doit être compris entre 0 et 17 ans.',
+            'enfantAge.max' => 'L’âge de l’enfant doit être compris entre 0 et 17 ans.',
         ]);
 
         $validator->after(function ($validator) use ($request): void {
