@@ -34,6 +34,9 @@ class StoreReservationPaymentRequest extends FormRequest
             ])),
             'reference' => ['nullable', 'string', 'max:120'],
             'commentaire' => ['nullable', 'string', 'max:1000'],
+            'user_id' => ['prohibited'],
+            'created_by' => ['prohibited'],
+            'created_by_id' => ['prohibited'],
         ];
     }
 
@@ -53,6 +56,9 @@ class StoreReservationPaymentRequest extends FormRequest
             'date_paiement.after_or_equal' => 'La date du paiement ne peut pas précéder la date de la réservation.',
             'reference.max' => 'La référence ne peut pas dépasser 120 caractères.',
             'commentaire.max' => 'Le commentaire ne peut pas dépasser 1000 caractères.',
+            'user_id.prohibited' => 'L’utilisateur de saisie est déterminé automatiquement.',
+            'created_by.prohibited' => 'L’utilisateur de saisie est déterminé automatiquement.',
+            'created_by_id.prohibited' => 'L’utilisateur de saisie est déterminé automatiquement.',
         ];
     }
 }

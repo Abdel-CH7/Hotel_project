@@ -24,6 +24,8 @@ class AuthenticationSecurityTest extends TestCase
         ])->assertNotFound();
 
         $this->getJson('/api/reservations')->assertUnauthorized();
+        $this->postJson('/api/reservations/1/payments', [])->assertUnauthorized();
+        $this->patchJson('/api/reservations/1/payments/1/cancel', [])->assertUnauthorized();
 
         $login = $this->postJson('/api/login', [
             'email' => $user->email,

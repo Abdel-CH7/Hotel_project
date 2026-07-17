@@ -501,15 +501,21 @@ const ClientList = () => {
     };
 
     try {
+      const isCreating = !editingClient;
       const response = editingClient
         ? await axios.put(`${API_URL}/clients/${editingClient.id}`, payload)
         : await axios.post(`${API_URL}/clients`, payload);
+      const generatedCode = response.data?.client?.CodeClient;
       await fetchClients(true);
       closeDrawer();
       await Swal.fire({
         icon: "success",
         title: "Succès",
-        text: response.data?.message || "Le client société a été enregistré.",
+        text: isCreating
+          ? generatedCode
+            ? `Client société créé avec succès. Code client : ${generatedCode}`
+            : "Client société créé avec succès."
+          : response.data?.message || "Le client société a été enregistré.",
       });
     } catch (error) {
       if (error?.response?.status === 422) {
@@ -898,20 +904,22 @@ const ClientList = () => {
 
             <section className="company-form-section">
               <h5>Identité de l’entreprise</h5>
+              {!editingClient && (
+                <p className="client-generated-code-note">
+                  Le code client sera généré automatiquement après l’enregistrement.
+                </p>
+              )}
               <div className="company-form-grid">
-                <CompanyField label="Code client">
-                  <Form.Control
-                    name="CodeClient"
-                    value={editingClient ? formData.CodeClient : "CS-######"}
-                    readOnly
-                    aria-readonly="true"
-                  />
-                  {!editingClient && (
-                    <Form.Text className="company-generated-code-help">
-                      Généré automatiquement lors de l’enregistrement.
-                    </Form.Text>
-                  )}
-                </CompanyField>
+                {editingClient && (
+                  <CompanyField label="Code client">
+                    <Form.Control
+                      name="CodeClient"
+                      value={formData.CodeClient}
+                      readOnly
+                      aria-readonly="true"
+                    />
+                  </CompanyField>
+                )}
                 <CompanyField label="Raison sociale" required error={getFieldError("raison_sociale")}>
                   <Form.Control name="raison_sociale" value={formData.raison_sociale} onChange={handleChange} isInvalid={Boolean(getFieldError("raison_sociale"))} />
                 </CompanyField>

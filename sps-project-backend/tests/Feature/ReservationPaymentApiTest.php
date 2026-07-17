@@ -144,21 +144,38 @@ class ReservationPaymentApiTest extends TestCase
     {
         $creator = User::factory()->create();
         $canceller = User::factory()->create();
+        $otherUser = User::factory()->create();
         $modeId = $this->createPaymentMode();
         $reservation = $this->createPayableReservation('500.00');
 
         $this->actingAs($creator);
+        $this->postJson(
+            "/api/reservations/{$reservation->id}/payments",
+            array_merge($this->paymentPayload($modeId, '200.00'), ['user_id' => $otherUser->id])
+        )->assertUnprocessable()->assertJsonValidationErrors('user_id');
+
         $created = $this->postJson(
             "/api/reservations/{$reservation->id}/payments",
             $this->paymentPayload($modeId, '200.00')
-        )->assertCreated();
+        )->assertCreated()
+            ->assertJsonPath('data.paiement.created_by.id', $creator->id)
+            ->assertJsonPath('data.paiement.created_by.name', $creator->name)
+            ->assertJsonMissingPath('data.paiement.created_by.email');
         $paymentId = $created->json('data.paiement.id');
 
         $this->actingAs($canceller);
         $this->patchJson("/api/reservations/{$reservation->id}/payments/{$paymentId}/cancel", [
+            'motif_annulation' => 'Tentative de remplacement',
+            'annule_par_id' => $otherUser->id,
+        ])->assertUnprocessable()->assertJsonValidationErrors('annule_par_id');
+
+        $this->patchJson("/api/reservations/{$reservation->id}/payments/{$paymentId}/cancel", [
             'motif_annulation' => 'Erreur de saisie',
         ])->assertOk()
             ->assertJsonPath('data.paiement.statut', 'annule')
+            ->assertJsonPath('data.paiement.annulation.par.id', $canceller->id)
+            ->assertJsonPath('data.paiement.annulation.par.name', $canceller->name)
+            ->assertJsonMissingPath('data.paiement.annulation.par.email')
             ->assertJsonPath('data.reglement.montant_paye', '0.00')
             ->assertJsonPath('data.reglement.reste_a_payer', '500.00');
 
@@ -267,7 +284,13 @@ class ReservationPaymentApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.reglement.statut', 'partiellement_payee')
             ->assertJsonPath('data.paiements.0.id', $paymentId)
+            ->assertJsonPath('data.paiements.0.created_by.name', $user->name)
             ->assertJsonMissingPath('data.paiements.0.created_by.email');
+
+        DB::table('reservation_paiements')->where('id', $paymentId)->update(['user_id' => null]);
+        $this->getJson("/api/reservations/{$reservation->id}")
+            ->assertOk()
+            ->assertJsonPath('data.paiements.0.created_by', null);
 
         $this->deleteJson("/api/mode-paimants/{$modeId}")
             ->assertStatus(409)

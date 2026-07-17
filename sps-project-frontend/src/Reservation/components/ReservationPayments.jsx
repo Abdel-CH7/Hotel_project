@@ -1,5 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button, Form } from "react-bootstrap";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faFilePdf, faPrint } from "@fortawesome/free-solid-svg-icons";
 import {
   cancelReservationPayment,
   createReservationPayment,
@@ -11,6 +13,12 @@ import {
   paymentStatusClass,
   paymentStatusLabel,
 } from "../reservationUtils";
+import {
+  downloadPaymentReceipt,
+  downloadReservationPaymentSummary,
+  printPaymentReceipt,
+  printReservationPaymentSummary,
+} from "../utils/paymentDocumentUtils";
 
 const localCalendarDate = (date = new Date()) => {
   const year = date.getFullYear();
@@ -234,11 +242,31 @@ const ReservationPayments = ({ reservation, onChanged }) => {
     <section className="reservation-details-section reservation-payment-section">
       <div className="reservation-payment-heading">
         <h3>Règlement</h3>
-        {canAddPayment && !formOpen && !cancelTarget && (
-          <Button type="button" className="app-primary-button" onClick={openForm}>
-            Ajouter un paiement
-          </Button>
-        )}
+        <div className="reservation-payment-heading-actions">
+          <button
+            type="button"
+            className="reservation-payment-document-button"
+            onClick={() => printReservationPaymentSummary(reservation)}
+            title="Imprimer le récapitulatif"
+            aria-label="Imprimer le récapitulatif"
+          >
+            <FontAwesomeIcon icon={faPrint} /> Imprimer
+          </button>
+          <button
+            type="button"
+            className="reservation-payment-document-button is-pdf"
+            onClick={() => downloadReservationPaymentSummary(reservation)}
+            title="Télécharger le récapitulatif PDF"
+            aria-label="Télécharger le récapitulatif PDF"
+          >
+            <FontAwesomeIcon icon={faFilePdf} /> Télécharger PDF
+          </button>
+          {canAddPayment && !formOpen && !cancelTarget && (
+            <Button type="button" className="app-primary-button" onClick={openForm}>
+              Ajouter un paiement
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="reservation-payment-summary">
@@ -356,7 +384,39 @@ const ReservationPayments = ({ reservation, onChanged }) => {
                       <td>{payment.numero}</td><td>{formatDate(payment.date)}</td><td>{payment.type_label}</td><td>{payment.mode?.label || "—"}</td><td>{payment.reference || "—"}</td><td>{formatMoney(payment.montant)}</td>
                       <td><span className={`app-status-badge ${payment.statut === "valide" ? "is-success" : "is-danger"}`}>{payment.statut_label}</span></td>
                       <td>{payment.created_by?.name || "—"}</td>
-                      <td>{payment.statut === "valide" ? <button type="button" className="reservation-payment-cancel-action" onClick={() => { setCancelTarget(payment); setFormOpen(false); setCancelReason(""); setActionError(""); }}>Annuler la saisie</button> : "—"}</td>
+                      <td>
+                        <div className="reservation-payment-row-actions">
+                          <button
+                            type="button"
+                            className="reservation-payment-receipt-action"
+                            onClick={() => downloadPaymentReceipt(reservation, payment)}
+                            title="Télécharger le reçu PDF"
+                            aria-label={`Télécharger le reçu PDF ${payment.numero}`}
+                          >
+                            <FontAwesomeIcon icon={faFilePdf} /> Reçu
+                          </button>
+                          <button
+                            type="button"
+                            className="reservation-payment-print-receipt-action"
+                            onClick={() => printPaymentReceipt(reservation, payment)}
+                            title="Imprimer le reçu"
+                            aria-label={`Imprimer le reçu ${payment.numero}`}
+                          >
+                            <FontAwesomeIcon icon={faPrint} />
+                          </button>
+                          {payment.statut === "valide" && (
+                            <button
+                              type="button"
+                              className="reservation-payment-cancel-action"
+                              onClick={() => { setCancelTarget(payment); setFormOpen(false); setCancelReason(""); setActionError(""); }}
+                              title="Annuler cette saisie de paiement"
+                              aria-label={`Annuler la saisie ${payment.numero}`}
+                            >
+                              Annuler la saisie
+                            </button>
+                          )}
+                        </div>
+                      </td>
                     </tr>
                     {payment.statut === "annule" && (
                       <tr className="is-cancelled">

@@ -20,6 +20,7 @@ const newRoomRow = (adultes = "1", enfants = "0") => ({
   floorFilter: "",
   viewFilter: "",
   room: null,
+  availabilityMessage: "",
 });
 
 const initialForm = () => ({
@@ -138,33 +139,51 @@ const uniqueFacetOptions = (rooms, valueOf, labelOf = valueOf) => {
   ));
 };
 
+const facetOptionsFor = (rows, rooms, index, field, valueOf, labelOf = valueOf) => {
+  const options = uniqueFacetOptions(
+    matchingRoomsFor(rows, rooms, index, field),
+    valueOf,
+    labelOf
+  );
+  const currentValue = String(rows[index]?.[field] ?? "").trim();
+  if (!currentValue || options.some((option) => String(option.value) === currentValue)) {
+    return options;
+  }
+
+  const currentRoom = baseRoomsFor(rows, rooms, index).find((room) => (
+    String(valueOf(normalizeRoom(room)) ?? "").trim() === currentValue
+  ));
+  const currentLabel = currentRoom
+    ? String(labelOf(normalizeRoom(currentRoom)) ?? currentValue).trim()
+    : currentValue;
+
+  return [{ value: currentValue, label: currentLabel }, ...options];
+};
+
 const reconcileRowsWithAvailability = (rows, rooms) => {
   const availableRooms = canonicalAvailableRooms(rooms);
   const availableById = new Map(availableRooms.map((room) => [roomId(room), room]));
-  const reconciled = rows.map((row) => {
+  return rows.map((row) => {
+    const previousRoomId = String(row.chambre_id ?? "").trim();
     const selectedRoom = availableById.get(String(row.chambre_id ?? "").trim());
-    return selectedRoom
-      ? syncRowWithRoom(row, selectedRoom)
-      : { ...row, chambre_id: "", room: null };
+    if (selectedRoom) {
+      return {
+        ...row,
+        chambre_id: roomId(selectedRoom),
+        room: selectedRoom,
+        availabilityMessage: "",
+      };
+    }
+
+    return {
+      ...row,
+      chambre_id: "",
+      room: null,
+      availabilityMessage: previousRoomId
+        ? "La chambre précédemment sélectionnée n’est plus disponible pour ces dates."
+        : row.availabilityMessage || "",
+    };
   });
-
-  reconciled.forEach((row, index) => {
-    const filterDefinitions = [
-      ["typeFilter", (room) => normalizeRoom(room).typeId, (value) => String(value)],
-      ["floorFilter", (room) => normalizeRoom(room).floor, normalizeRoomValue],
-      ["viewFilter", (room) => normalizeRoom(room).view, normalizeRoomValue],
-    ];
-
-    filterDefinitions.forEach(([field, valueOf, normalize]) => {
-      if (!row[field]) return;
-      const values = matchingRoomsFor(reconciled, availableRooms, index, field)
-        .map(valueOf)
-        .map(normalize);
-      if (!values.includes(normalize(row[field]))) row[field] = "";
-    });
-  });
-
-  return reconciled;
 };
 
 const fieldErrorsFrom = (error) => {
@@ -286,23 +305,22 @@ export const useReservationForm = ({ onSaved }) => {
       date_limite_paiement: reservation.politique_paiement?.date_limite_paiement || "",
       date_debut: reservation.dates?.debut || "",
       date_fin: reservation.dates?.fin || "",
-      chambres: (reservation.chambres || []).map((allocation) => ({
-        ...newRoomRow(
+      chambres: (reservation.chambres || []).map((allocation) => syncRowWithRoom(
+        newRoomRow(
           allocation.adultes === null ? "" : String(allocation.adultes),
           allocation.enfants === null ? "" : String(allocation.enfants)
         ),
-        chambre_id: String(allocation.chambre_id),
-        room: {
+        {
           id: allocation.chambre_id,
           num_chambre: allocation.num_chambre,
           type_chambre_id: allocation.type_chambre?.id,
           type_chambre: allocation.type_chambre?.nom_snapshot,
           capacite_standard: allocation.type_chambre?.capacite_standard_snapshot,
           lits_supplementaires_max: allocation.type_chambre?.lits_supplementaires_max_snapshot,
-          etage: "",
-          vue: "",
-        },
-      })),
+          etage: allocation.etage ?? "",
+          vue: allocation.vue ?? "",
+        }
+      )),
       repas: (reservation.repas || []).map((meal) => ({
         type_repas_id: String(meal.type_repas_id),
         quantite_par_jour: String(meal.quantite_par_jour),
@@ -650,15 +668,7 @@ export const useReservationForm = ({ onSaved }) => {
       const rooms = canonicalAvailableRooms(availability.chambres);
       if (rooms.length === 0 || current.chambres.length >= rooms.length) return current;
 
-      const selectedIds = new Set(current.chambres
-        .map((row) => String(row.chambre_id ?? "").trim())
-        .filter(Boolean));
-      const unallocatedRooms = rooms.filter((room) => !selectedIds.has(roomId(room)));
-      const addedRow = unallocatedRooms.length === 1
-        ? syncRowWithRoom(newRoomRow(), unallocatedRooms[0])
-        : newRoomRow();
-
-      return { ...current, chambres: [...current.chambres, addedRow] };
+      return { ...current, chambres: [...current.chambres, newRoomRow()] };
     });
     setErrors((current) => ({ ...current, chambres: "" }));
   }, [availability, availabilityLoading, form.date_debut, form.date_fin, isOpen]);
@@ -683,28 +693,27 @@ export const useReservationForm = ({ onSaved }) => {
         if (!value) {
           row.chambre_id = "";
           row.room = null;
+          row.availabilityMessage = "";
         } else {
           rows[index] = row;
-          const selectedRoom = baseRoomsFor(rows, availability?.chambres, index)
+          const selectedRoom = matchingRoomsFor(rows, availability?.chambres, index)
             .find((room) => roomId(room) === String(value));
-          rows[index] = selectedRoom ? syncRowWithRoom(row, selectedRoom) : {
-            ...row,
-            chambre_id: "",
-            room: null,
-          };
+          rows[index] = selectedRoom
+            ? { ...syncRowWithRoom(row, selectedRoom), availabilityMessage: "" }
+            : { ...row, chambre_id: "", room: null };
           return { ...current, chambres: rows };
         }
       } else if (["typeFilter", "floorFilter", "viewFilter"].includes(field)) {
         rows[index] = row;
-        const compatibleRooms = matchingRoomsFor(rows, availability?.chambres, index);
-        const selectedRoom = compatibleRooms.find((room) => roomId(room) === String(row.chambre_id));
-        if (selectedRoom) {
-          rows[index] = syncRowWithRoom(row, selectedRoom);
-        } else if (compatibleRooms.length === 1 && !availabilityLoading) {
-          rows[index] = syncRowWithRoom(row, compatibleRooms[0]);
-        } else {
-          rows[index] = { ...row, chambre_id: "", room: null };
+        if (!value || !row.chambre_id) {
+          return { ...current, chambres: rows };
         }
+
+        const selectedRoom = baseRoomsFor(rows, availability?.chambres, index)
+          .find((room) => roomId(room) === String(row.chambre_id));
+        rows[index] = selectedRoom && roomMatchesRowFilters(selectedRoom, row)
+          ? { ...row, room: selectedRoom }
+          : { ...row, chambre_id: "", room: null };
         return { ...current, chambres: rows };
       }
       rows[index] = row;
@@ -714,27 +723,39 @@ export const useReservationForm = ({ onSaved }) => {
       const next = { ...current };
       delete next[`chambres.${index}.${field}`];
       delete next[`chambres.${index}.occupants`];
+      if (["chambre_id", "typeFilter", "floorFilter", "viewFilter"].includes(field)) {
+        delete next[`chambres.${index}.chambre_id`];
+      }
       return next;
     });
-  }, [availability?.chambres, availabilityLoading]);
+  }, [availability?.chambres]);
 
   const baseRoomsForRow = useCallback((index) => (
     baseRoomsFor(form.chambres, availability?.chambres, index)
   ), [availability?.chambres, form.chambres]);
 
-  const typeOptionsFor = useCallback((index) => uniqueFacetOptions(
-    matchingRoomsFor(form.chambres, availability?.chambres, index, "typeFilter"),
+  const typeOptionsFor = useCallback((index) => facetOptionsFor(
+    form.chambres,
+    availability?.chambres,
+    index,
+    "typeFilter",
     (room) => room.typeId,
     (room) => room.typeLabel
   ), [availability?.chambres, form.chambres]);
 
-  const floorOptionsFor = useCallback((index) => uniqueFacetOptions(
-    matchingRoomsFor(form.chambres, availability?.chambres, index, "floorFilter"),
+  const floorOptionsFor = useCallback((index) => facetOptionsFor(
+    form.chambres,
+    availability?.chambres,
+    index,
+    "floorFilter",
     (room) => room.floor
   ), [availability?.chambres, form.chambres]);
 
-  const viewOptionsFor = useCallback((index) => uniqueFacetOptions(
-    matchingRoomsFor(form.chambres, availability?.chambres, index, "viewFilter"),
+  const viewOptionsFor = useCallback((index) => facetOptionsFor(
+    form.chambres,
+    availability?.chambres,
+    index,
+    "viewFilter",
     (room) => room.view
   ), [availability?.chambres, form.chambres]);
 

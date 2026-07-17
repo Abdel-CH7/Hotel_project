@@ -375,17 +375,23 @@ const ClientParticulierr = () => {
     };
 
     try {
+      const isCreating = !editingClient;
       const response = editingClient
         ? await axios.put(`${API_URL}/clients_particulier/${editingClient.id}`, payload)
         : await axios.post(`${API_URL}/clients_particulier`, payload);
       const clientId = response.data?.client?.id;
+      const generatedCode = response.data?.client?.CodeClient;
       await syncChildren(clientId);
       await fetchClients(true);
       closeDrawer();
       await Swal.fire({
         icon: "success",
         title: "Succès",
-        text: response.data?.message || "Le client a été enregistré.",
+        text: isCreating
+          ? generatedCode
+            ? `Client particulier créé avec succès. Code client : ${generatedCode}`
+            : "Client particulier créé avec succès."
+          : response.data?.message || "Le client a été enregistré.",
       });
     } catch (error) {
       if (error?.response?.status === 422) {
@@ -807,20 +813,22 @@ const ClientParticulierr = () => {
 
           <section className="client-guest-form-section">
             <h5>Identité</h5>
+            {!editingClient && (
+              <p className="client-generated-code-note">
+                Le code client sera généré automatiquement après l’enregistrement.
+              </p>
+            )}
             <div className="client-guest-form-grid">
-              <GuestField label="Code client">
-                <Form.Control
-                  name="CodeClient"
-                  value={editingClient ? formData.CodeClient : "CP-######"}
-                  readOnly
-                  aria-readonly="true"
-                />
-                {!editingClient && (
-                  <Form.Text className="client-generated-code-help">
-                    Généré automatiquement lors de l’enregistrement.
-                  </Form.Text>
-                )}
-              </GuestField>
+              {editingClient && (
+                <GuestField label="Code client">
+                  <Form.Control
+                    name="CodeClient"
+                    value={formData.CodeClient}
+                    readOnly
+                    aria-readonly="true"
+                  />
+                </GuestField>
+              )}
               <GuestField label="Nom" required error={getFieldError("name")}>
                 <Form.Control name="name" value={formData.name} onChange={handleChange} isInvalid={Boolean(getFieldError("name"))} />
               </GuestField>

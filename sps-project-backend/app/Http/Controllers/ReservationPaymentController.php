@@ -11,7 +11,6 @@ use App\Models\ReservationPaiement;
 use App\Services\ReservationPaymentService;
 use App\Support\ReservationPaymentData;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
@@ -40,7 +39,11 @@ class ReservationPaymentController extends Controller
         Reservation $reservation
     ): JsonResponse {
         try {
-            $result = $this->paymentService->create($reservation, $request->validated(), Auth::id());
+            $result = $this->paymentService->create(
+                $reservation,
+                $request->validated(),
+                $request->user()?->getAuthIdentifier()
+            );
 
             return response()->json(['data' => [
                 'paiement' => ReservationPaymentData::payment($result['paiement']),
@@ -63,7 +66,7 @@ class ReservationPaymentController extends Controller
                 $reservation,
                 $payment,
                 $request->validated('motif_annulation'),
-                Auth::id()
+                $request->user()?->getAuthIdentifier()
             );
 
             return response()->json(['data' => [

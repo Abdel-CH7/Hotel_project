@@ -70,7 +70,7 @@ const RoomAllocationTable = ({
               <Form.Group>
                 <Form.Label>Type</Form.Label>
                 <Form.Select value={row.typeFilter} onChange={(event) => updateRoom(index, "typeFilter", event.target.value)}>
-                  <option value="">Tous</option>
+                  <option value="">Tous les types</option>
                   {typeOptions.map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
@@ -79,7 +79,7 @@ const RoomAllocationTable = ({
               <Form.Group>
                 <Form.Label>Étage</Form.Label>
                 <Form.Select value={row.floorFilter} onChange={(event) => updateRoom(index, "floorFilter", event.target.value)}>
-                  <option value="">Tous</option>
+                  <option value="">Tous les étages</option>
                   {floorOptions.map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
@@ -88,7 +88,7 @@ const RoomAllocationTable = ({
               <Form.Group>
                 <Form.Label>Vue</Form.Label>
                 <Form.Select value={row.viewFilter} onChange={(event) => updateRoom(index, "viewFilter", event.target.value)}>
-                  <option value="">Toutes</option>
+                  <option value="">Toutes les vues</option>
                   {viewOptions.map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
@@ -102,7 +102,7 @@ const RoomAllocationTable = ({
                   isInvalid={Boolean(errors[`chambres.${index}.chambre_id`])}
                 >
                   <option value="">
-                    {roomOptions.length === 0 ? "Aucune chambre compatible" : "Sélectionner"}
+                    {roomOptions.length === 0 ? "Aucune chambre compatible" : "Sélectionner une chambre"}
                   </option>
                   {roomOptions.map((room) => (
                     <option key={room.id} value={room.id}>Chambre {room.num_chambre}</option>
@@ -117,6 +117,12 @@ const RoomAllocationTable = ({
             {roomOptions.length === 0 && (
               <div className="reservation-room-no-match">
                 Aucune chambre disponible ne correspond à cette combinaison.
+              </div>
+            )}
+
+            {row.availabilityMessage && (
+              <div className="reservation-room-availability-message" role="status">
+                {row.availabilityMessage}
               </div>
             )}
 

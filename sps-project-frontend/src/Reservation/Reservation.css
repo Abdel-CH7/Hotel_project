@@ -501,6 +501,12 @@
   font-size: 12px;
 }
 
+.reservation-room-availability-message {
+  margin-top: 8px;
+  color: #0f5f78;
+  font-size: 12px;
+}
+
 .reservation-occupancy-row {
   display: grid;
   grid-template-columns: 120px 120px minmax(0, 1fr);
@@ -659,6 +665,56 @@
   margin: 0;
 }
 
+.reservation-payment-heading-actions,
+.reservation-payment-row-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.reservation-payment-heading-actions {
+  justify-content: flex-end;
+}
+
+.reservation-payment-document-button,
+.reservation-payment-receipt-action,
+.reservation-payment-print-receipt-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+  background: #fff;
+  padding: 5px 9px;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.reservation-payment-document-button:hover,
+.reservation-payment-document-button:focus-visible,
+.reservation-payment-receipt-action:hover,
+.reservation-payment-receipt-action:focus-visible,
+.reservation-payment-print-receipt-action:hover,
+.reservation-payment-print-receipt-action:focus-visible {
+  border-color: #00afaa;
+  color: #0b4d54;
+}
+
+.reservation-payment-document-button.is-pdf,
+.reservation-payment-receipt-action {
+  color: #b91c1c;
+}
+
+.reservation-payment-print-receipt-action {
+  width: 32px;
+  padding: 5px;
+}
+
 .reservation-payment-summary {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -783,7 +839,7 @@
 }
 
 .reservation-payment-table {
-  min-width: 950px;
+  min-width: 1080px;
   margin: 0;
   font-size: 12px;
 }
@@ -816,6 +872,11 @@
   font-size: 12px;
   font-weight: 700;
   text-decoration: underline;
+}
+
+.reservation-payment-row-actions {
+  min-width: 210px;
+  flex-wrap: nowrap;
 }
 
 @media (max-width: 900px) {
@@ -863,6 +924,14 @@
   .reservation-payment-heading {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .reservation-payment-heading-actions {
+    justify-content: flex-start;
+  }
+
+  .reservation-payment-heading-actions .app-primary-button {
+    width: 100%;
   }
 
   .reservation-occupancy-row {

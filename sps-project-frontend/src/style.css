@@ -2346,12 +2346,11 @@ body .swal2-container {
   width: 100%;
 }
 
-.clients-particulier-page .client-generated-code-help,
-.clients-societe-page .company-generated-code-help {
-  display: block;
-  margin-top: 5px;
+.clients-particulier-page .client-generated-code-note,
+.clients-societe-page .client-generated-code-note {
+  margin: 0 0 12px;
   color: #64748b;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .clients-particulier-page .client-child-age-field {
