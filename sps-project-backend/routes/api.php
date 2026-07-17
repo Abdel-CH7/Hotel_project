@@ -48,6 +48,12 @@ use App\Http\Controllers\MaintenanceTypeController;
 use App\Http\Controllers\EmployeController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ReclamationController;
+use App\Http\Controllers\ReclamationCanalController;
+use App\Http\Controllers\ReclamationDepartmentController;
+use App\Http\Controllers\ReclamationOptionsController;
+use App\Http\Controllers\ReclamationReservationContextController;
+use App\Http\Controllers\ReclamationStatusController;
+use App\Http\Controllers\ReclamationTypeController;
 
 use App\Http\Controllers\ReservationController;
 use App\Http\Controllers\ReservationReadinessController;
@@ -291,18 +297,44 @@ Route::apiResource('maintenance-types', MaintenanceTypeController::class)
 Route::apiResource('employes', EmployeController::class)
     ->whereNumber('employe');
 
-// Remove the old reclamation routes and add the new grouped ones
-Route::prefix('reclamations')->group(function () {
-    Route::post('/', [ReclamationController::class, 'create']);
-    Route::get('/', [ReclamationController::class, 'index']);
-    Route::put('/{id}', [ReclamationController::class, 'update']);
-    Route::delete('/{id}', [ReclamationController::class, 'destroy']);
+Route::middleware('auth:sanctum')->group(function () {
+    Route::prefix('reclamations')->group(function () {
+        Route::get('/form-options', ReclamationOptionsController::class);
+        Route::get('/reservations/{reservation}/context', ReclamationReservationContextController::class)
+            ->whereNumber('reservation');
+        Route::get('/', [ReclamationController::class, 'index']);
+        Route::get('/{reclamation}', [ReclamationController::class, 'show'])
+            ->whereNumber('reclamation');
 
-    // Routes for departments
-    Route::get('/departements', [ReclamationController::class, 'getDepartments']);
-    Route::post('/departements', [ReclamationController::class, 'addDepartment']);
-    Route::put('/departements/{id}', [ReclamationController::class, 'updateDepartment']);
-    Route::delete('/departements/{id}', [ReclamationController::class, 'deleteDepartment']);
+        Route::post('/', [ReclamationController::class, 'store']);
+        Route::put('/{reclamation}', [ReclamationController::class, 'update'])
+            ->whereNumber('reclamation');
+        Route::patch('/{reclamation}/status', [ReclamationStatusController::class, 'update'])
+            ->whereNumber('reclamation');
+        Route::patch('/{reclamation}/cancel', [ReclamationStatusController::class, 'cancel'])
+            ->whereNumber('reclamation');
+    });
+
+    Route::get('/reclamation-types', [ReclamationTypeController::class, 'index']);
+    Route::post('/reclamation-types', [ReclamationTypeController::class, 'store']);
+    Route::put('/reclamation-types/{type}', [ReclamationTypeController::class, 'update'])
+        ->whereNumber('type');
+    Route::patch('/reclamation-types/{type}/active', [ReclamationTypeController::class, 'active'])
+        ->whereNumber('type');
+
+    Route::get('/reclamation-canaux', [ReclamationCanalController::class, 'index']);
+    Route::post('/reclamation-canaux', [ReclamationCanalController::class, 'store']);
+    Route::put('/reclamation-canaux/{canal}', [ReclamationCanalController::class, 'update'])
+        ->whereNumber('canal');
+    Route::patch('/reclamation-canaux/{canal}/active', [ReclamationCanalController::class, 'active'])
+        ->whereNumber('canal');
+
+    Route::get('/reclamation-departements', [ReclamationDepartmentController::class, 'index']);
+    Route::post('/reclamation-departements', [ReclamationDepartmentController::class, 'store']);
+    Route::put('/reclamation-departements/{departement}', [ReclamationDepartmentController::class, 'update'])
+        ->whereNumber('departement');
+    Route::patch('/reclamation-departements/{departement}/active', [ReclamationDepartmentController::class, 'active'])
+        ->whereNumber('departement');
 });
 
 

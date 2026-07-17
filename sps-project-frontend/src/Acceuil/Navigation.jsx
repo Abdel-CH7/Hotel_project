@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -169,9 +168,6 @@ const Navigation = () => {
     
     setIsCommandsOpen(!isCommandsOpen);
   };
-  const isAuthenticated = localStorage.getItem("isAuthenticated");
-  const token = localStorage.getItem("API_TOKEN");
-  axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
   const { logout } = useAuth();
   const [openDrawer, setOpenDrawer] = useState(false);
   const handleOptionChange = (event) => {
@@ -193,13 +189,6 @@ const Navigation = () => {
       navigate("/preparationlogo");
     }
   };
-  useEffect(() => {
-    if (!isAuthenticated) {
-      // navigate("/login");
-    }
-  }, [isAuthenticated, navigate]);
-  
-
   // useEffect(() => {
   //   const fetchUserData = async () => {
   //     try {
@@ -602,4 +591,3 @@ const Navigation = () => {
 };
 
 export default Navigation;
-

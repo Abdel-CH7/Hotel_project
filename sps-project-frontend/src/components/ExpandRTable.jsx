@@ -15,6 +15,7 @@ const ExpandRTable = ({
   handleSelectAllChange,
   handleCheckboxChange,
   handleEdit,
+  canEdit,
   handleDelete,
   handleDeleteSelected,
   rowsPerPage,
@@ -29,6 +30,8 @@ const ExpandRTable = ({
   externalPagination = false,
   paginationComponent = null,
   forceHorizontalScroll = false,
+  selectionEnabled = true,
+  showBulkDelete = true,
 }) => {
   const hasActions = handleEdit || handleDelete || renderCustomActions;
   const displayData = filteredData || data || [];
@@ -50,7 +53,7 @@ const dataColumnsWidth = columns.reduce(
 );
 
 const fixedColumnsWidth =
-  checkboxColumnWidth + (hasActions ? actionColumnWidth : 0);
+  (selectionEnabled ? checkboxColumnWidth : 0) + (hasActions ? actionColumnWidth : 0);
 
 const totalMinWidth = fixedColumnsWidth + dataColumnsWidth;
 
@@ -238,7 +241,7 @@ useEffect(() => {
         >
           {isAppTable && (
   <colgroup>
-    <col style={{ width: `${checkboxColumnWidth}px` }} />
+    {selectionEnabled && <col style={{ width: `${checkboxColumnWidth}px` }} />}
 
     {columns.map((column) => (
       <col
@@ -252,7 +255,7 @@ useEffect(() => {
 )}
           <thead>
             <tr>
-              <th
+              {selectionEnabled && <th
                 className="sticky-header-left sticky-shadow-left"
                 style={{
                   width: `${checkboxColumnWidth}px`,
@@ -269,7 +272,7 @@ maxWidth: `${checkboxColumnWidth}px`,
                   onChange={handleSelectAllChange}
                   aria-label="Select all rows"
                 />
-              </th>
+              </th>}
 
               {columns.map((column) => (
                 <th
@@ -323,10 +326,10 @@ maxWidth: `${actionColumnWidth}px`,
             {(externalPagination
               ? displayData
               : displayData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-            ).map((item) => (
-              <React.Fragment key={item.id || `row-${Math.random()}`}>
+            ).map((item, rowIndex) => (
+              <React.Fragment key={item.id ?? `row-${rowIndex}`}>
                 <tr>
-                  <td
+                  {selectionEnabled && <td
                     className="sticky-left sticky-shadow-left"
                     style={{
                       width: `${checkboxColumnWidth}px`,
@@ -339,11 +342,11 @@ maxWidth: `${checkboxColumnWidth}px`,
                   >
                     <input
                       type="checkbox"
-                      checked={selectedItems.includes(item.id)}
+                      checked={(selectedItems || []).includes(item.id)}
                       onChange={() => handleCheckboxChange(item.id)}
                       aria-label={`Select row ${item.id}`}
                     />
-                  </td>
+                  </td>}
 
                   {columns.map((column) => (
                     <td
@@ -393,7 +396,7 @@ maxWidth: `${actionColumnWidth}px`,
                         className="app-table-actions"
                         style={forceHorizontalScroll ? { gap: '12px', flexWrap: 'nowrap' } : undefined}
                       >
-                        {handleEdit && (
+                        {handleEdit && (!canEdit || canEdit(item)) && (
                           <FontAwesomeIcon
                             onClick={() => handleEdit(item)}
                             icon={faEdit}
@@ -428,7 +431,7 @@ maxWidth: `${actionColumnWidth}px`,
                 {expandedRows[item.id] && (
                   <tr className="expanded-row">
                     <td
-                      colSpan={columns.length + 1 + (hasActions ? 1 : 0)}
+                      colSpan={columns.length + (selectionEnabled ? 1 : 0) + (hasActions ? 1 : 0)}
                       style={{
                         padding: '15px',
                         backgroundColor: '#f9f9f9',
@@ -445,7 +448,7 @@ maxWidth: `${actionColumnWidth}px`,
             {displayData.length === 0 && (
               <tr>
                 <td
-                  colSpan={columns.length + 1 + (hasActions ? 1 : 0)}
+                  colSpan={columns.length + (selectionEnabled ? 1 : 0) + (hasActions ? 1 : 0)}
                   style={{
                     textAlign: 'center',
                     padding: '20px',
@@ -470,7 +473,7 @@ maxWidth: `${actionColumnWidth}px`,
           gap: '15px',
         }}
       >
-        <Button
+        {showBulkDelete && <Button
           variant="contained"
           color="error"
           onClick={handleDeleteSelected}
@@ -486,7 +489,7 @@ maxWidth: `${actionColumnWidth}px`,
           startIcon={<FontAwesomeIcon icon={faTrash} />}
         >
           Supprimer selection
-        </Button>
+        </Button>}
 
         {paginationComponent || <div
           className={isAppTable ? 'app-table-pagination' : undefined}

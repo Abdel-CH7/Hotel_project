@@ -12,7 +12,10 @@ class Departement extends Model
     protected $fillable = [
     'nom',
     'photo',
+    'actif',
 ];
+
+    protected $casts = ['actif' => 'boolean'];
 
     // One Departement has many Reclamations
     public function reclamations()

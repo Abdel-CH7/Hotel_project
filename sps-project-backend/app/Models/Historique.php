@@ -3,15 +3,24 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Historique extends Model
 {
-    protected $table = 'reclamation_historique';  // Table name
-    protected $fillable = ['reclamation_id', 'date', 'description'];
+    protected $table = 'reclamation_historique';
 
-    // One Historique belongs to one Reclamation
-    public function reclamation()
+    protected $fillable = [
+        'reclamation_id', 'type_evenement', 'ancien_statut', 'nouveau_statut',
+        'description', 'user_id', 'date',
+    ];
+
+    public function reclamation(): BelongsTo
     {
         return $this->belongsTo(Reclamation::class, 'reclamation_id');
     }
-} 
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+}

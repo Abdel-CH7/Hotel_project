@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   Box,
   Container,
@@ -32,6 +32,7 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -49,7 +50,11 @@ const Login = () => {
     try {
       if (isLogin) {
         await login(formData.email, formData.password);
-        navigate("/");
+        const requestedRoute = location.state?.from;
+        const destination = requestedRoute
+          ? `${requestedRoute.pathname}${requestedRoute.search || ""}${requestedRoute.hash || ""}`
+          : "/";
+        navigate(destination, { replace: true });
       } else {
         if (formData.password !== formData.confirmPassword) {
           throw new Error("Passwords do not match");
@@ -82,7 +87,7 @@ const Login = () => {
         });
       }
     } catch (error) {
-      setError(error.message);
+      setError(error.response?.data?.message || error.message || "Connexion impossible.");
     } finally {
       setLoading(false);
     }
