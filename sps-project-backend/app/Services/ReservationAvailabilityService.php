@@ -29,7 +29,16 @@ class ReservationAvailabilityService
         $selected = array_map('intval', $selectedRoomIds);
 
         return Chambre::query()
-            ->with(['typeChambre', 'etage', 'vue'])
+            ->with([
+                'typeChambre',
+                'etage',
+                'vue',
+                'equipements' => fn ($query) => $query
+                    ->whereIn('statut', ['en_maintenance', 'hors_service'])
+                    ->where('impact_chambre', 'service_degrade')
+                    ->orderBy('id')
+                    ->select(['id', 'chambre_id', 'nom', 'statut', 'impact_chambre']),
+            ])
             ->whereNotIn('id', $blockedIds)
             ->orderBy('num_chambre')
             ->get()
@@ -211,6 +220,15 @@ class ReservationAvailabilityService
 
     private function roomMetadata(Chambre $room, bool $selected): array
     {
+        $equipmentAlerts = $room->equipements
+            ->map(fn ($equipment): array => [
+                'id' => (int) $equipment->id,
+                'nom' => $equipment->nom,
+                'statut' => $equipment->statut,
+                'impact_chambre' => $equipment->impact_chambre,
+            ])
+            ->values();
+
         return [
             'id' => $room->id,
             'num_chambre' => $room->num_chambre,
@@ -221,6 +239,10 @@ class ReservationAvailabilityService
             'etage' => $room->etage?->etage,
             'vue' => $room->vue?->vue,
             'selected' => $selected,
+            'equipment_alerts' => [
+                'count' => $equipmentAlerts->count(),
+                'items' => $equipmentAlerts->all(),
+            ],
         ];
     }
 }

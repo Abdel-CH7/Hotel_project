@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Reservation;
 use App\Models\ReservationRoom;
 use App\Models\TarifChambreDetail;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
@@ -311,6 +312,12 @@ class ReservationApiTest extends TestCase
             ->assertJsonValidationErrors('cancellation_reason');
         $this->patchJson("/api/reservations/{$id}/status", [
             'status' => 'annulé',
+            'cancellation_reason' => '   ',
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors('cancellation_reason');
+        $this->assertSame('confirmé', Reservation::findOrFail($id)->status);
+        $this->patchJson("/api/reservations/{$id}/status", [
+            'status' => 'annulé',
             'cancellation_reason' => 'Demande du client',
         ])->assertOk()
             ->assertJsonPath('data.status', 'annulé')
@@ -331,25 +338,22 @@ class ReservationApiTest extends TestCase
         ])->assertOk()->assertJsonPath('data.status', 'annulé');
     }
 
-    public function test_deprecated_delete_cancels_without_deleting_or_changing_legacy_totals(): void
+    public function test_completed_stay_created_by_current_workflow_is_not_legacy(): void
     {
-        $room = $this->createRoom();
-        $legacy = $this->createLegacyReservation($room, '2096-01-10', '2096-01-12');
-        $total = $legacy->montant_total;
+        $context = $this->apiContext('2096-01-01', '2096-01-31');
+        $id = $this->postJson('/api/reservations', $context['payload'])
+            ->assertCreated()
+            ->assertJsonPath('data.pricing_version', 2)
+            ->assertJsonPath('data.legacy_pricing', false)
+            ->json('data.id');
 
-        $this->deleteJson("/api/reservations/{$legacy->id}")
+        $this->travelTo(CarbonImmutable::parse('2096-02-01'));
+
+        $this->getJson("/api/reservations/{$id}")
             ->assertOk()
-            ->assertJsonPath('data.status', 'annulé')
-            ->assertJsonPath(
-                'data.cancellation.reason',
-                'Annulation effectuée depuis l’ancienne interface.'
-            );
-
-        $legacy->refresh();
-        $this->assertSame($total, $legacy->montant_total);
-        $this->assertTrue($legacy->legacy_pricing);
-        $this->assertDatabaseHas('reservations', ['id' => $legacy->id]);
-        $this->assertSame(1, $legacy->reservationRooms()->count());
+            ->assertJsonPath('data.pricing_version', 2)
+            ->assertJsonPath('data.legacy_pricing', false);
+        $this->assertFalse(Reservation::findOrFail($id)->legacy_pricing);
     }
 
     public function test_list_is_compact_and_show_is_normalized_for_version_two_and_legacy(): void
@@ -396,7 +400,39 @@ class ReservationApiTest extends TestCase
         $this->putJson("/api/reservations/{$legacy->reservation_num}", $update)
             ->assertOk()
             ->assertJsonPath('data.id', $legacy->id)
-            ->assertJsonPath('data.pricing_version', 2);
+            ->assertJsonPath('data.pricing_version', 2)
+            ->assertJsonPath('data.legacy_pricing', false);
+    }
+
+    public function test_list_can_filter_by_room_without_hiding_cancelled_history(): void
+    {
+        $firstRoom = $this->createRoom();
+        $secondRoom = $this->createRoom();
+        $firstReservation = $this->createLegacyReservation($firstRoom, '2096-04-01', '2096-04-03');
+        $unrelatedReservation = $this->createLegacyReservation($secondRoom, '2096-04-04', '2096-04-06');
+        $cancelledReservation = $this->createLegacyReservation($firstRoom, '2096-04-07', '2096-04-09');
+        $cancelledReservation->update(['status' => 'annulé']);
+
+        $unfilteredIds = collect($this->getJson('/api/reservations')->assertOk()->json('data'))
+            ->pluck('id');
+        $this->assertTrue($unfilteredIds->contains($firstReservation->id));
+        $this->assertTrue($unfilteredIds->contains($unrelatedReservation->id));
+        $this->assertTrue($unfilteredIds->contains($cancelledReservation->id));
+
+        $filteredIds = collect($this->getJson('/api/reservations?chambre_id='.$firstRoom->id)
+            ->assertOk()
+            ->json('data'))
+            ->pluck('id');
+
+        $this->assertTrue($filteredIds->contains($firstReservation->id));
+        $this->assertTrue($filteredIds->contains($cancelledReservation->id));
+        $this->assertFalse($filteredIds->contains($unrelatedReservation->id));
+        $this->getJson('/api/reservations?chambre_id=not-a-number')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('chambre_id');
+        $this->getJson('/api/reservations?chambre_id=0')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('chambre_id');
     }
 
     public function test_available_rooms_and_preview_endpoints_use_normalized_services_without_writes(): void
@@ -439,7 +475,7 @@ class ReservationApiTest extends TestCase
             ]);
     }
 
-    public function test_reservation_routes_are_unique_valid_and_never_physically_delete(): void
+    public function test_reservation_routes_are_unique_valid_and_do_not_expose_delete(): void
     {
         $routes = collect(Route::getRoutes()->getRoutes())
             ->filter(fn ($route): bool => str_starts_with($route->uri(), 'api/reservations'));
@@ -454,8 +490,8 @@ class ReservationApiTest extends TestCase
         $this->assertFalse($signatures->contains(
             fn (string $signature): bool => str_contains($signature, 'supprimerReservation')
         ));
-        $this->assertTrue($signatures->contains(
-            fn (string $signature): bool => str_contains($signature, 'cancelFromDelete')
+        $this->assertFalse($signatures->contains(
+            fn (string $signature): bool => str_starts_with($signature, 'DELETE ')
         ));
     }
 

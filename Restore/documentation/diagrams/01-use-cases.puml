@@ -16,11 +16,13 @@ rectangle "Application de gestion hôtelière" {
   usecase "Consulter le tableau de bord" as Dashboard
   usecase "Gérer les clients\nparticuliers et sociétés" as Clients
   usecase "Gérer les chambres\net leur état" as Rooms
+  usecase "Consulter l’occupation\nactuelle" as CurrentOccupation
   usecase "Gérer les tarifs" as Tariffs
   usecase "Gérer les réservations" as Reservations
   usecase "Enregistrer et consulter\nles paiements" as Payments
   usecase "Gérer les réclamations" as Complaints
   usecase "Gérer les équipements" as Equipment
+  usecase "Définir l’impact\nsur la chambre" as EquipmentImpact
   usecase "Rechercher, filtrer, imprimer\net exporter les listes compatibles" as Lists
 
   usecase "Gérer les utilisateurs" as Users
@@ -44,6 +46,8 @@ Staff --> Payments
 Staff --> Complaints
 Staff --> Equipment
 Staff --> Lists
+Rooms .> CurrentOccupation : <<include>>
+Equipment .> EquipmentImpact : <<include>>
 
 Admin --> Users
 Users .> UserEdit : <<include>>
@@ -56,4 +60,3 @@ note bottom of Admin
   protégées côté API par le middleware admin.
 end note
 @enduml
-

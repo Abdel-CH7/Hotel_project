@@ -17,6 +17,7 @@ UI -> Controller : GET /reservations/available-rooms
 Controller -> Availability : availableRooms(dates, reservationId?)
 Availability -> DB : rechercher chevauchements actifs
 Availability -> DB : rechercher maintenances actives
+Availability -> DB : charger les équipements service_degrade
 alt dates invalides
   Availability --> Controller : erreur de domaine 422
   Controller --> UI : message lié aux dates
@@ -24,8 +25,14 @@ else aucune chambre compatible
   Availability --> Controller : liste vide
   Controller --> UI : aucune chambre disponible
 else chambres disponibles
-  Availability --> Controller : chambres normalisées
-  Controller --> UI : options type / étage / vue / numéro
+  Availability --> Controller : chambres normalisées + alertes éventuelles
+  alt maintenance EtatChambre active
+    Controller --> UI : chambre exclue des options
+  else équipement en service dégradé
+    Controller --> UI : chambre disponible + avertissement non bloquant
+  else aucun incident
+    Controller --> UI : chambre disponible normalement
+  end
 end
 
 Staff -> UI : choisit chambres, occupation, repas, réduction et politique
@@ -69,5 +76,10 @@ else payload valide
     UI --> Staff : succès
   end
 end
-@enduml
 
+note over Availability, DB
+  Un équipement chambre_indisponible ne constitue pas
+  un second prédicat : la maintenance EtatChambre créée
+  par son workflow reste l’unique autorité de blocage.
+end note
+@enduml

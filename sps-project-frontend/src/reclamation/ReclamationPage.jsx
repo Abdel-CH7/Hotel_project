@@ -1,5 +1,6 @@
-import { useCallback, useMemo, useState, useEffect } from "react";
+import { useCallback, useMemo, useRef, useState, useEffect } from "react";
 import Box from "@mui/material/Box";
+import { useSearchParams } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faBellConcierge,
@@ -19,12 +20,14 @@ import Swal from "sweetalert2";
 import { useOpen } from "../Acceuil/OpenProvider";
 import SearchWithExport from "../components/SearchWithExport";
 import AppStats from "../components/AppStats";
+import ContextFilterChip from "../components/ContextFilterChip";
 import ListFilterReset from "../components/ListFilterReset";
 import ListState from "../components/ListState";
 import VisualFilterCarousel from "../components/VisualFilterCarousel";
 import useListControls from "../components/useListControls";
 import { exportToExcel, exportToPdf, printRows } from "../utils/listExportUtils";
 import { matchesNormalizedSearch, normalizeSearchValue } from "../utils/textUtils";
+import { readPositiveIntegerParam, removeSearchParam } from "../utils/contextNavigationUtils";
 import {
   cancelReclamation,
   changeReclamationStatus,
@@ -97,13 +100,21 @@ const mergeLookupOption = (current, kind, saved) => {
 
 const ReclamationPage = () => {
   const { dynamicStyles } = useOpen();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const reservationContext = readPositiveIntegerParam(searchParams, "reservation_id");
+  const contextReservationId = reservationContext.value;
+  const requestedAction = searchParams.get("action");
   const [reclamations, setReclamations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [options, setOptions] = useState(EMPTY_OPTIONS);
   const [optionsError, setOptionsError] = useState("");
+  const [optionsLoaded, setOptionsLoaded] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [presetReservationId, setPresetReservationId] = useState(null);
+  const [contextActionError, setContextActionError] = useState("");
+  const consumedCreateContext = useRef(null);
   const [managerKind, setManagerKind] = useState(null);
   const [lookupSelection, setLookupSelection] = useState(null);
   const [expandedRows, setExpandedRows] = useState({});
@@ -128,8 +139,16 @@ const ReclamationPage = () => {
 
   const fetchOptions = useCallback(async (refresh = false) => {
     setOptionsError("");
-    try { setOptions(await getReclamationFormOptions({ refresh })); }
-    catch (error) { setOptionsError(apiErrorMessage(error, "Impossible de charger les options du formulaire.")); }
+    try {
+      const nextOptions = await getReclamationFormOptions({ refresh });
+      setOptions(nextOptions);
+      return nextOptions;
+    }
+    catch (error) {
+      setOptionsError(apiErrorMessage(error, "Impossible de charger les options du formulaire."));
+      return null;
+    }
+    finally { setOptionsLoaded(true); }
   }, []);
 
   useEffect(() => { fetchRows(); fetchOptions(); }, [fetchRows, fetchOptions]);
@@ -142,6 +161,7 @@ const ReclamationPage = () => {
       row.statut, row.reponse,
     ]);
     return searchMatch
+      && (!contextReservationId || String(row.reservation?.id ?? "") === String(contextReservationId))
       && (!departmentFilter || String(row.departement?.id) === departmentFilter)
       && (!statusFilter || row.statut === statusFilter)
       && (!priorityFilter || row.priorite === priorityFilter)
@@ -149,9 +169,48 @@ const ReclamationPage = () => {
       && (!channelFilter || String(row.canal?.id) === channelFilter)
       && (!dateFrom || row.date >= dateFrom)
       && (!dateTo || row.date <= dateTo);
-  }), [departmentFilter, statusFilter, priorityFilter, typeFilter, channelFilter, dateFrom, dateTo]);
+  }), [channelFilter, contextReservationId, dateFrom, dateTo, departmentFilter, priorityFilter, statusFilter, typeFilter]);
 
   const { searchTerm, page, rowsPerPage, filteredRows, visibleRows, totalRows, setSearchTerm, setPage, setRowsPerPage, resetPage } = useListControls({ allRows: reclamations, filterRows, storageKey: "reclamations.rowsPerPage" });
+
+  useEffect(() => {
+    resetPage();
+  }, [contextReservationId, reservationContext.raw, resetPage]);
+
+  const contextReservationOption = useMemo(
+    () => (options.reservations || []).find((row) => String(row.id) === String(contextReservationId)),
+    [contextReservationId, options.reservations]
+  );
+
+  useEffect(() => {
+    if (requestedAction !== "create") {
+      consumedCreateContext.current = null;
+      setContextActionError("");
+      return;
+    }
+    if (!optionsLoaded) return;
+    if (reservationContext.raw === null || !reservationContext.valid) {
+      setContextActionError("La réservation demandée est invalide.");
+      return;
+    }
+    if (optionsError) {
+      setContextActionError("Impossible de vérifier la réservation tant que les options ne sont pas chargées.");
+      return;
+    }
+    if (!contextReservationOption) {
+      setContextActionError("La réservation demandée est introuvable.");
+      return;
+    }
+
+    const contextKey = `create:${contextReservationId}`;
+    if (consumedCreateContext.current === contextKey) return;
+    consumedCreateContext.current = contextKey;
+    setContextActionError("");
+    setLookupSelection(null);
+    setEditing(null);
+    setPresetReservationId(contextReservationId);
+    setDrawerOpen(true);
+  }, [contextReservationId, contextReservationOption, optionsError, optionsLoaded, requestedAction, reservationContext.raw, reservationContext.valid]);
 
   const setFilter = (setter) => (event) => { setter(event.target.value); resetPage(); };
   const filtersActive = Boolean(searchTerm || departmentFilter || statusFilter || priorityFilter || typeFilter || channelFilter || dateFrom || dateTo);
@@ -306,14 +365,71 @@ const ReclamationPage = () => {
     }
   }, []);
 
-  const openCreate = async () => { await fetchOptions(true); setLookupSelection(null); setEditing(null); setDrawerOpen(true); };
-  const openEdit = async (row) => { await fetchOptions(true); setLookupSelection(null); setEditing(row); setDrawerOpen(true); };
+  const clearContextParam = useCallback((key) => {
+    setSearchParams(removeSearchParam(searchParams, key));
+  }, [searchParams, setSearchParams]);
+
+  const clearCreateContext = useCallback(() => {
+    const next = new URLSearchParams(searchParams);
+    next.delete("action");
+    next.delete("reservation_id");
+    setSearchParams(next);
+  }, [searchParams, setSearchParams]);
+
+  const closeDrawer = useCallback(() => {
+    setDrawerOpen(false);
+    setEditing(null);
+    setPresetReservationId(null);
+    if (requestedAction === "create") {
+      clearCreateContext();
+    }
+  }, [clearCreateContext, requestedAction]);
+
+  const openCreate = async () => {
+    await fetchOptions(true);
+    setLookupSelection(null);
+    setEditing(null);
+    setPresetReservationId(null);
+    setDrawerOpen(true);
+  };
+  const openEdit = async (row) => {
+    await fetchOptions(true);
+    setLookupSelection(null);
+    setPresetReservationId(null);
+    setEditing(row);
+    setDrawerOpen(true);
+  };
   const exportsDisabled = loading || totalRows === 0;
 
   return (
     <Box sx={{ ...dynamicStyles, width: "auto", maxWidth: "100%", minWidth: 0, overflow: "hidden" }}>
       <Box component="main" className="app-page reclamation-page" sx={{ flexGrow: 1, p: 3, mt: 0, width: "100%", maxWidth: "100%", minWidth: 0 }}>
         <SearchWithExport Title="Liste des Réclamations" searchValue={searchTerm} onSearchChange={setSearchTerm} resultCount={totalRows} loading={loading} exportsDisabled={exportsDisabled} printTable={() => printRows({ rows: exportRows, columns: EXPORT_COLUMNS, title: "Liste des Réclamations", orientation: "landscape" })} exportToPDF={() => exportToPdf({ rows: exportRows, columns: EXPORT_COLUMNS, title: "Liste des Réclamations", filename: "reclamations.pdf", orientation: "landscape" })} exportToExcel={() => exportToExcel({ rows: exportRows, columns: EXPORT_COLUMNS, sheetName: "Réclamations", filename: "reclamations.xlsx" })} />
+
+        {reservationContext.raw !== null && (
+          <div className="app-context-filter-row">
+            <ContextFilterChip
+              label={contextReservationOption ? `Réclamations de la réservation ${contextReservationOption.numero}` : "Réservation sélectionnée"}
+              onClear={() => clearContextParam("reservation_id")}
+              clearLabel="Effacer le filtre de réservation"
+            />
+          </div>
+        )}
+        {reservationContext.raw !== null && (
+          !reservationContext.valid || (optionsLoaded && !optionsError && !contextReservationOption)
+        ) && (
+          <div className="alert alert-warning app-context-warning" role="alert">
+            La réservation demandée est introuvable ou invalide.
+          </div>
+        )}
+        {contextActionError && (
+          <div className="alert alert-warning app-context-warning" role="alert">
+            {contextActionError}{" "}
+            <button type="button" className="btn btn-link btn-sm" onClick={clearCreateContext}>
+              Fermer cette action
+            </button>
+          </div>
+        )}
 
         <AppStats items={reclamationStats} loading={loading} />
 
@@ -348,10 +464,10 @@ const ReclamationPage = () => {
           </div>
         </div>
 
-        <ListState loading={loading} error={loadError} allRowsCount={reclamations.length} filteredRowsCount={totalRows} emptyDataMessage="Aucune réclamation enregistrée." onRetry={fetchRows} onResetFilters={resetFilters} />
+        <ListState loading={loading} error={loadError} allRowsCount={reclamations.length} filteredRowsCount={totalRows} emptyDataMessage="Aucune réclamation enregistrée." filteredEmptyMessage={reservationContext.raw !== null && reservationContext.valid ? "Aucune réclamation liée à cette réservation." : undefined} onRetry={fetchRows} onResetFilters={resetFilters} />
         {!loading && !loadError && totalRows > 0 && <ReclamationList rows={visibleRows} searchTerm={searchTerm} page={page} rowsPerPage={rowsPerPage} totalRows={totalRows} setPage={setPage} setRowsPerPage={setRowsPerPage} expandedRows={expandedRows} toggleRow={toggleRow} details={details} detailLoading={detailLoading} detailErrors={detailErrors} retryDetail={(id) => loadDetail(id, true)} onEdit={openEdit} onStatusAction={handleStatusAction} onCancel={handleCancel} />}
 
-        <ReclamationDrawer show={drawerOpen} complaint={editing} options={options} optionsError={optionsError} lookupSelection={lookupSelection} onRetryOptions={() => fetchOptions(true)} onClose={() => { setDrawerOpen(false); setEditing(null); }} onSaved={handleSaved} onManage={setManagerKind} />
+        <ReclamationDrawer show={drawerOpen} complaint={editing} initialReservationId={presetReservationId} options={options} optionsError={optionsError} lookupSelection={lookupSelection} onRetryOptions={() => fetchOptions(true)} onClose={closeDrawer} onSaved={handleSaved} onManage={setManagerKind} />
         <ReclamationLookupManager kind={managerKind} options={options} onClose={() => setManagerKind(null)} onSavedLookup={handleLookupSaved} />
       </Box>
     </Box>

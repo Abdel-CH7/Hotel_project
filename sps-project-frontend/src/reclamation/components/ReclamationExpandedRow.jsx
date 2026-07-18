@@ -1,5 +1,6 @@
 import { formatDate, formatDateTime, eventLabel } from "../reclamationUtils";
 import { highlightText } from "../../utils/textUtils";
+import { Link } from "react-router-dom";
 
 const value = (candidate) => candidate || "—";
 
@@ -21,8 +22,8 @@ const ReclamationExpandedRow = ({ detail, searchTerm, loading, error, onRetry })
           <div><dt>Description</dt><dd>{highlightText(value(detail.description), searchTerm)}</dd></div>
           <div><dt>Canal</dt><dd>{highlightText(value(channel), searchTerm)}</dd></div>
           <div><dt>Client</dt><dd>{highlightText(value(detail.client?.display_name), searchTerm)}</dd></div>
-          <div><dt>Réservation</dt><dd>{highlightText(value(detail.reservation?.numero), searchTerm)}</dd></div>
-          <div><dt>Chambre</dt><dd>{highlightText(value(detail.chambre?.numero), searchTerm)}</dd></div>
+          <div><dt>Réservation</dt><dd>{detail.reservation?.id ? <Link className="app-context-link" to={`/reservation?open=${detail.reservation.id}`} aria-label={`Ouvrir la réservation ${detail.reservation.numero}`}>{highlightText(detail.reservation.numero, searchTerm)}</Link> : highlightText("—", searchTerm)}</dd></div>
+          <div><dt>Chambre</dt><dd>{detail.chambre?.id ? <span className="reclamation-cell-stack"><Link className="app-context-link" to={`/chambre?room_id=${detail.chambre.id}`} aria-label={`Voir la chambre ${detail.chambre.numero}`}>{highlightText(`Chambre ${detail.chambre.numero}`, searchTerm)}</Link><Link className="app-context-link" to={`/etat-chambre?room_id=${detail.chambre.id}`} aria-label={`Voir l’état de la chambre ${detail.chambre.numero}`}>Voir l’état de la chambre</Link></span> : highlightText("—", searchTerm)}</dd></div>
           <div><dt>Département</dt><dd>{highlightText(value(detail.departement?.nom), searchTerm)}</dd></div>
           <div><dt>Priorité</dt><dd>{highlightText(value(detail.priorite_label), searchTerm)}</dd></div>
           <div><dt>Réponse</dt><dd>{highlightText(value(detail.reponse), searchTerm)}</dd></div>

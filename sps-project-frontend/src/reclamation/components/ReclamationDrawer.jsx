@@ -22,7 +22,7 @@ const EMPTY_FORM = {
 
 const idValue = (value) => (value === null || value === undefined ? "" : String(value));
 
-const ReclamationDrawer = ({ show, complaint, options, optionsError, lookupSelection, onRetryOptions, onClose, onSaved, onManage }) => {
+const ReclamationDrawer = ({ show, complaint, initialReservationId, options, optionsError, lookupSelection, onRetryOptions, onClose, onSaved, onManage }) => {
   const [form, setForm] = useState(EMPTY_FORM);
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
@@ -44,11 +44,15 @@ const ReclamationDrawer = ({ show, complaint, options, optionsError, lookupSelec
       date_reclamation: complaint.date || "",
       priorite: complaint.priorite || "normale",
       departement_id: idValue(complaint.departement?.id),
-    } : { ...EMPTY_FORM, date_reclamation: localDateValue() });
+    } : {
+      ...EMPTY_FORM,
+      reservation_id: idValue(initialReservationId),
+      date_reclamation: localDateValue(),
+    });
     setErrors({});
     setContext(null);
     setContextError("");
-  }, [show, complaint]);
+  }, [show, complaint, initialReservationId]);
 
   useEffect(() => {
     if (!show || !form.reservation_id) {

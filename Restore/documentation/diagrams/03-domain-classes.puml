@@ -63,9 +63,13 @@ package "Chambres" {
   }
   class EtatChambre {
     status
+    date_nettoyage
+    nettoyee_par_id?
     maintenance
+    maintenance_type_id?
     date_debut_maintenance
     date_fin_maintenance
+    commentaire?
   }
   class Employe {
     matricule
@@ -136,6 +140,10 @@ package "Réservations et paiements" {
     client_type, client_id
     date_debut, date_fin
     status
+    pricing_version
+    legacy_pricing
+    cancelled_at?
+    cancellation_reason?
     politique_paiement
     montant_total
   }
@@ -186,6 +194,8 @@ package "Réservations et paiements" {
 package "Réclamations" {
   class Reclamation {
     reclamation_num
+    reservation_id?
+    chambre_id?
     client_type, client_id
     description
     priorite, suivi
@@ -220,11 +230,16 @@ package "Réclamations" {
 package "Équipements" {
   class Equipement {
     nom, numero_serie
-    localisation, statut
+    categorie_id
+    chambre_id?
+    emplacement_id?
+    statut
+    impact_chambre
     document_path
   }
   class CategorieEquipement {
     nom, description
+    maintenance_type_id?
   }
   class Emplacement {
     nom, type
@@ -233,5 +248,12 @@ package "Équipements" {
   CategorieEquipement "1" -- "0..*" Equipement
   Chambre "0..1" -- "0..*" Equipement
   Emplacement "0..1" -- "0..*" Equipement
+  MaintenanceType "0..1" -- "0..*" CategorieEquipement : suggestion
+
+  note right of Equipement
+    Contrainte d’affectation :
+    chambre_id XOR emplacement_id.
+    Jamais les deux simultanément.
+  end note
 }
 @enduml

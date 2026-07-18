@@ -19,6 +19,7 @@ use App\Services\ReservationPricingService;
 use App\Services\ReservationPolicyService;
 use App\Services\ReservationTariffPeriodResolver;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Log;
 
@@ -33,10 +34,19 @@ class ReservationController extends Controller
     ) {
     }
 
-    public function index(): AnonymousResourceCollection
+    public function index(Request $request): AnonymousResourceCollection
     {
+        $validated = $request->validate([
+            'chambre_id' => ['nullable', 'integer', 'min:1'],
+        ]);
+
         $reservations = Reservation::query()
             ->with('client')
+            ->when(isset($validated['chambre_id']), function ($query) use ($validated): void {
+                $query->whereHas('reservationRooms', function ($roomQuery) use ($validated): void {
+                    $roomQuery->where('chambre_id', $validated['chambre_id']);
+                });
+            })
             ->withCount('reservationRooms')
             ->withSum([
                 'paiements as valid_paid_amount' => fn ($query) => $query
@@ -204,31 +214,6 @@ class ReservationController extends Controller
             ->firstOrFail();
 
         return $this->update($request, $reservation);
-    }
-
-    /** @deprecated DELETE now performs cancellation and is removed after Phase 3C. */
-    public function cancelFromDelete(Reservation $reservation): ReservationResource|JsonResponse
-    {
-        try {
-            return new ReservationResource(
-                $this->reservationService->cancelFromLegacyDelete($reservation)
-            );
-        } catch (ReservationDomainException $exception) {
-            return $this->domainError($exception);
-        } catch (\Throwable $exception) {
-            return $this->unexpectedError('legacy reservation cancellation', $exception);
-        }
-    }
-
-    /** @deprecated Reservation-number DELETE compatibility until Phase 3C. */
-    public function cancelByNumberFromDelete(
-        string $reservationReference
-    ): ReservationResource|JsonResponse {
-        $reservation = Reservation::query()
-            ->where('reservation_num', $reservationReference)
-            ->firstOrFail();
-
-        return $this->cancelFromDelete($reservation);
     }
 
     private function domainError(ReservationDomainException $exception): JsonResponse

@@ -1,0 +1,81 @@
+@startuml
+!include theme.puml
+title Séquence : impact d’un équipement sur une chambre
+
+actor "Employé" as Staff
+participant "Frontend React" as UI
+participant "EquipementController" as Controller
+participant "EquipmentRoomImpactService" as Service
+entity "EtatChambre" as RoomState
+participant "Requêtes réservations /\ndisponibilité" as ReservationQuery
+database "Eloquent / MySQL" as DB
+
+Staff -> UI : modifie le statut de l’équipement
+Staff -> UI : choisit l’impact sur la chambre
+UI -> Controller : POST/PUT équipement\n+ impact + maintenance éventuelle
+Controller -> Controller : valider statut, affectation, impact et dates
+Controller -> Service : persist(equipement?, données validées)
+Service -> DB : BEGIN TRANSACTION
+Service -> DB : verrouiller l’équipement
+
+alt impact = service_degrade
+  Service -> DB : enregistrer l’équipement et l’impact
+  Service -> DB : COMMIT
+  Service --> Controller : équipement + métadonnées d’avertissement
+  Controller --> UI : chambre toujours réservable
+  UI --> Staff : afficher « service dégradé »
+else impact = chambre_indisponible
+  Service -> DB : verrouiller la chambre
+  Service -> RoomState : verrouiller ou créer l’état de chambre
+  Service -> RoomState : vérifier la maintenance existante
+  Service -> ReservationQuery : rechercher les chevauchements actifs
+  ReservationQuery -> DB : réservations en attente / confirmées
+
+  alt maintenance incompatible
+    Service -> DB : ROLLBACK
+    Service --> Controller : 409 room_maintenance_period_conflict
+    Controller --> UI : demander la révision de l’état de chambre
+  else réservations chevauchantes détectées\net confirmation utilisateur absente
+    Service -> DB : ROLLBACK
+    Service --> Controller : 409 existing_reservations_overlap + détails
+    Controller --> UI : confirmation explicite requise
+    Staff -> UI : confirme la mise en maintenance
+    UI -> Controller : resoumettre avec confirmation = true
+    Controller -> Service : persist(..., confirmation)
+    Service -> DB : BEGIN TRANSACTION
+    Service -> DB : verrouiller l’équipement,\nla chambre et son état
+    Service -> RoomState : créer ou réutiliser la maintenance
+    Service -> DB : enregistrer l’équipement sans modifier les réservations
+    Service -> DB : COMMIT
+    Service --> Controller : équipement + maintenance active
+    Controller --> UI : succès
+  else aucune réservation conflictuelle
+    Service -> RoomState : créer ou réutiliser la maintenance
+    Service -> DB : enregistrer l’équipement
+    Service -> DB : COMMIT
+    Service --> Controller : équipement + maintenance active
+    Controller --> UI : succès
+  end
+
+  UI -> Controller : future demande de disponibilité
+  Controller -> ReservationQuery : vérifier les disponibilités
+  ReservationQuery -> RoomState : vérifier la maintenance active
+  RoomState --> ReservationQuery : chambre indisponible sur la période
+  ReservationQuery --> Controller : chambre exclue
+  Controller --> UI : liste de disponibilités actualisée
+end
+
+opt équipement remis en service ou déplacé
+  Staff -> UI : statut = disponible / impact non bloquant
+  UI -> Controller : PUT équipement
+  Controller -> Service : persist(...)
+  Service -> DB : conserver la maintenance de la chambre
+  Service --> Controller : room_maintenance_review_required = true
+  Controller --> UI : demander une vérification manuelle
+end
+
+note over Service, RoomState
+  EtatChambre reste l’unique autorité de blocage.
+  Aucune réservation existante n’est annulée ou modifiée automatiquement.
+end note
+@enduml

@@ -238,9 +238,17 @@ class ReclamationWorkflowTest extends TestCase
         $this->patchJson("/api/reclamations/{$id}/status", ['statut' => 'En cours'])
             ->assertOk()->assertJsonPath('data.statut', 'En cours');
         $this->patchJson("/api/reclamations/{$id}/status", ['statut' => 'Traité'])
-            ->assertUnprocessable()->assertJsonPath('field', 'reponse');
+            ->assertUnprocessable()
+            ->assertJsonPath('code', 'response_required')
+            ->assertJsonPath('field', 'reponse');
         $this->patchJson("/api/reclamations/{$id}/status", ['statut' => 'Traité', 'reponse' => 'Action terminée'])
             ->assertOk()->assertJsonPath('data.statut', 'Traité');
+        DB::table('reclamations')->where('id', $id)->update(['reponse' => null]);
+        $this->patchJson("/api/reclamations/{$id}/status", ['statut' => 'Résolu'])
+            ->assertUnprocessable()
+            ->assertJsonPath('code', 'response_required')
+            ->assertJsonPath('field', 'reponse');
+        DB::table('reclamations')->where('id', $id)->update(['reponse' => 'Action terminée']);
         $this->patchJson("/api/reclamations/{$id}/status", ['statut' => 'En cours'])
             ->assertUnprocessable()->assertJsonPath('field', 'note');
         $this->patchJson("/api/reclamations/{$id}/status", ['statut' => 'En cours', 'note' => 'Contrôle complémentaire'])

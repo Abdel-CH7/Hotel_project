@@ -194,24 +194,6 @@ class ReservationApplicationService
         }, 3);
     }
 
-    public function cancelFromLegacyDelete(Reservation $reservation): Reservation
-    {
-        if ($reservation->status === 'annulé') {
-            throw new ReservationDomainException(
-                ReservationDomainException::INVALID_LIFECYCLE,
-                'La réservation est déjà annulée et ne peut plus être modifiée.',
-                'status',
-                409
-            );
-        }
-
-        return $this->changeStatus(
-            $reservation,
-            'annulé',
-            'Annulation effectuée depuis l’ancienne interface.'
-        );
-    }
-
     public function loadComplete(Reservation $reservation): Reservation
     {
         $complete = $reservation->fresh()->load([

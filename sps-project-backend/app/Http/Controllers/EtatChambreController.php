@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Employe;
+use App\Models\Equipement;
 use App\Models\EtatChambre;
 use App\Models\MaintenanceType;
 use App\Models\Reservation;
@@ -136,6 +137,7 @@ class EtatChambreController extends Controller
             ->unique()
             ->values();
         $reservationsByRoom = collect();
+        $equipmentByRoom = collect();
 
         if ($roomIds->isNotEmpty()) {
             $today = today()->toDateString();
@@ -184,16 +186,49 @@ class EtatChambreController extends Controller
                     $reservationsByRoom->put($roomId, $reservation);
                 }
             }
+
+            $equipmentByRoom = Equipement::query()
+                ->whereIn('chambre_id', $roomIds)
+                ->whereIn('statut', ['en_maintenance', 'hors_service'])
+                ->orderBy('id')
+                ->get(['id', 'chambre_id', 'nom', 'statut', 'impact_chambre'])
+                ->groupBy(fn (Equipement $equipment) => (int) $equipment->chambre_id);
         }
 
-        return $roomStates->each(function (EtatChambre $roomState) use ($reservationsByRoom): void {
+        return $roomStates->each(function (EtatChambre $roomState) use (
+            $reservationsByRoom,
+            $equipmentByRoom
+        ): void {
             $roomId = $roomState->chambre?->id;
             $reservation = $roomId
                 ? $reservationsByRoom->get((int) $roomId)
                 : null;
 
             $roomState->setAttribute('occupation', $this->occupationPayload($reservation));
+            $roomState->setAttribute(
+                'equipements',
+                $this->equipmentPayload($roomId ? $equipmentByRoom->get((int) $roomId, collect()) : collect())
+            );
         });
+    }
+
+    private function equipmentPayload(Collection $equipment): array
+    {
+        return [
+            'total_problematiques' => $equipment->count(),
+            'service_degrade' => $equipment
+                ->where('impact_chambre', 'service_degrade')
+                ->count(),
+            'bloquants' => $equipment
+                ->where('impact_chambre', 'chambre_indisponible')
+                ->count(),
+            'items' => $equipment->map(fn (Equipement $item): array => [
+                'id' => (int) $item->id,
+                'nom' => $item->nom,
+                'statut' => $item->statut,
+                'impact_chambre' => $item->impact_chambre,
+            ])->values()->all(),
+        ];
     }
 
     private function occupationPayload(?Reservation $reservation): array

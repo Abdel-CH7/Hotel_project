@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import Swal from "sweetalert2";
+import { useSearchParams } from "react-router-dom";
 import { sanitizeInput } from '../utils/sanitizeInput';
 import { Form, Button, Modal, Table } from "react-bootstrap";
 import {
@@ -14,6 +15,8 @@ import ListPagination from "../components/ListPagination";
 import ListState from "../components/ListState";
 import RequiredLabel from "../components/RequiredLabel";
 import VisualFilterCarousel from "../components/VisualFilterCarousel";
+import ContextFilterChip from "../components/ContextFilterChip";
+import RelatedActionsMenu from "../components/RelatedActionsMenu";
 import useListControls from "../components/useListControls";
 import {
   exportToExcel as exportRowsToExcel,
@@ -22,6 +25,7 @@ import {
 } from "../utils/listExportUtils";
 import { focusFirstInvalidField, normalizeBackendFieldErrors, setValidationErrors } from "../utils/formValidationUtils";
 import { getStorageImageUrl } from "../utils/mediaUtils";
+import { readPositiveIntegerParam, removeSearchParam } from "../utils/contextNavigationUtils";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import PeopleIcon from "@mui/icons-material/People";
 import { storeDataInIndexedDB } from "../indexDB";
@@ -62,6 +66,9 @@ const getFloorNumber = (label) => {
 
 //------------------------- Chambres ---------------------//
 const Chambre = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const roomContext = readPositiveIntegerParam(searchParams, "room_id");
+  const contextRoomId = roomContext.value;
   const [chambres, setChambres] = useState([]);
   const [vueErrors, setVueErrors] = useState({ vue: "", photo: "", vueAdd: "" });
   const [typeErrors, setTypeErrors] = useState({
@@ -79,6 +86,7 @@ const Chambre = () => {
   const [selectedEtage, setSelectedEtage] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [relatedActionsRoomId, setRelatedActionsRoomId] = useState(null);
   const emptyTypeChambre = {
   code: "",
   type_chambre: "",
@@ -927,6 +935,10 @@ const formatOuiNon = (value) => {
 
 const filterRooms = useCallback((rows, currentSearchTerm) =>
   rows.filter((chambre) => {
+    if (contextRoomId) {
+      return String(chambre.id) === String(contextRoomId);
+    }
+
     const roomType = getRoomTypeRecord(chambre);
     const roomTypeName = getRoomTypeName(chambre);
     const roomEtageName = getRoomEtageName(chambre);
@@ -973,7 +985,7 @@ const filterRooms = useCallback((rows, currentSearchTerm) =>
       ]);
 
     return matchesType && matchesVue && matchesEtage && matchesSearch;
-  }), [etages, selectedEtage, selectedVue, typeFilter, types, vues]);
+  }), [contextRoomId, etages, selectedEtage, selectedVue, typeFilter, types, vues]);
 
 const {
   searchTerm,
@@ -991,6 +1003,22 @@ const {
   filterRows: filterRooms,
   storageKey: "rowsPerPageChambres",
 });
+
+useEffect(() => {
+  resetPage();
+}, [contextRoomId, roomContext.raw, resetPage]);
+
+const contextRoom = useMemo(
+  () => chambres.find((room) => String(room.id) === String(contextRoomId)),
+  [chambres, contextRoomId]
+);
+const hasRoomContext = roomContext.raw !== null;
+const invalidRoomContext = hasRoomContext && (
+  !roomContext.valid || (!loading && !loadError && !contextRoom)
+);
+const clearRoomContext = useCallback(() => {
+  setSearchParams(removeSearchParam(searchParams, "room_id"));
+}, [searchParams, setSearchParams]);
 
 const visibleRoomIds = visibleChambres.map((chambre) => chambre.id);
 const allVisibleRoomsSelected =
@@ -1957,6 +1985,21 @@ const columns = [
             loading={loading}
             exportsDisabled={loading || totalRows === 0}
           />
+
+          {hasRoomContext && (
+            <div className="app-context-filter-row">
+              <ContextFilterChip
+                label={contextRoom ? `Chambre ${contextRoom.num_chambre}` : "Chambre sélectionnée"}
+                onClear={clearRoomContext}
+                clearLabel="Effacer le filtre de chambre"
+              />
+            </div>
+          )}
+          {invalidRoomContext && (
+            <div className="alert alert-warning app-context-warning" role="alert">
+              La chambre demandée est introuvable. Vous pouvez effacer ce contexte pour afficher la liste complète.
+            </div>
+          )}
 
           <section className={`app-card app-section chambre-readiness ${reservationReadiness?.ready ? "is-ready" : "is-warning"}`}>
             <div className="chambre-readiness-header">
@@ -3105,7 +3148,14 @@ const columns = [
             expandedRows={expandedRows}
             toggleRowExpansion={toggleRow}
             renderExpandedRow={(item) => <></>}
-            renderCustomActions={null}
+            renderCustomActions={(item) => (
+              <RelatedActionsMenu
+                roomId={item.id}
+                roomNumber={item.num_chambre}
+                show={String(relatedActionsRoomId) === String(item.id)}
+                onToggle={(nextShow) => setRelatedActionsRoomId(nextShow ? item.id : null)}
+              />
+            )}
             uiVariant="app"
             externalPagination
             paginationComponent={(

@@ -1,4 +1,5 @@
 import { Fragment } from "react";
+import { Link } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faBan,
@@ -193,7 +194,17 @@ const ReservationList = ({
                                 <tbody>
                                   {rooms.map((room) => (
                                     <tr key={room.allocation_id || room.chambre_id}>
-                                      <td>{highlightText(room.num_chambre || room.chambre_id || "—", searchTerm)}</td>
+                                      <td>
+                                        {room.chambre_id ? (
+                                          <Link
+                                            className="app-context-link"
+                                            to={`/chambre?room_id=${room.chambre_id}`}
+                                            aria-label={`Voir la chambre ${room.num_chambre || room.chambre_id}`}
+                                          >
+                                            {highlightText(`Chambre ${room.num_chambre || room.chambre_id}`, searchTerm)}
+                                          </Link>
+                                        ) : highlightText(room.num_chambre || "—", searchTerm)}
+                                      </td>
                                       <td>{highlightText(room.type_chambre?.nom_snapshot || "—", searchTerm)}</td>
                                       <td>{highlightText(room.etage || "—", searchTerm)}</td>
                                       <td>{highlightText(room.vue || "—", searchTerm)}</td>

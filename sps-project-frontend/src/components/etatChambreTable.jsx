@@ -1,5 +1,6 @@
 import React from "react";
 import { Table } from "react-bootstrap";
+import { Link } from "react-router-dom";
 // import { FaBroom, FaEdit } from "react-icons/fa";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -106,6 +107,7 @@ const ChambreTable = ({
               <th>Dernier nettoyage</th>
               <th>Nettoyée par</th>
               <th>Maintenance</th>
+              <th>Équipements</th>
               <th>Commentaire</th>
               <th>Actions</th>
             </tr>
@@ -123,10 +125,22 @@ const ChambreTable = ({
                 );
                 const occupation = getRoomOccupation(chambre);
                 const currentReservation = occupation.reservation;
+                const equipmentSummary = chambre.equipements || {};
+                const roomId = chambre.chambre?.id;
 
                 return (
                   <tr key={chambre.id || chambre.num_chambre}>
-                    <td>{highlightText(chambre.num_chambre, searchTerm)}</td>
+                    <td>
+                      {chambre.chambre?.id ? (
+                        <Link
+                          className="app-context-link"
+                          to={`/chambre?room_id=${chambre.chambre.id}`}
+                          aria-label={`Voir la chambre ${chambre.num_chambre}`}
+                        >
+                          {highlightText(`Chambre ${chambre.num_chambre}`, searchTerm)}
+                        </Link>
+                      ) : highlightText(chambre.num_chambre, searchTerm)}
+                    </td>
                     <td>
                       <span
                         className={`app-status-badge ${
@@ -151,10 +165,15 @@ const ChambreTable = ({
                         {currentReservation && (
                           <>
                             <strong>
-                              {highlightText(
-                                currentReservation.numero || "—",
-                                searchTerm
-                              )}
+                              {currentReservation.id ? (
+                                <Link
+                                  className="app-context-link"
+                                  to={`/reservation?open=${currentReservation.id}`}
+                                  aria-label={`Ouvrir la réservation ${currentReservation.numero || currentReservation.id}`}
+                                >
+                                  {highlightText(currentReservation.numero || "—", searchTerm)}
+                                </Link>
+                              ) : highlightText(currentReservation.numero || "—", searchTerm)}
                             </strong>
                             <span
                               className="etat-chambre-occupation-client"
@@ -202,6 +221,44 @@ const ChambreTable = ({
                       )}
                     </td>
                     <td>
+                      <div className="etat-chambre-equipment-cell">
+                        {Number(equipmentSummary.total_problematiques || 0) === 0 ? (
+                          <span className="app-status-badge is-success">Aucun problème</span>
+                        ) : (
+                          <>
+                            {Number(equipmentSummary.service_degrade || 0) > 0 && (
+                              <span className="app-status-badge is-warning">
+                                {equipmentSummary.service_degrade} service dégradé
+                              </span>
+                            )}
+                            {Number(equipmentSummary.bloquants || 0) > 0 && (
+                              <span className="app-status-badge is-danger">
+                                {equipmentSummary.bloquants} bloquant
+                              </span>
+                            )}
+                            {Number(equipmentSummary.total_problematiques || 0) >
+                              Number(equipmentSummary.service_degrade || 0) +
+                                Number(equipmentSummary.bloquants || 0) && (
+                              <span className="app-status-badge is-neutral">
+                                {Number(equipmentSummary.total_problematiques || 0) -
+                                  Number(equipmentSummary.service_degrade || 0) -
+                                  Number(equipmentSummary.bloquants || 0)} sans impact
+                              </span>
+                            )}
+                          </>
+                        )}
+                        {roomId && (
+                          <Link
+                            className="app-context-link"
+                            to={`/equipements?chambre_id=${roomId}`}
+                            aria-label={`Voir les équipements de la chambre ${chambre.num_chambre}`}
+                          >
+                            Voir les équipements
+                          </Link>
+                        )}
+                      </div>
+                    </td>
+                    <td>
                       <span
                         className="etat-chambre-comment"
                         title={chambre.commentaire || ""}
@@ -234,7 +291,7 @@ const ChambreTable = ({
               })
             ) : (
               <tr>
-                <td colSpan={8} className="text-center">
+                <td colSpan={9} className="text-center">
                   Aucun état de chambre disponible
                 </td>
               </tr>

@@ -14,15 +14,20 @@ class CategorieEquipement extends Model
 
     protected $fillable = [
         'nom',
-        'description'
+        'description',
+        'maintenance_type_id',
     ];
 
     public function equipements()
     {
         return $this->hasMany(Equipement::class, 'categorie_id');
     }
-}
 
+    public function maintenanceType()
+    {
+        return $this->belongsTo(MaintenanceType::class, 'maintenance_type_id');
+    }
+}
 
 
 

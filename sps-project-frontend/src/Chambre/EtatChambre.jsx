@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Button, Form, Modal, Spinner, Table } from "react-bootstrap";
+import { useSearchParams } from "react-router-dom";
 
 import "../style.css";
 
@@ -20,12 +21,14 @@ import {
 import { useOpen } from "../Acceuil/OpenProvider";
 import SearchWithExport from "../components/SearchWithExport";
 import AppStats from "../components/AppStats";
+import ContextFilterChip from "../components/ContextFilterChip";
 import RequiredLabel from "../components/RequiredLabel";
 import ListFilterReset from "../components/ListFilterReset";
 import ListPagination from "../components/ListPagination";
 import ListState from "../components/ListState";
 import useListControls from "../components/useListControls";
 import apiClient from "../utils/apiClient";
+import { readPositiveIntegerParam, removeSearchParam } from "../utils/contextNavigationUtils";
 import {
   exportToExcel as exportRowsToExcel,
   exportToPdf as exportRowsToPdf,
@@ -139,6 +142,9 @@ const requestJson = async (url, options = {}) => {
 
 const EtatChambre = () => {
   const { dynamicStyles } = useOpen();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const roomContext = readPositiveIntegerParam(searchParams, "room_id");
+  const contextRoomId = roomContext.value;
   const [chambres, setChambres] = useState([]);
   const [maintenanceTypes, setMaintenanceTypes] = useState([]);
   const [employees, setEmployees] = useState([]);
@@ -767,6 +773,8 @@ const EtatChambre = () => {
   const filterRoomStates = useCallback(
     (rows, currentSearchTerm) =>
       rows.filter((chambre) => {
+      const matchesRoomContext = !contextRoomId
+        || String(chambre.chambre?.id ?? "") === String(contextRoomId);
       const maintenanceValue = maintenanceToOuiNon(chambre.maintenance);
       const maintenanceType = getRoomMaintenanceType(
         chambre,
@@ -821,6 +829,7 @@ const EtatChambre = () => {
           : false;
 
       return (
+        matchesRoomContext &&
         matchesSearch &&
         matchesStatus &&
         matchesMaintenance &&
@@ -834,6 +843,7 @@ const EtatChambre = () => {
       dateFinMaintenance,
       dateNettoyage,
       maintenanceTypes,
+      contextRoomId,
       selectedMaintenance,
       selectedOccupation,
       selectedStatus,
@@ -856,6 +866,22 @@ const EtatChambre = () => {
     filterRows: filterRoomStates,
     storageKey: "rowsPerPageEtatChambre",
   });
+
+  useEffect(() => {
+    resetPage();
+  }, [contextRoomId, roomContext.raw, resetPage]);
+
+  const contextRoomState = useMemo(
+    () => chambres.find((roomState) => String(roomState.chambre?.id ?? "") === String(contextRoomId)),
+    [chambres, contextRoomId]
+  );
+  const hasRoomContext = roomContext.raw !== null;
+  const invalidRoomContext = hasRoomContext && (
+    !roomContext.valid || (!loading && !loadError && !contextRoomState)
+  );
+  const clearRoomContext = useCallback(() => {
+    setSearchParams(removeSearchParam(searchParams, "room_id"));
+  }, [searchParams, setSearchParams]);
 
   const filtersActive = Boolean(
     searchTerm ||
@@ -970,6 +996,21 @@ const EtatChambre = () => {
           loading={loading}
           exportsDisabled={loading || totalRows === 0}
         />
+
+        {hasRoomContext && (
+          <div className="app-context-filter-row">
+            <ContextFilterChip
+              label={contextRoomState ? `Chambre ${contextRoomState.num_chambre}` : "Chambre sélectionnée"}
+              onClear={clearRoomContext}
+              clearLabel="Effacer le filtre de chambre"
+            />
+          </div>
+        )}
+        {invalidRoomContext && (
+          <Alert variant="warning" className="app-context-warning">
+            La chambre demandée est introuvable. Effacez ce contexte pour revenir à la liste complète.
+          </Alert>
+        )}
 
         <AppStats items={roomStateStats} loading={loading} />
 

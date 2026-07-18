@@ -22,6 +22,7 @@ class Equipement extends Model
         'chambre_id',
         'emplacement_id',
         'statut',
+        'impact_chambre',
         'categorie_id',
         'prix_achat',
         'document_path',

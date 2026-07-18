@@ -2,14 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\EquipmentRoomImpactException;
 use App\Models\CategorieEquipement;
 use App\Models\Chambre;
 use App\Models\Emplacement;
 use App\Models\Equipement;
+use App\Models\MaintenanceType;
+use App\Services\EquipmentRoomImpactService;
+use App\Support\EquipmentLocationName;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Throwable;
 
 class EquipementController extends Controller
@@ -17,18 +22,24 @@ class EquipementController extends Controller
     public function index()
     {
         try {
-            $equipements = Equipement::with(['categorie', 'chambre', 'emplacement'])
+            $equipements = Equipement::with([
+                'categorie.maintenanceType',
+                'chambre.etatChambre',
+                'emplacement',
+            ])
                 ->latest()
                 ->get();
+            $equipements->each(fn (Equipement $equipment) => $this->appendRoomMaintenance($equipment));
 
             return response()->json([
                 'success' => true,
                 'equipements' => [
                     'data' => $equipements,
                 ],
-                'categories' => CategorieEquipement::all(),
+                'categories' => CategorieEquipement::with('maintenanceType')->orderBy('nom')->get(),
                 'chambres' => Chambre::orderBy('num_chambre')->get(['id', 'num_chambre']),
                 'emplacements' => Emplacement::orderBy('nom')->get(),
+                'maintenance_types' => MaintenanceType::orderBy('code')->get(),
                 'stats' => $this->getStats(),
             ]);
         } catch (Throwable $exception) {
@@ -44,7 +55,7 @@ class EquipementController extends Controller
     }
 
     // Création d'un nouvel équipement
-    public function store(Request $request)
+    public function store(Request $request, EquipmentRoomImpactService $impactService)
     {
         $validatedData = $request->validate([
             'nom' => 'required|string|max:255',
@@ -55,6 +66,7 @@ class EquipementController extends Controller
             'date_fin_garantie' => 'nullable|date|after_or_equal:date_acquisition',
             'categorie_id' => 'required|exists:categories_equipements,id',
             'statut' => 'required|in:disponible,en_maintenance,hors_service',
+            'impact_chambre' => ['nullable', Rule::in(EquipmentRoomImpactService::IMPACTS)],
             'chambre_id' => [
                 'nullable',
                 'integer',
@@ -73,7 +85,15 @@ class EquipementController extends Controller
             'prix_achat' => 'nullable|numeric|min:0',
             'notes' => 'nullable|string',
             'document' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
+            'room_maintenance' => 'nullable|array',
+            'room_maintenance.maintenance_type_id' => 'nullable|integer|exists:types_maintenance,id',
+            'room_maintenance.date_debut_maintenance' => 'nullable|date',
+            'room_maintenance.date_fin_maintenance' => 'nullable|date',
+            'room_maintenance.commentaire' => 'nullable|string',
+            'confirm_reservation_conflicts' => 'sometimes|boolean',
         ], $this->locationValidationMessages());
+
+        $this->rejectHistoricalPseudoRoomEmplacement($validatedData['emplacement_id'] ?? null);
 
         unset($validatedData['document']);
         $validatedData = $this->normalizeLocationSelection($validatedData);
@@ -91,7 +111,19 @@ class EquipementController extends Controller
                 $validatedData['document_path'] = $newDocumentPath;
             }
 
-            $equipement = Equipement::create($validatedData);
+            $result = $impactService->persist(null, $validatedData);
+        } catch (ValidationException $exception) {
+            if ($newDocumentPath) {
+                Storage::disk('public')->delete($newDocumentPath);
+            }
+
+            throw $exception;
+        } catch (EquipmentRoomImpactException $exception) {
+            if ($newDocumentPath) {
+                Storage::disk('public')->delete($newDocumentPath);
+            }
+
+            return $this->impactConflict($exception);
         } catch (Throwable $exception) {
             if ($newDocumentPath) {
                 Storage::disk('public')->delete($newDocumentPath);
@@ -107,20 +139,23 @@ class EquipementController extends Controller
             ], 500);
         }
 
-        return response()->json(
-            $equipement->load(['categorie', 'chambre', 'emplacement']),
-            201
-        );
+        return $this->equipmentResponse($result, 201);
     }
 
     // Affichage d'un équipement spécifique
     public function show(Equipement $equipement)
     {
-        return response()->json($equipement->load(['categorie', 'chambre', 'emplacement']));
+        $equipement->load(['categorie.maintenanceType', 'chambre.etatChambre', 'emplacement']);
+
+        return response()->json($this->appendRoomMaintenance($equipement));
     }
 
     // Mise à jour d'un équipement
-    public function update(Request $request, Equipement $equipement)
+    public function update(
+        Request $request,
+        Equipement $equipement,
+        EquipmentRoomImpactService $impactService
+    )
     {
         $validatedData = $request->validate([
             'nom' => 'sometimes|required|string|max:255',
@@ -136,25 +171,40 @@ class EquipementController extends Controller
             'date_fin_garantie' => 'nullable|date|after_or_equal:date_acquisition',
             'categorie_id' => 'sometimes|required|exists:categories_equipements,id',
             'statut' => 'sometimes|required|in:disponible,en_maintenance,hors_service',
+            'impact_chambre' => ['nullable', Rule::in(EquipmentRoomImpactService::IMPACTS)],
             'chambre_id' => [
                 'nullable',
                 'integer',
                 'exists:chambres,id',
-                'required_without:emplacement_id',
+                Rule::requiredIf(
+                    fn () => $request->hasAny(['chambre_id', 'emplacement_id'])
+                        && ! $request->filled('emplacement_id')
+                ),
                 Rule::prohibitedIf(fn () => $request->filled('emplacement_id')),
             ],
             'emplacement_id' => [
                 'nullable',
                 'integer',
                 'exists:emplacements,id',
-                'required_without:chambre_id',
+                Rule::requiredIf(
+                    fn () => $request->hasAny(['chambre_id', 'emplacement_id'])
+                        && ! $request->filled('chambre_id')
+                ),
                 Rule::prohibitedIf(fn () => $request->filled('chambre_id')),
             ],
             'fournisseur' => 'nullable|string|max:255',
             'prix_achat' => 'nullable|numeric|min:0',
             'notes' => 'nullable|string',
             'document' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
+            'room_maintenance' => 'nullable|array',
+            'room_maintenance.maintenance_type_id' => 'nullable|integer|exists:types_maintenance,id',
+            'room_maintenance.date_debut_maintenance' => 'nullable|date',
+            'room_maintenance.date_fin_maintenance' => 'nullable|date',
+            'room_maintenance.commentaire' => 'nullable|string',
+            'confirm_reservation_conflicts' => 'sometimes|boolean',
         ], $this->locationValidationMessages());
+
+        $this->rejectHistoricalPseudoRoomEmplacement($validatedData['emplacement_id'] ?? null);
 
         unset($validatedData['document']);
         $validatedData = $this->normalizeLocationSelection($validatedData);
@@ -173,7 +223,19 @@ class EquipementController extends Controller
                 $validatedData['document_path'] = $newDocumentPath;
             }
 
-            $equipement->update($validatedData);
+            $result = $impactService->persist($equipement, $validatedData);
+        } catch (ValidationException $exception) {
+            if ($newDocumentPath) {
+                Storage::disk('public')->delete($newDocumentPath);
+            }
+
+            throw $exception;
+        } catch (EquipmentRoomImpactException $exception) {
+            if ($newDocumentPath) {
+                Storage::disk('public')->delete($newDocumentPath);
+            }
+
+            return $this->impactConflict($exception);
         } catch (Throwable $exception) {
             if ($newDocumentPath) {
                 Storage::disk('public')->delete($newDocumentPath);
@@ -194,13 +256,16 @@ class EquipementController extends Controller
             Storage::disk('public')->delete($oldDocumentPath);
         }
 
-        return response()->json($equipement->load(['categorie', 'chambre', 'emplacement']));
+        return $this->equipmentResponse($result);
     }
 
     // Suppression d'un équipement
     public function destroy(Equipement $equipement)
     {
         $documentPath = $equipement->document_path;
+        $reviewRoomId = $equipement->impact_chambre === EquipmentRoomImpactService::IMPACT_BLOCKING
+            ? $equipement->chambre_id
+            : null;
 
         try {
             $equipement->delete();
@@ -223,6 +288,9 @@ class EquipementController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Équipement supprimé avec succès.',
+            'room_maintenance_review_required' => (bool) $reviewRoomId,
+            'room_id' => $reviewRoomId ? (int) $reviewRoomId : null,
+            'review_url' => $reviewRoomId ? '/etat-chambre?room_id='.$reviewRoomId : null,
         ]);
     }
 
@@ -253,7 +321,8 @@ class EquipementController extends Controller
         try {
             return response()->json([
                 'success' => true,
-                'categories' => CategorieEquipement::all()
+                'categories' => CategorieEquipement::with('maintenanceType')->orderBy('nom')->get(),
+                'maintenance_types' => MaintenanceType::orderBy('code')->get(),
             ]);
 
         } catch (Throwable $exception) {
@@ -266,6 +335,40 @@ class EquipementController extends Controller
                 'message' => 'Erreur lors de la récupération des catégories.',
             ], 500);
         }
+    }
+
+    public function storeCategory(Request $request)
+    {
+        $validated = $request->validate([
+            'nom' => ['required', 'string', 'max:255', Rule::unique('categories_equipements', 'nom')->whereNull('deleted_at')],
+            'description' => 'nullable|string',
+            'maintenance_type_id' => 'nullable|integer|exists:types_maintenance,id',
+        ]);
+
+        $category = CategorieEquipement::create($validated)->load('maintenanceType');
+
+        return response()->json(['success' => true, 'categorie' => $category], 201);
+    }
+
+    public function updateCategory(Request $request, CategorieEquipement $category)
+    {
+        $validated = $request->validate([
+            'nom' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('categories_equipements', 'nom')->whereNull('deleted_at')->ignore($category->id),
+            ],
+            'description' => 'nullable|string',
+            'maintenance_type_id' => 'nullable|integer|exists:types_maintenance,id',
+        ]);
+
+        $category->update($validated);
+
+        return response()->json([
+            'success' => true,
+            'categorie' => $category->fresh('maintenanceType'),
+        ]);
     }
 
     // Méthode privée pour les statistiques
@@ -337,6 +440,69 @@ class EquipementController extends Controller
         }
 
         return $validatedData;
+    }
+
+    private function rejectHistoricalPseudoRoomEmplacement(mixed $emplacementId): void
+    {
+        if (! $emplacementId) {
+            return;
+        }
+
+        $name = Emplacement::query()->whereKey($emplacementId)->value('nom');
+
+        if (! EquipmentLocationName::isNumericRoomEmplacement($name)) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'emplacement_id' => 'Cette localisation historique ne peut plus être affectée. Sélectionnez une chambre réelle ou un emplacement interne valide.',
+        ]);
+    }
+
+    private function equipmentResponse(array $result, int $status = 200)
+    {
+        $equipment = $result['equipment']->load([
+            'categorie.maintenanceType',
+            'chambre.etatChambre',
+            'emplacement',
+        ]);
+        $payload = $this->appendRoomMaintenance($equipment)->toArray();
+        $payload['room_maintenance_already_active'] = $result['room_maintenance_already_active'];
+        $payload['room_maintenance_review_required'] = $result['room_maintenance_review_required'];
+        $payload['room_id'] = $result['room_id'];
+
+        return response()->json($payload, $status);
+    }
+
+    private function appendRoomMaintenance(Equipement $equipment): Equipement
+    {
+        $state = $equipment->chambre?->etatChambre;
+        $maintenance = null;
+
+        if (
+            $equipment->impact_chambre === EquipmentRoomImpactService::IMPACT_BLOCKING
+            && $state?->maintenance
+        ) {
+            $maintenance = [
+                'maintenance_type_id' => $state->maintenance_type_id,
+                'date_debut_maintenance' => $state->date_debut_maintenance?->format('Y-m-d'),
+                'date_fin_maintenance' => $state->date_fin_maintenance?->format('Y-m-d'),
+                'commentaire' => $state->commentaire,
+            ];
+        }
+
+        $equipment->setAttribute('room_maintenance', $maintenance);
+        $equipment->chambre?->unsetRelation('etatChambre');
+
+        return $equipment;
+    }
+
+    private function impactConflict(EquipmentRoomImpactException $exception)
+    {
+        return response()->json(array_merge([
+            'code' => $exception->errorCode,
+            'message' => $exception->getMessage(),
+        ], $exception->context), $exception->status);
     }
 
     private function getLocationLabel(Equipement $equipement): string

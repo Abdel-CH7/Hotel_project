@@ -7,9 +7,16 @@ let clientOptionsRequest = null;
 let paymentOptionsRequest = null;
 const creditSummaryRequests = new Map();
 
-export const listReservations = async () => {
-  const response = await axios.get(`${API_URL}/reservations`);
+export const listReservations = async ({ chambreId } = {}) => {
+  const response = await axios.get(`${API_URL}/reservations`, {
+    params: chambreId ? { chambre_id: Number(chambreId) } : undefined,
+  });
   return Array.isArray(response.data?.data) ? response.data.data : [];
+};
+
+export const getRoom = async (id) => {
+  const response = await axios.get(`${API_URL}/chambres/${Number(id)}`);
+  return dataOf(response);
 };
 
 export const getReservation = async (id) => {

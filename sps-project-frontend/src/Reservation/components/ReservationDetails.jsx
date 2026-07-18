@@ -1,4 +1,5 @@
 import { Modal } from "react-bootstrap";
+import { Link } from "react-router-dom";
 import { clientName, clientTypeLabel, formatDate, formatMoney, statusClass, statusLabel } from "../reservationUtils";
 import ReservationPayments from "./ReservationPayments";
 
@@ -67,7 +68,15 @@ const ReservationDetails = ({ show, reservation, loading, error, onHide, onPayme
             {(reservation.chambres || []).length === 0 ? <p>Aucune chambre détaillée.</p> : (reservation.chambres || []).map((room) => (
               <article className="reservation-detail-card" key={room.allocation_id}>
                 <div className="reservation-preview-block-title">
-                  <strong>Chambre {room.num_chambre || room.chambre_id}</strong>
+                  {room.chambre_id ? (
+                    <Link
+                      className="app-context-link"
+                      to={`/chambre?room_id=${room.chambre_id}`}
+                      aria-label={`Voir la chambre ${room.num_chambre || room.chambre_id}`}
+                    >
+                      <strong>Chambre {room.num_chambre || room.chambre_id}</strong>
+                    </Link>
+                  ) : <strong>Chambre {room.num_chambre || "—"}</strong>}
                   <span>{formatMoney(room.montant_total)}</span>
                 </div>
                 <p>{room.type_chambre?.nom_snapshot || "Type historique non disponible"}</p>
@@ -153,6 +162,26 @@ const ReservationDetails = ({ show, reservation, loading, error, onHide, onPayme
                 )}
               </>
             )}
+          </section>
+
+          <section className="reservation-details-section reservation-related-actions">
+            <h3>Réclamations liées</h3>
+            <div className="reservation-related-actions-list">
+              <Link
+                className="app-primary-button"
+                to={`/reclamation?action=create&reservation_id=${reservation.id}`}
+                aria-label={`Créer une réclamation pour la réservation ${reservation.reservation_num}`}
+              >
+                Créer une réclamation
+              </Link>
+              <Link
+                className="app-secondary-button"
+                to={`/reclamation?reservation_id=${reservation.id}`}
+                aria-label={`Voir les réclamations de la réservation ${reservation.reservation_num}`}
+              >
+                Voir les réclamations
+              </Link>
+            </div>
           </section>
 
           <ReservationPayments

@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Chambre;
 use App\Models\Emplacement;
+use App\Support\EquipmentLocationName;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class EmplacementController extends Controller
 {
@@ -25,6 +28,7 @@ class EmplacementController extends Controller
             'type' => 'nullable|string|max:255',
             'description' => 'nullable|string',
         ]);
+        $this->rejectExistingRoomName($validatedData['nom']);
 
         $emplacement = Emplacement::create($validatedData);
 
@@ -48,6 +52,7 @@ class EmplacementController extends Controller
             'type' => 'nullable|string|max:255',
             'description' => 'nullable|string',
         ]);
+        $this->rejectExistingRoomName($validatedData['nom']);
 
         $emplacement->update($validatedData);
 
@@ -77,5 +82,25 @@ class EmplacementController extends Controller
     private function normalizeName(mixed $name): string
     {
         return preg_replace('/\s+/u', ' ', trim((string) $name)) ?? '';
+    }
+
+    private function rejectExistingRoomName(string $name): void
+    {
+        $roomNumber = EquipmentLocationName::extractRoomNumber($name);
+
+        if ($roomNumber === null) {
+            return;
+        }
+
+        $matchesExistingRoom = Chambre::query()
+            ->where('num_chambre', $roomNumber)
+            ->get(['num_chambre'])
+            ->contains(fn (Chambre $room) => trim((string) $room->num_chambre) === $roomNumber);
+
+        if ($matchesExistingRoom) {
+            throw ValidationException::withMessages([
+                'nom' => 'Cette localisation correspond à une chambre existante. Affectez l’équipement directement à la chambre.',
+            ]);
+        }
     }
 }

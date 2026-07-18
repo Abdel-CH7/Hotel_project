@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import Swal from "sweetalert2";
+import { Link, useSearchParams } from "react-router-dom";
 import { Form, Button, Modal } from "react-bootstrap";
 import {
   formatFrenchDate,
@@ -17,9 +18,11 @@ import {
   faCheckCircle,
   faWrench,
   faTimesCircle,
+  faTriangleExclamation,
 } from "@fortawesome/free-solid-svg-icons";
 import SearchWithExport from "../components/SearchWithExport";
 import AppStats from "../components/AppStats";
+import ContextFilterChip from "../components/ContextFilterChip";
 import ListFilterReset from "../components/ListFilterReset";
 import ListPagination from "../components/ListPagination";
 import ListState from "../components/ListState";
@@ -31,6 +34,7 @@ import {
   printRows,
 } from "../utils/listExportUtils";
 import { setValidationErrors } from "../utils/formValidationUtils";
+import { readPositiveIntegerParam, removeSearchParam, setSearchParam } from "../utils/contextNavigationUtils";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import Box from "@mui/material/Box";
 import { useOpen } from "../Acceuil/OpenProvider";
@@ -45,12 +49,26 @@ const createEmptyEquipmentForm = () => ({
   date_fin_garantie: "",
   fournisseur: "",
   statut: "disponible",
+  impact_chambre: "aucun",
   categorie_id: "",
   chambre_id: "",
   emplacement_id: "",
   prix_achat: "",
   notes: "",
   document: null,
+  room_maintenance: {
+    maintenance_type_id: "",
+    date_debut_maintenance: "",
+    date_fin_maintenance: "",
+    commentaire: "",
+  },
+});
+
+const createEmptyCategoryForm = () => ({
+  id: null,
+  nom: "",
+  description: "",
+  maintenance_type_id: "",
 });
 
 const createEmptyEmplacementForm = () => ({
@@ -66,16 +84,65 @@ const getEquipmentStatusLabel = (status) => {
   return "Hors service";
 };
 
+const getRoomImpactLabel = (impact) => ({
+  aucun: "Aucun impact",
+  service_degrade: "Service dégradé",
+  chambre_indisponible: "Chambre indisponible",
+}[impact] || "Aucun impact");
+
+const getRoomImpactClass = (impact) => {
+  if (impact === "chambre_indisponible") return "is-danger";
+  if (impact === "service_degrade") return "is-warning";
+  return "is-neutral";
+};
+
+const localCalendarDate = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const isLegacyNumericRoomEmplacement = (emplacement) => {
+  const match = String(emplacement?.nom || "")
+    .trim()
+    .match(/^chambre\s+(.+)$/iu);
+
+  return Boolean(match?.[1]?.trim() && /\d/u.test(match[1]));
+};
+
+const getLegacyRoomLikeLocation = (equipement) => {
+  if (
+    equipement?.chambre_id ||
+    !isLegacyNumericRoomEmplacement(equipement?.emplacement)
+  ) {
+    return null;
+  }
+
+  return equipement.emplacement.nom.trim();
+};
+
 const getEquipmentLocationLabel = (equipement) => {
   if (equipement?.chambre?.num_chambre) {
     return `Chambre ${equipement.chambre.num_chambre}`;
   }
 
-  return (
-    equipement?.emplacement?.nom ||
-    equipement?.localisation ||
-    "Non affecté"
-  );
+  const legacyRoomLocation = getLegacyRoomLikeLocation(equipement);
+
+  if (legacyRoomLocation) {
+    return `${legacyRoomLocation} — localisation historique non liée`;
+  }
+
+  if (equipement?.emplacement?.nom) {
+    return equipement.emplacement.nom;
+  }
+
+  if (equipement?.localisation) {
+    return equipement.localisation;
+  }
+
+  return "Non affecté";
 };
 
 const getWarrantyDisplay = (dateFinGarantie) => {
@@ -135,6 +202,9 @@ const EQUIPMENT_EXPORT_COLUMNS = [
 ];
 
 const GestionEquipements = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const roomContext = readPositiveIntegerParam(searchParams, "chambre_id");
+  const contextRoomId = roomContext.value;
   const API_URL = import.meta.env.VITE_API_URL;
   const STORAGE_URL =
     import.meta.env.VITE_API_URL_BASE_IMAGE ||
@@ -176,6 +246,7 @@ return `${cleanStorageUrl}/${cleanPath}`;
   const [categories, setCategories] = useState([]);
   const [chambres, setChambres] = useState([]);
   const [emplacements, setEmplacements] = useState([]);
+  const [maintenanceTypes, setMaintenanceTypes] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedStatus, setSelectedStatus] = useState(null);
   const [stats, setStats] = useState({});
@@ -189,6 +260,8 @@ return `${cleanStorageUrl}/${cleanPath}`;
   const [errors, setErrors] = useState({});
   const [editingEquipement, setEditingEquipement] = useState(null);
   const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [roomMaintenanceReview, setRoomMaintenanceReview] = useState(null);
   
   // Selection
   const [selectedItems, setSelectedItems] = useState([]);
@@ -200,6 +273,30 @@ return `${cleanStorageUrl}/${cleanPath}`;
     createEmptyEmplacementForm
   );
   const [emplacementErrors, setEmplacementErrors] = useState({});
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [categoryForm, setCategoryForm] = useState(createEmptyCategoryForm);
+  const [categoryErrors, setCategoryErrors] = useState({});
+
+  const selectableEmplacements = useMemo(
+    () => emplacements.filter(
+      (emplacement) => !isLegacyNumericRoomEmplacement(emplacement)
+    ),
+    [emplacements]
+  );
+  const selectedHistoricalEmplacement = useMemo(
+    () => emplacements.find(
+      (emplacement) =>
+        String(emplacement.id) === String(formData.emplacement_id) &&
+        isLegacyNumericRoomEmplacement(emplacement)
+    ) || null,
+    [emplacements, formData.emplacement_id]
+  );
+  const selectedRoomRecord = useMemo(
+    () => chambres.find(
+      (room) => String(room.id) === String(formData.chambre_id)
+    ) || null,
+    [chambres, formData.chambre_id]
+  );
   
   const { dynamicStyles } = useOpen();
 
@@ -219,6 +316,7 @@ return `${cleanStorageUrl}/${cleanPath}`;
         setCategories(response.data.categories || []);
         setChambres(response.data.chambres || []);
         setEmplacements(response.data.emplacements || []);
+        setMaintenanceTypes(response.data.maintenance_types || []);
         setStats(response.data.stats || {});
       } else {
         console.error("Format de réponse inattendu:", response.data);
@@ -270,8 +368,39 @@ const handleChange = (e) => {
 
   if (name === "chambre_id") {
     nextFormData.emplacement_id = "";
+    if (!value) {
+      nextFormData.impact_chambre = "aucun";
+    } else if (
+      ["en_maintenance", "hors_service"].includes(nextFormData.statut) &&
+      formData.impact_chambre === "aucun"
+    ) {
+      nextFormData.impact_chambre = "";
+    }
   } else if (name === "emplacement_id") {
     nextFormData.chambre_id = "";
+    nextFormData.impact_chambre = "aucun";
+    nextFormData.room_maintenance = createEmptyEquipmentForm().room_maintenance;
+  } else if (name === "statut" && value === "disponible") {
+    nextFormData.impact_chambre = "aucun";
+    nextFormData.room_maintenance = createEmptyEquipmentForm().room_maintenance;
+  } else if (
+    name === "statut" &&
+    ["en_maintenance", "hors_service"].includes(value) &&
+    formData.statut === "disponible" &&
+    nextFormData.chambre_id
+  ) {
+    nextFormData.impact_chambre = "";
+  } else if (
+    name === "categorie_id" &&
+    nextFormData.impact_chambre === "chambre_indisponible"
+  ) {
+    const category = categories.find((item) => String(item.id) === String(value));
+    if (!nextFormData.room_maintenance.maintenance_type_id && category?.maintenance_type_id) {
+      nextFormData.room_maintenance = {
+        ...nextFormData.room_maintenance,
+        maintenance_type_id: String(category.maintenance_type_id),
+      };
+    }
   }
 
   setFormData(nextFormData);
@@ -310,12 +439,69 @@ const handleChange = (e) => {
   });
 };
 
+  const handleImpactChange = (event) => {
+    const impact = event.target.value;
+    setFormData((current) => {
+      if (impact !== "chambre_indisponible") {
+        return {
+          ...current,
+          impact_chambre: impact,
+          room_maintenance: createEmptyEquipmentForm().room_maintenance,
+        };
+      }
+
+      const category = categories.find(
+        (item) => String(item.id) === String(current.categorie_id)
+      );
+      const defaultComment = current.nom.trim()
+        ? `${current.nom.trim()} — ${getEquipmentStatusLabel(current.statut)}`
+        : "";
+
+      return {
+        ...current,
+        impact_chambre: impact,
+        room_maintenance: {
+          ...current.room_maintenance,
+          maintenance_type_id:
+            current.room_maintenance.maintenance_type_id ||
+            (category?.maintenance_type_id ? String(category.maintenance_type_id) : ""),
+          date_debut_maintenance:
+            current.room_maintenance.date_debut_maintenance || localCalendarDate(),
+          commentaire: current.room_maintenance.commentaire || defaultComment,
+        },
+      };
+    });
+    setErrors((current) => {
+      const next = { ...current };
+      delete next.impact_chambre;
+      return next;
+    });
+  };
+
+  const handleRoomMaintenanceChange = (event) => {
+    const { name, value } = event.target;
+    setFormData((current) => ({
+      ...current,
+      room_maintenance: {
+        ...current.room_maintenance,
+        [name]: value,
+      },
+    }));
+    setErrors((current) => {
+      const next = { ...current };
+      delete next[`room_maintenance.${name}`];
+      return next;
+    });
+  };
+
   const handleLocationTypeChange = (event) => {
     setLocationType(event.target.value);
     setFormData((currentFormData) => ({
       ...currentFormData,
       chambre_id: "",
       emplacement_id: "",
+      impact_chambre: "aucun",
+      room_maintenance: createEmptyEquipmentForm().room_maintenance,
     }));
     setErrors((currentErrors) => {
       const nextErrors = { ...currentErrors };
@@ -343,6 +529,39 @@ const handleChange = (e) => {
       newErrors.chambre_id = "La chambre est obligatoire.";
     } else if (locationType === "emplacement" && !formData.emplacement_id) {
       newErrors.emplacement_id = "L'emplacement est obligatoire.";
+    } else if (
+      locationType === "emplacement" &&
+      selectedHistoricalEmplacement
+    ) {
+      newErrors.emplacement_id =
+        "Sélectionnez une chambre réelle ou un emplacement interne valide.";
+    }
+    const requiresRoomImpact = locationType === "chambre"
+      && Boolean(formData.chambre_id)
+      && ["en_maintenance", "hors_service"].includes(formData.statut);
+    if (requiresRoomImpact && !formData.impact_chambre) {
+      newErrors.impact_chambre = "L'impact sur la chambre est obligatoire.";
+    }
+    if (requiresRoomImpact && formData.impact_chambre === "chambre_indisponible") {
+      if (!formData.room_maintenance.maintenance_type_id) {
+        newErrors["room_maintenance.maintenance_type_id"] =
+          "Le type de maintenance est obligatoire.";
+      }
+      if (!formData.room_maintenance.date_debut_maintenance) {
+        newErrors["room_maintenance.date_debut_maintenance"] =
+          "La date de début de maintenance est obligatoire.";
+      }
+      if (!formData.room_maintenance.date_fin_maintenance) {
+        newErrors["room_maintenance.date_fin_maintenance"] =
+          "La date de fin de maintenance est obligatoire.";
+      } else if (
+        formData.room_maintenance.date_debut_maintenance &&
+        formData.room_maintenance.date_fin_maintenance <
+          formData.room_maintenance.date_debut_maintenance
+      ) {
+        newErrors["room_maintenance.date_fin_maintenance"] =
+          "La date de fin doit être postérieure ou égale à la date de début.";
+      }
     }
     if (!formData.categorie_id) {
       newErrors.categorie_id = "La catégorie est obligatoire.";
@@ -367,14 +586,10 @@ const handleChange = (e) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setHasSubmitted(true);
-    
-    if (!validateForm()) return;
-
+  const buildEquipmentPayload = (confirmReservationConflicts = false) => {
     const formDataToSend = new FormData();
     Object.entries(formData).forEach(([key, value]) => {
+      if (key === "room_maintenance") return;
       if (key === "document") {
         if (value instanceof File) {
           formDataToSend.append(key, value);
@@ -387,30 +602,60 @@ const handleChange = (e) => {
       }
     });
 
+    if (formData.impact_chambre === "chambre_indisponible") {
+      Object.entries(formData.room_maintenance).forEach(([key, value]) => {
+        if (value !== "" && value !== null && value !== undefined) {
+          formDataToSend.append(`room_maintenance[${key}]`, value);
+        }
+      });
+    }
+    if (confirmReservationConflicts) {
+      formDataToSend.append("confirm_reservation_conflicts", "1");
+    }
+
+    return formDataToSend;
+  };
+
+  const submitEquipment = async (confirmReservationConflicts = false) => {
+    setSubmitting(true);
+    const formDataToSend = buildEquipmentPayload(confirmReservationConflicts);
+
     try {
+      let response;
       if (editingEquipement) {
         formDataToSend.append('_method', 'PUT');
-        await axios.post(
+        response = await axios.post(
           `${API_URL}/equipements/${editingEquipement.id}`,
           formDataToSend,
           getEquipmentRequestConfig()
         );
       } else {
-        await axios.post(
+        response = await axios.post(
           `${API_URL}/equipements`,
           formDataToSend,
           getEquipmentRequestConfig()
         );
       }
 
-      Swal.fire({
+      const responseData = response.data || {};
+      await Swal.fire({
         icon: "success",
         title: "Succès",
-        text: `Équipement ${editingEquipement ? "modifié" : "ajouté"} avec succès`
+        text: responseData.room_maintenance_already_active
+          ? "L’équipement a été enregistré. La chambre était déjà indisponible pour cette période."
+          : `Équipement ${editingEquipement ? "modifié" : "ajouté"} avec succès`,
       });
 
       closeForm();
-      fetchEquipements();
+      if (responseData.room_maintenance_review_required && responseData.room_id) {
+        setRoomMaintenanceReview({
+          roomId: responseData.room_id,
+          message: formData.statut === "disponible"
+            ? "L’équipement est disponible, mais la chambre est toujours en maintenance. Vérifiez son état avant de la remettre en vente."
+            : "L’affectation ou l’impact de l’équipement a changé, mais la chambre précédemment associée reste en maintenance. Vérifiez son état manuellement.",
+        });
+      }
+      await fetchEquipements();
     } catch (error) {
       console.error("Erreur lors de la soumission:", error);
 
@@ -420,15 +665,51 @@ const handleChange = (e) => {
         return;
       }
 
+      if (
+        error.response?.status === 409 &&
+        error.response?.data?.code === "existing_reservations_overlap" &&
+        !confirmReservationConflicts
+      ) {
+        const conflicts = Array.isArray(error.response.data.conflicts)
+          ? error.response.data.conflicts
+          : [];
+        const details = conflicts.map((conflict) =>
+          `${conflict.reservation_num || "Réservation"} — ${conflict.client || "Client non renseigné"} — ${formatFrenchDate(conflict.date_debut)} → ${formatFrenchDate(conflict.date_fin)} — ${conflict.status}`
+        ).join("\n");
+        const confirmation = await Swal.fire({
+          icon: "warning",
+          title: "Maintenance en conflit avec des réservations",
+          text: `${details}\n\nLes réservations existantes ne seront ni annulées ni modifiées. La chambre sera uniquement bloquée pour les nouvelles réservations.`,
+          showCancelButton: true,
+          cancelButtonText: "Annuler",
+          confirmButtonText: "Confirmer la mise en maintenance",
+        });
+        if (confirmation.isConfirmed) {
+          await submitEquipment(true);
+        }
+        return;
+      }
+
       Swal.fire({
         icon: "error",
         title: "Erreur",
         text: error.response?.data?.message || "Une erreur est survenue lors de la soumission"
       });
+    } finally {
+      setSubmitting(false);
     }
   };
 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (submitting) return;
+    setHasSubmitted(true);
+    if (!validateForm()) return;
+    await submitEquipment(false);
+  };
+
   const handleEdit = (equipement) => {
+    const currentRoomMaintenance = equipement.room_maintenance || null;
     setEditingEquipement(equipement);
     setFormData({
       nom: equipement.nom ?? "",
@@ -439,12 +720,25 @@ const handleChange = (e) => {
       date_fin_garantie: formatDateForInput(equipement.date_fin_garantie),
       fournisseur: equipement.fournisseur ?? "",
       statut: equipement.statut,
+      impact_chambre: equipement.impact_chambre || "aucun",
       categorie_id: equipement.categorie_id ?? "",
       chambre_id: equipement.chambre_id ?? "",
       emplacement_id: equipement.emplacement_id ?? "",
       prix_achat: equipement.prix_achat ?? "",
       notes: equipement.notes ?? "",
-      document: null
+      document: null,
+      room_maintenance: {
+        maintenance_type_id: currentRoomMaintenance?.maintenance_type_id
+          ? String(currentRoomMaintenance.maintenance_type_id)
+          : "",
+        date_debut_maintenance: formatDateForInput(
+          currentRoomMaintenance?.date_debut_maintenance
+        ),
+        date_fin_maintenance: formatDateForInput(
+          currentRoomMaintenance?.date_fin_maintenance
+        ),
+        commentaire: currentRoomMaintenance?.commentaire || "",
+      },
     });
     setLocationType(
       equipement.chambre_id
@@ -472,11 +766,20 @@ const handleChange = (e) => {
           `${API_URL}/equipements/${equipement}`,
           getEquipmentRequestConfig()
         )
-          .then(() => {
+          .then((response) => {
             fetchEquipements();
             setSelectedItems((currentItems) =>
               currentItems.filter((id) => id !== equipement)
             );
+            if (
+              response.data?.room_maintenance_review_required &&
+              response.data?.room_id
+            ) {
+              setRoomMaintenanceReview({
+                roomId: response.data.room_id,
+                message: "L’équipement bloquant a été supprimé, mais la chambre reste en maintenance. Vérifiez son état manuellement.",
+              });
+            }
             Swal.fire("Supprimé!", "L'équipement a été supprimé.", "success");
           })
           .catch((error) => {
@@ -523,6 +826,19 @@ const handleDeleteSelected = async () => {
 
   const failedCount =
     results.length - deletedIds.length;
+
+  const firstReviewResponse = results.find(
+    (entry) =>
+      entry.status === "fulfilled" &&
+      entry.value?.data?.room_maintenance_review_required &&
+      entry.value?.data?.room_id
+  );
+  if (firstReviewResponse?.value?.data?.room_id) {
+    setRoomMaintenanceReview({
+      roomId: firstReviewResponse.value.data.room_id,
+      message: "Un équipement bloquant a été supprimé, mais sa chambre reste en maintenance. Vérifiez son état manuellement.",
+    });
+  }
 
   await fetchEquipements();
 
@@ -722,6 +1038,76 @@ const handleShowForm = () => {
     }
   };
 
+  const openCategoryModal = () => {
+    setCategoryForm(createEmptyCategoryForm());
+    setCategoryErrors({});
+    setShowCategoryModal(true);
+  };
+
+  const handleEditCategory = (category) => {
+    setCategoryForm({
+      id: category.id,
+      nom: category.nom || "",
+      description: category.description || "",
+      maintenance_type_id: category.maintenance_type_id
+        ? String(category.maintenance_type_id)
+        : "",
+    });
+    setCategoryErrors({});
+  };
+
+  const handleCategorySubmit = async (event) => {
+    event.preventDefault();
+    if (!categoryForm.nom.trim()) {
+      setValidationErrors(setCategoryErrors, { nom: "Le nom est obligatoire." });
+      return;
+    }
+
+    const payload = {
+      nom: categoryForm.nom.trim(),
+      description: categoryForm.description.trim() || null,
+      maintenance_type_id: categoryForm.maintenance_type_id || null,
+    };
+
+    try {
+      const response = categoryForm.id
+        ? await axios.put(
+            `${API_URL}/equipements/categories/${categoryForm.id}`,
+            payload,
+            getEquipmentRequestConfig()
+          )
+        : await axios.post(
+            `${API_URL}/equipements/categories`,
+            payload,
+            getEquipmentRequestConfig()
+          );
+      await fetchEquipements();
+      if (!categoryForm.id && response.data?.categorie?.id) {
+        setFormData((current) => ({
+          ...current,
+          categorie_id: response.data.categorie.id,
+        }));
+      }
+      setCategoryForm(createEmptyCategoryForm());
+      setCategoryErrors({});
+      await Swal.fire({
+        icon: "success",
+        title: "Succès",
+        text: `Catégorie ${categoryForm.id ? "modifiée" : "ajoutée"} avec succès.`,
+      });
+    } catch (error) {
+      if (error.response?.status === 422 && error.response?.data?.errors) {
+        setValidationErrors(setCategoryErrors, error);
+        return;
+      }
+      Swal.fire({
+        icon: "error",
+        title: "Erreur",
+        text: error.response?.data?.message || "Impossible d'enregistrer la catégorie.",
+      });
+    }
+  };
+
   const filterEquipements = useCallback(
     (rows, currentSearchTerm) => {
       const normalizedSearch = normalizeSearchValue(currentSearchTerm);
@@ -745,11 +1131,13 @@ const handleShowForm = () => {
         const matchesStatus = selectedStatus
           ? String(equipement.statut) === String(selectedStatus)
           : true;
+        const matchesRoomContext = !contextRoomId
+          || String(equipement.chambre_id ?? "") === String(contextRoomId);
 
-        return matchesSearch && matchesCategory && matchesStatus;
+        return matchesSearch && matchesCategory && matchesStatus && matchesRoomContext;
       });
     },
-    [selectedCategory, selectedStatus]
+    [contextRoomId, selectedCategory, selectedStatus]
   );
 
   const {
@@ -769,15 +1157,54 @@ const handleShowForm = () => {
     storageKey: "rowsPerPageEquipements",
   });
 
+  useEffect(() => {
+    resetPage();
+  }, [contextRoomId, roomContext.raw, resetPage]);
+
+  const contextRoom = useMemo(
+    () => chambres.find((room) => String(room.id) === String(contextRoomId)),
+    [chambres, contextRoomId]
+  );
+  const roomEquipmentCounts = useMemo(() => {
+    const counts = new Map();
+
+    equipements.forEach((equipement) => {
+      if (equipement.chambre_id === null || equipement.chambre_id === undefined) return;
+      const roomId = String(equipement.chambre_id);
+      counts.set(roomId, (counts.get(roomId) || 0) + 1);
+    });
+
+    return counts;
+  }, [equipements]);
+  const contextRoomEquipmentCount = contextRoomId
+    ? roomEquipmentCounts.get(String(contextRoomId)) || 0
+    : 0;
+  const hasRoomContext = roomContext.raw !== null;
+  const invalidRoomContext = hasRoomContext && (
+    !roomContext.valid || (!loading && !loadError && !contextRoom)
+  );
+  const clearRoomContext = useCallback(() => {
+    setSearchParams(removeSearchParam(searchParams, "chambre_id"));
+  }, [searchParams, setSearchParams]);
+  const handleRoomFilterChange = useCallback((event) => {
+    const roomId = event.target.value;
+    setSearchParams(
+      roomId
+        ? setSearchParam(searchParams, "chambre_id", roomId)
+        : removeSearchParam(searchParams, "chambre_id")
+    );
+  }, [searchParams, setSearchParams]);
+
   const filtersActive = Boolean(
-    searchTerm || selectedCategory || selectedStatus
+    searchTerm || selectedCategory || selectedStatus || hasRoomContext
   );
   const resetFilters = useCallback(() => {
     setSearchTerm("");
     setSelectedCategory(null);
     setSelectedStatus(null);
+    setSearchParams(removeSearchParam(searchParams, "chambre_id"));
     resetPage();
-  }, [resetPage, setSearchTerm]);
+  }, [resetPage, searchParams, setSearchParams, setSearchTerm]);
 
   const exportRows = useMemo(
     () =>
@@ -855,7 +1282,43 @@ const handleShowForm = () => {
             exportsDisabled={loading || totalRows === 0}
           />
 
-          
+          {hasRoomContext && (
+            <div className="app-context-filter-row">
+              <ContextFilterChip
+                label={contextRoom
+                  ? `Chambre ${contextRoom.num_chambre} — ${contextRoomEquipmentCount} ${contextRoomEquipmentCount === 1 ? "équipement" : "équipements"}`
+                  : "Chambre sélectionnée"}
+                onClear={clearRoomContext}
+                clearLabel="Effacer le filtre de chambre"
+              />
+            </div>
+          )}
+          {invalidRoomContext && (
+            <div className="alert alert-warning app-context-warning" role="alert">
+              La chambre demandée est introuvable. Effacez ce contexte pour afficher tous les équipements.
+            </div>
+          )}
+          {roomMaintenanceReview && (
+            <div className="app-form-alert is-warning equipment-room-review" role="status">
+              <span>
+                {roomMaintenanceReview.message}
+              </span>
+              <Link
+                className="app-context-link"
+                to={`/etat-chambre?room_id=${roomMaintenanceReview.roomId}`}
+              >
+                Voir l’état de la chambre
+              </Link>
+              <button
+                type="button"
+                className="equipment-review-dismiss"
+                aria-label="Masquer cet avertissement"
+                onClick={() => setRoomMaintenanceReview(null)}
+              >
+                ×
+              </button>
+            </div>
+          )}
 
           <AppStats
             loading={loading}
@@ -902,6 +1365,23 @@ const handleShowForm = () => {
           {categorie.nom}
         </option>
       ))}
+    </Form.Select>
+
+    <Form.Select
+      aria-label="Filtrer par chambre"
+      value={roomContext.valid && contextRoomId ? String(contextRoomId) : ""}
+      onChange={handleRoomFilterChange}
+      className="app-filter-select"
+    >
+      <option value="">Toutes les chambres</option>
+      {chambres.map((chambre) => {
+        const equipmentCount = roomEquipmentCounts.get(String(chambre.id)) || 0;
+        return (
+          <option key={chambre.id} value={chambre.id}>
+            Chambre {chambre.num_chambre} ({equipmentCount})
+          </option>
+        );
+      })}
     </Form.Select>
 
     <ListFilterReset active={filtersActive} onReset={resetFilters} />
@@ -1009,6 +1489,13 @@ const handleShowForm = () => {
             {errors.categorie_id}
           </Form.Control.Feedback>
         )}
+        <Button
+          type="button"
+          className="app-secondary-button mt-2"
+          onClick={openCategoryModal}
+        >
+          Gérer les catégories
+        </Button>
       </Form.Group>
 
       <Form.Group className="col-md-6" data-field="statut">
@@ -1076,7 +1563,12 @@ const handleShowForm = () => {
             isInvalid={hasSubmitted && Boolean(errors.emplacement_id)}
           >
             <option value="">Sélectionner un emplacement</option>
-            {emplacements.map((emplacement) => (
+            {selectedHistoricalEmplacement && (
+              <option value={selectedHistoricalEmplacement.id} disabled>
+                {selectedHistoricalEmplacement.nom} — historique, à corriger
+              </option>
+            )}
+            {selectableEmplacements.map((emplacement) => (
               <option key={emplacement.id} value={emplacement.id}>
                 {emplacement.nom}
               </option>
@@ -1087,6 +1579,15 @@ const handleShowForm = () => {
               {errors.emplacement_id}
             </Form.Control.Feedback>
           )}
+          {selectedHistoricalEmplacement && (
+            <div className="equipment-historical-location-help" role="alert">
+              <FontAwesomeIcon icon={faTriangleExclamation} aria-hidden="true" />
+              <span>
+                Cette localisation est historique. Sélectionnez une chambre réelle
+                ou un emplacement interne valide.
+              </span>
+            </div>
+          )}
           <Button
             type="button"
             className="app-secondary-button mt-2"
@@ -1096,6 +1597,108 @@ const handleShowForm = () => {
           </Button>
         </Form.Group>
       )}
+
+      {locationType === "chambre" &&
+        formData.chambre_id &&
+        ["en_maintenance", "hors_service"].includes(formData.statut) && (
+          <div className="col-12 equipment-room-impact-section" data-field="impact_chambre">
+            <Form.Label><RequiredLabel required>Impact sur la chambre</RequiredLabel></Form.Label>
+            <div className={errors.impact_chambre ? "is-invalid" : ""}>
+              {[
+                ["aucun", "Aucun impact", "La chambre reste normalement utilisable."],
+                ["service_degrade", "Service dégradé", "La chambre reste réservable, mais un service est indisponible."],
+                ["chambre_indisponible", "Chambre indisponible", "La chambre sera mise en maintenance et bloquée pour les nouvelles réservations pendant la période choisie."],
+              ].map(([value, label, help]) => (
+                <label className="equipment-impact-option" key={value}>
+                  <input
+                    type="radio"
+                    name="impact_chambre"
+                    value={value}
+                    checked={formData.impact_chambre === value}
+                    onChange={handleImpactChange}
+                  />
+                  <span><strong>{label}</strong><small>{help}</small></span>
+                </label>
+              ))}
+            </div>
+            {hasSubmitted && errors.impact_chambre && (
+              <div className="invalid-feedback d-block">{errors.impact_chambre}</div>
+            )}
+          </div>
+        )}
+
+      {formData.impact_chambre === "chambre_indisponible" &&
+        locationType === "chambre" &&
+        formData.chambre_id && (
+          <div className="col-12 equipment-room-maintenance-panel">
+            <h4 className="app-form-section-title">Maintenance de la chambre</h4>
+            <div className="row g-3">
+              <Form.Group className="col-md-6">
+                <Form.Label>Chambre</Form.Label>
+                <Form.Control
+                  value={selectedRoomRecord ? `Chambre ${selectedRoomRecord.num_chambre}` : ""}
+                  readOnly
+                />
+              </Form.Group>
+              <Form.Group className="col-md-6" data-field="room_maintenance.maintenance_type_id">
+                <Form.Label><RequiredLabel required>Type de maintenance</RequiredLabel></Form.Label>
+                <Form.Select
+                  name="maintenance_type_id"
+                  value={formData.room_maintenance.maintenance_type_id}
+                  onChange={handleRoomMaintenanceChange}
+                  isInvalid={Boolean(errors["room_maintenance.maintenance_type_id"])}
+                >
+                  <option value="">Sélectionner un type</option>
+                  {maintenanceTypes.map((type) => (
+                    <option key={type.id} value={type.id}>
+                      {type.types_maintenance || type.code}
+                    </option>
+                  ))}
+                </Form.Select>
+                <Form.Control.Feedback type="invalid">
+                  {errors["room_maintenance.maintenance_type_id"]}
+                </Form.Control.Feedback>
+              </Form.Group>
+              <Form.Group className="col-md-6" data-field="room_maintenance.date_debut_maintenance">
+                <Form.Label><RequiredLabel required>Date de début</RequiredLabel></Form.Label>
+                <Form.Control
+                  type="date"
+                  name="date_debut_maintenance"
+                  value={formData.room_maintenance.date_debut_maintenance}
+                  onChange={handleRoomMaintenanceChange}
+                  isInvalid={Boolean(errors["room_maintenance.date_debut_maintenance"])}
+                />
+                <Form.Control.Feedback type="invalid">
+                  {errors["room_maintenance.date_debut_maintenance"]}
+                </Form.Control.Feedback>
+              </Form.Group>
+              <Form.Group className="col-md-6" data-field="room_maintenance.date_fin_maintenance">
+                <Form.Label><RequiredLabel required>Date de fin prévue</RequiredLabel></Form.Label>
+                <Form.Control
+                  type="date"
+                  name="date_fin_maintenance"
+                  min={formData.room_maintenance.date_debut_maintenance || undefined}
+                  value={formData.room_maintenance.date_fin_maintenance}
+                  onChange={handleRoomMaintenanceChange}
+                  isInvalid={Boolean(errors["room_maintenance.date_fin_maintenance"])}
+                />
+                <Form.Control.Feedback type="invalid">
+                  {errors["room_maintenance.date_fin_maintenance"]}
+                </Form.Control.Feedback>
+              </Form.Group>
+              <Form.Group className="col-12">
+                <Form.Label>Commentaire</Form.Label>
+                <Form.Control
+                  as="textarea"
+                  rows={2}
+                  name="commentaire"
+                  value={formData.room_maintenance.commentaire}
+                  onChange={handleRoomMaintenanceChange}
+                />
+              </Form.Group>
+            </div>
+          </div>
+        )}
 
       <Form.Group className="col-md-6" data-field="date_acquisition">
         <Form.Label><RequiredLabel required>Date acquisition</RequiredLabel></Form.Label>
@@ -1198,8 +1801,8 @@ const handleShowForm = () => {
     </div>
 
     <div className="app-form-actions">
-      <Button type="submit" className="app-primary-button">
-        Valider
+      <Button type="submit" className="app-primary-button" disabled={submitting}>
+        {submitting ? "Enregistrement…" : "Valider"}
       </Button>
 
       <Button
@@ -1212,6 +1815,129 @@ const handleShowForm = () => {
     </div>
   </Form>
 </div>
+
+<Modal
+  show={showCategoryModal}
+  onHide={() => {
+    setShowCategoryModal(false);
+    setCategoryForm(createEmptyCategoryForm());
+    setCategoryErrors({});
+  }}
+  size="lg"
+  centered
+>
+  <Modal.Header closeButton>
+    <Modal.Title>Gérer les catégories d’équipement</Modal.Title>
+  </Modal.Header>
+  <Modal.Body>
+    <Form onSubmit={handleCategorySubmit} noValidate>
+      <p className="app-required-note">
+        <span className="app-required-mark" aria-hidden="true">*</span> Champs obligatoires
+      </p>
+      <div className="row g-3">
+        <Form.Group className="col-md-6" data-field="nom">
+          <Form.Label><RequiredLabel required>Nom</RequiredLabel></Form.Label>
+          <Form.Control
+            value={categoryForm.nom}
+            onChange={(event) => {
+              setCategoryForm((current) => ({ ...current, nom: event.target.value }));
+              setCategoryErrors((current) => ({ ...current, nom: "" }));
+            }}
+            isInvalid={Boolean(categoryErrors.nom)}
+          />
+          <Form.Control.Feedback type="invalid">{categoryErrors.nom}</Form.Control.Feedback>
+        </Form.Group>
+        <Form.Group className="col-md-6">
+          <Form.Label>Type de maintenance de chambre suggéré</Form.Label>
+          <Form.Select
+            value={categoryForm.maintenance_type_id}
+            onChange={(event) => setCategoryForm((current) => ({
+              ...current,
+              maintenance_type_id: event.target.value,
+            }))}
+          >
+            <option value="">Aucune suggestion</option>
+            {maintenanceTypes.map((type) => (
+              <option key={type.id} value={type.id}>
+                {type.types_maintenance || type.code}
+              </option>
+            ))}
+          </Form.Select>
+          <Form.Text>
+            Cette suggestion préremplit le formulaire sans modifier l’état d’une chambre.
+          </Form.Text>
+        </Form.Group>
+        <Form.Group className="col-12">
+          <Form.Label>Description</Form.Label>
+          <Form.Control
+            as="textarea"
+            rows={2}
+            value={categoryForm.description}
+            onChange={(event) => setCategoryForm((current) => ({
+              ...current,
+              description: event.target.value,
+            }))}
+          />
+        </Form.Group>
+      </div>
+      <div className="app-form-actions">
+        <Button type="submit" className="app-primary-button">
+          {categoryForm.id ? "Modifier" : "Ajouter"}
+        </Button>
+        {categoryForm.id && (
+          <Button
+            type="button"
+            className="app-secondary-button"
+            onClick={() => {
+              setCategoryForm(createEmptyCategoryForm());
+              setCategoryErrors({});
+            }}
+          >
+            Annuler la modification
+          </Button>
+        )}
+      </div>
+    </Form>
+
+    <div className="app-table-wrapper mt-3">
+      <table className="table table-bordered app-table mb-0">
+        <thead>
+          <tr>
+            <th>Catégorie</th>
+            <th>Type suggéré</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {categories.length > 0 ? categories.map((category) => (
+            <tr key={category.id}>
+              <td>{category.nom}</td>
+              <td>{category.maintenance_type?.types_maintenance || "—"}</td>
+              <td>
+                <button
+                  type="button"
+                  className="chambre-table-action-button"
+                  title="Modifier cette catégorie"
+                  aria-label={`Modifier la catégorie ${category.nom}`}
+                  onClick={() => handleEditCategory(category)}
+                >
+                  <FontAwesomeIcon icon={faEdit} className="app-table-action is-edit" />
+                </button>
+              </td>
+            </tr>
+          )) : (
+            <tr><td colSpan={3} className="text-center text-muted">Aucune catégorie disponible.</td></tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  </Modal.Body>
+  <Modal.Footer>
+    <Button type="button" className="app-secondary-button" onClick={() => setShowCategoryModal(false)}>
+      Fermer
+    </Button>
+  </Modal.Footer>
+</Modal>
 
 <Modal
   show={showEmplacementModal}
@@ -1306,7 +2032,14 @@ const handleShowForm = () => {
           {emplacements.length > 0 ? (
             emplacements.map((emplacement) => (
               <tr key={emplacement.id}>
-                <td>{emplacement.nom}</td>
+                <td>
+                  <div>{emplacement.nom}</div>
+                  {isLegacyNumericRoomEmplacement(emplacement) && (
+                    <span className="app-status-badge is-warning equipment-historical-location-badge">
+                      Localisation historique
+                    </span>
+                  )}
+                </td>
                 <td>{emplacement.type || "—"}</td>
                 <td style={{ whiteSpace: "nowrap" }}>
                   <FontAwesomeIcon
@@ -1351,6 +2084,9 @@ const handleShowForm = () => {
   allRowsCount={equipements.length}
   filteredRowsCount={totalRows}
   emptyDataMessage="Aucun équipement enregistré."
+  filteredEmptyMessage={roomContext.valid && contextRoom && contextRoomEquipmentCount === 0
+    ? "Aucun équipement affecté à cette chambre."
+    : undefined}
   onRetry={fetchEquipements}
   onResetFilters={resetFilters}
 />
@@ -1383,6 +2119,7 @@ const handleShowForm = () => {
             <th>Localisation</th>
             <th>Catégorie</th>
             <th>Statut</th>
+            <th>Impact chambre</th>
             <th>Garantie</th>
             <th>Actions</th>
           </tr>
@@ -1435,10 +2172,23 @@ const handleShowForm = () => {
                 </td>
 
                 <td>
-                  {highlightText(
-                    getEquipmentLocationLabel(equipement),
-                    searchTerm
-                  )}
+                  {equipement.chambre_id && equipement.chambre ? (
+                    <Link
+                      className="app-context-link"
+                      to={`/chambre?room_id=${equipement.chambre_id}`}
+                      aria-label={`Voir ${getEquipmentLocationLabel(equipement)}`}
+                    >
+                      {highlightText(getEquipmentLocationLabel(equipement), searchTerm)}
+                    </Link>
+                  ) : getLegacyRoomLikeLocation(equipement) ? (
+                    <span
+                      className="equipment-legacy-location-warning"
+                      title="Modifiez cet équipement et sélectionnez une chambre réelle."
+                    >
+                      <FontAwesomeIcon icon={faTriangleExclamation} aria-hidden="true" />
+                      <span>{highlightText(getEquipmentLocationLabel(equipement), searchTerm)}</span>
+                    </span>
+                  ) : highlightText(getEquipmentLocationLabel(equipement), searchTerm)}
                 </td>
 
                 <td>
@@ -1459,6 +2209,24 @@ const handleShowForm = () => {
                   >
                     {getEquipmentStatusLabel(equipement.statut)}
                   </span>
+                </td>
+
+                <td>
+                  {equipement.chambre_id && equipement.chambre ? (
+                    <div className="equipment-impact-cell">
+                      <span className={`app-status-badge ${getRoomImpactClass(equipement.impact_chambre)}`}>
+                        {getRoomImpactLabel(equipement.impact_chambre)}
+                      </span>
+                      {equipement.impact_chambre === "chambre_indisponible" && (
+                        <Link
+                          className="app-context-link"
+                          to={`/etat-chambre?room_id=${equipement.chambre_id}`}
+                        >
+                          Voir l’état de la chambre
+                        </Link>
+                      )}
+                    </div>
+                  ) : "—"}
                 </td>
 
                 <td>
@@ -1494,7 +2262,7 @@ const handleShowForm = () => {
             })
           ) : (
             <tr>
-              <td colSpan={9}>
+              <td colSpan={10}>
                 Aucun équipement disponible
               </td>
             </tr>

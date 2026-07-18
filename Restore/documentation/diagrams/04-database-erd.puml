@@ -86,14 +86,25 @@ package "Chambres" {
     * id : bigint <<PK>>
     num_chambre : varchar <<FK,UQ>>
     status : varchar
+    date_nettoyage : date?
+    nettoyee_par_id : bigint? <<FK>>
     maintenance : boolean
     maintenance_type_id : bigint? <<FK>>
-    nettoyee_par_id : bigint? <<FK>>
+    date_debut_maintenance : date?
+    date_fin_maintenance : date?
+    commentaire : text?
+  }
+  entity types_maintenance {
+    * id : bigint <<PK>>
+    code : varchar <<UQ>>
+    types_maintenance : varchar
+    description : text?
   }
   types_chambre ||--o{ chambres
   etages ||--o{ chambres
   vues ||--o{ chambres
   chambres ||--|| etat_chambre
+  types_maintenance |o--o{ etat_chambre
 }
 
 package "Tarifs" {
@@ -159,6 +170,10 @@ package "Réservations et paiements" {
     status : varchar
     tarif_actuel_id : bigint? <<FK>>
     politique_paiement : varchar
+    pricing_version : smallint?
+    legacy_pricing : boolean
+    cancelled_at : timestamp?
+    cancellation_reason : text?
     montant_total : decimal
   }
   entity details_reservation {
@@ -243,6 +258,7 @@ package "Réclamations" {
     reclamation_canal_id : bigint <<FK>>
     departement_id : bigint <<FK>>
     suivi : varchar
+    reponse : text?
     created_by : bigint? <<FK>>
     updated_by : bigint? <<FK>>
   }
@@ -267,6 +283,7 @@ package "Équipements" {
   entity categories_equipements {
     * id : bigint <<PK>>
     nom : varchar
+    maintenance_type_id : bigint? <<FK>>
     deleted_at : timestamp?
   }
   entity emplacements {
@@ -281,10 +298,12 @@ package "Équipements" {
     chambre_id : bigint? <<FK>>
     emplacement_id : bigint? <<FK>>
     statut : varchar
+    impact_chambre : varchar
     document_path : varchar?
     deleted_at : timestamp?
   }
   categories_equipements ||--o{ equipements
+  types_maintenance |o--o{ categories_equipements : suggestion
   chambres |o--o{ equipements
   emplacements |o--o{ equipements
 }
@@ -292,5 +311,11 @@ package "Équipements" {
 note bottom of reservations
   client_id est polymorphe : clients.id si client_type = societe,
   clients_particulier.id si client_type = particulier.
+end note
+
+note bottom of equipements
+  Contrainte applicative : exactement une affectation entre
+  chambre_id et emplacement_id. impact_chambre vaut
+  aucun, service_degrade ou chambre_indisponible.
 end note
 @enduml

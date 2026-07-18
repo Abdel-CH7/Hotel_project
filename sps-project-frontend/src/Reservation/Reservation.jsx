@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Box from "@mui/material/Box";
 import { Form } from "react-bootstrap";
+import { useSearchParams } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCalendarDays, faCircleCheck, faCircleXmark, faClock, faPlus } from "@fortawesome/free-solid-svg-icons";
 import Swal from "sweetalert2";
@@ -8,6 +9,7 @@ import ListFilterReset from "../components/ListFilterReset";
 import ListState from "../components/ListState";
 import SearchWithExport from "../components/SearchWithExport";
 import AppStats from "../components/AppStats";
+import ContextFilterChip from "../components/ContextFilterChip";
 import useListControls from "../components/useListControls";
 import { useOpen } from "../Acceuil/OpenProvider";
 import CancelReservationModal from "./components/CancelReservationModal";
@@ -15,6 +17,7 @@ import ReservationDetails from "./components/ReservationDetails";
 import ReservationDrawer from "./components/ReservationDrawer";
 import ReservationList from "./components/ReservationList";
 import {
+  getRoom,
   getReservation,
   listReservations,
   updateReservationStatus,
@@ -23,6 +26,7 @@ import { useReservationForm } from "./hooks/useReservationForm";
 import { clientName, clientTypeLabel, formatDate, formatMoney, paymentStatusLabel, statusLabel } from "./reservationUtils";
 import { exportToExcel, exportToPdf, printRows } from "../utils/listExportUtils";
 import { normalizeSearchValue } from "../utils/textUtils";
+import { readPositiveIntegerParam, removeSearchParam, setSearchParam } from "../utils/contextNavigationUtils";
 import "../style.css";
 import "./Reservation.css";
 
@@ -53,6 +57,10 @@ const nightsBetween = (start, end) => {
 
 const Reservation = () => {
   const { dynamicStyles } = useOpen();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const roomParam = readPositiveIntegerParam(searchParams, "chambre_id");
+  const openContext = readPositiveIntegerParam(searchParams, "open");
+  const contextRoomId = roomParam.value;
   const [reservations, setReservations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -70,23 +78,55 @@ const Reservation = () => {
   const [statusSaving, setStatusSaving] = useState(false);
   const [expandedRoomRows, setExpandedRoomRows] = useState({});
   const [roomDetailsCache, setRoomDetailsCache] = useState({});
+  const [contextRoomDetails, setContextRoomDetails] = useState(null);
+  const [contextRoomError, setContextRoomError] = useState("");
   const roomDetailRequests = useRef(new Map());
+  const openedDetailsParam = useRef(null);
 
   const loadReservations = useCallback(async () => {
     setLoading(true);
     setLoadError("");
     try {
-      setReservations(await listReservations());
+      setReservations(await listReservations({ chambreId: contextRoomId }));
     } catch (error) {
       setLoadError(error?.response?.data?.message || "Impossible de charger les réservations.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [contextRoomId]);
 
   useEffect(() => {
     loadReservations();
   }, [loadReservations]);
+
+  useEffect(() => {
+    if (roomParam.raw === null) {
+      setContextRoomDetails(null);
+      setContextRoomError("");
+      return;
+    }
+    if (!roomParam.valid || !Number.isInteger(contextRoomId) || contextRoomId <= 0) {
+      setContextRoomDetails(null);
+      setContextRoomError("La chambre demandée est introuvable.");
+      return;
+    }
+
+    let active = true;
+    setContextRoomDetails(null);
+    setContextRoomError("");
+    getRoom(contextRoomId)
+      .then((room) => {
+        if (active) setContextRoomDetails(room);
+      })
+      .catch(() => {
+        if (active) {
+          setContextRoomDetails(null);
+          setContextRoomError("La chambre demandée est introuvable.");
+        }
+      });
+
+    return () => { active = false; };
+  }, [contextRoomId, roomParam.raw, roomParam.valid]);
 
   const cacheReservationDetails = useCallback((reservation) => {
     if (!reservation?.id || !Array.isArray(reservation.chambres)) return;
@@ -197,6 +237,10 @@ const Reservation = () => {
     storageKey: "rowsPerPageReservations",
   });
 
+  useEffect(() => {
+    resetPage();
+  }, [contextRoomId, roomParam.raw, resetPage]);
+
   const filtersActive = Boolean(searchTerm || statusFilter || clientTypeFilter || paymentFilter || deadlineFilter);
   const resetFilters = useCallback(() => {
     setStatusFilter("");
@@ -206,6 +250,14 @@ const Reservation = () => {
     setSearchTerm("");
     resetPage();
   }, [resetPage, setSearchTerm]);
+
+  const clearRoomContext = useCallback(() => {
+    setSearchParams(removeSearchParam(searchParams, "chambre_id"));
+  }, [searchParams, setSearchParams]);
+
+  const clearOpenContext = useCallback(() => {
+    setSearchParams(removeSearchParam(searchParams, "open"));
+  }, [searchParams, setSearchParams]);
 
   const exportRows = useMemo(() => filteredRows.map((reservation) => ({
     number: reservation.reservation_num,
@@ -230,26 +282,52 @@ const Reservation = () => {
   const exportPdf = () => exportToPdf({ rows: exportRows, columns: RESERVATION_EXPORT_COLUMNS, title: "Liste des Réservations", filename: "reservations.pdf" });
   const printTable = () => printRows({ rows: exportRows, columns: RESERVATION_EXPORT_COLUMNS, title: "Liste des Réservations" });
 
-  const openDetails = async (reservation) => {
+  const openDetailsById = useCallback(async (reservationId) => {
     setDetailsOpen(true);
     setDetails(null);
     setDetailsError("");
     setDetailsLoading(true);
     try {
-      const completeReservation = await getReservation(reservation.id);
+      const completeReservation = await getReservation(reservationId);
       setDetails(completeReservation);
       cacheReservationDetails(completeReservation);
     } catch (error) {
-      setDetailsError(error?.response?.data?.message || "Impossible de charger cette réservation.");
+      setDetailsError(
+        error?.response?.status === 404
+          ? "La réservation demandée est introuvable."
+          : error?.response?.data?.message || "Impossible de charger cette réservation."
+      );
     } finally {
       setDetailsLoading(false);
     }
-  };
+  }, [cacheReservationDetails]);
+
+  const openDetails = useCallback((reservation) => {
+    setSearchParams(setSearchParam(searchParams, "open", reservation.id));
+  }, [searchParams, setSearchParams]);
+
+  const closeDetails = useCallback(() => {
+    setDetailsOpen(false);
+    if (openContext.raw !== null) {
+      setSearchParams(removeSearchParam(searchParams, "open"));
+    }
+  }, [openContext.raw, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (openContext.raw === null) {
+      openedDetailsParam.current = null;
+      return;
+    }
+    if (!openContext.valid || openedDetailsParam.current === openContext.raw) return;
+
+    openedDetailsParam.current = openContext.raw;
+    openDetailsById(openContext.value);
+  }, [openContext.raw, openContext.valid, openContext.value, openDetailsById]);
 
   const refreshAfterPayment = useCallback(async (reservationId) => {
     const [detailsResult, listResult] = await Promise.allSettled([
       getReservation(reservationId),
-      listReservations(),
+      listReservations({ chambreId: contextRoomId }),
     ]);
 
     const detailsUpdated = detailsResult.status === "fulfilled";
@@ -270,7 +348,7 @@ const Reservation = () => {
       detailsUpdated,
       listUpdated,
     };
-  }, [cacheReservationDetails]);
+  }, [cacheReservationDetails, contextRoomId]);
 
   const openEdit = async (reservation) => {
     try {
@@ -366,6 +444,35 @@ const Reservation = () => {
           exportsDisabled={totalRows === 0}
         />
 
+        {(roomParam.raw !== null || (openContext.raw !== null && !openContext.valid)) && (
+          <div className="app-context-filter-row">
+            {roomParam.raw !== null && (
+              <ContextFilterChip
+                label={contextRoomDetails ? `Réservations de la chambre ${contextRoomDetails.num_chambre}` : "Réservations de la chambre sélectionnée"}
+                onClear={clearRoomContext}
+                clearLabel="Effacer le filtre de chambre"
+              />
+            )}
+            {openContext.raw !== null && !openContext.valid && (
+              <ContextFilterChip
+                label="Réservation sélectionnée"
+                onClear={clearOpenContext}
+                clearLabel="Effacer la réservation demandée"
+              />
+            )}
+          </div>
+        )}
+        {contextRoomError && (
+          <div className="alert alert-warning app-context-warning" role="alert">
+            {contextRoomError} Effacez ce contexte pour afficher toutes les réservations.
+          </div>
+        )}
+        {openContext.raw !== null && !openContext.valid && (
+          <div className="alert alert-warning app-context-warning" role="alert">
+            La réservation demandée est invalide.
+          </div>
+        )}
+
         <AppStats items={reservationStats} loading={loading} />
 
         <div className="app-controls-row reservation-controls">
@@ -438,7 +545,7 @@ const Reservation = () => {
           reservation={details}
           loading={detailsLoading}
           error={detailsError}
-          onHide={() => setDetailsOpen(false)}
+          onHide={closeDetails}
           onPaymentChanged={refreshAfterPayment}
         />
 

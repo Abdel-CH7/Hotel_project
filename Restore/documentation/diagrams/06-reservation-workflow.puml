@@ -9,24 +9,25 @@ rectangle "2. Saisir les dates\nd’arrivée et de départ" as B
 rectangle "3. Demander les\nchambres disponibles" as C
 rectangle "4. Valider les dates" as D
 
-rectangle "8. Sélectionner explicitement\nune ou plusieurs chambres" as H
-rectangle "7. Filtrer facultativement\ntype · étage · vue" as G
+rectangle "9. Sélectionner explicitement\nune ou plusieurs chambres" as H
+rectangle "8. Filtrer facultativement\ntype · étage · vue" as G
+rectangle "7. Retourner les chambres avec\navertissements de service dégradé" as W
 rectangle "6. Exclure les maintenances\nde chambre actives" as F
 rectangle "5. Exclure les chevauchements\nen attente / confirmés" as E
 
-rectangle "9. Saisir l’occupation\nadultes · enfants · lits suppl." as I
-rectangle "10. Choisir les repas\nfacultatifs" as J
-rectangle "11. Résoudre les périodes\ntarifaires par nuit" as K
-rectangle "12. Calculer chambres, repas\net réduction" as L
+rectangle "10. Saisir l’occupation\nadultes · enfants · lits suppl." as I
+rectangle "11. Choisir les repas\nfacultatifs" as J
+rectangle "12. Résoudre les périodes\ntarifaires par nuit" as K
+rectangle "13. Calculer chambres, repas\net réduction" as L
 
-rectangle "16. Recontrôler sous verrou\ndisponibilité et capacités" as P
-rectangle "15. Valider le payload\net résoudre le client" as O
-rectangle "14. Prévisualiser le total\ncalculé par le backend" as N
-rectangle "13. Choisir la politique\nde paiement" as M
+rectangle "17. Recontrôler sous verrou\ndisponibilité et capacités" as P
+rectangle "16. Valider le payload\net résoudre le client" as O
+rectangle "15. Prévisualiser le total\ncalculé par le backend" as N
+rectangle "14. Choisir la politique\nde paiement" as M
 
-rectangle "17. Transaction : réservation,\naffectations et snapshots" as Q
-rectangle "18. Retourner la ressource\nnormalisée" as R
-rectangle "19. Actualiser la liste\net afficher le succès" as S
+rectangle "18. Transaction : réservation,\naffectations et snapshots" as Q
+rectangle "19. Retourner la ressource\nnormalisée" as R
+rectangle "20. Actualiser la liste\net afficher le succès" as S
 circle "Fin" as End #0B4D54
 
 Start -right-> A
@@ -35,7 +36,8 @@ B -right-> C
 C -right-> D
 D -down-> E
 E -left-> F
-F -left-> G
+F -left-> W
+W -left-> G
 G -left-> H
 H -down-> I
 I -right-> J
@@ -55,6 +57,14 @@ note bottom of D
 end note
 note bottom of E
   Aucun résultat → informer l’utilisateur.
+end note
+note bottom of F
+  Un équipement bloquant exclut la chambre uniquement
+  via la maintenance enregistrée dans EtatChambre.
+end note
+note bottom of W
+  service_degrade reste non bloquant : la chambre
+  est proposée avec un avertissement explicite.
 end note
 note bottom of P
   Conflit, maintenance, doublon ou capacité invalide

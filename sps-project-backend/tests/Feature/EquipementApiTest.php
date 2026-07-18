@@ -12,6 +12,7 @@ use App\Models\Vue;
 use App\Support\EquipmentLocationBackfill;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 use Tests\TestCase;
@@ -389,6 +390,215 @@ class EquipementApiTest extends TestCase
 
         Storage::disk('public')->assertMissing($documentPath);
         $this->assertSoftDeleted('equipements', ['id' => $equipment->id]);
+    }
+
+    public function test_legacy_location_repair_migrates_exact_room_matches_including_soft_deleted_equipment(): void
+    {
+        $category = $this->createCategory();
+        $roomNumber = 'R'.uniqid();
+        $room = $this->createRoom($roomNumber);
+        $pseudoRoom = $this->createEmplacement("Chambre {$roomNumber}");
+        $activeEquipment = $this->createEquipment($category, [
+            'numero_serie' => 'REPAIR-ACTIVE-'.uniqid(),
+            'localisation' => "Chambre {$roomNumber}",
+            'chambre_id' => null,
+            'emplacement_id' => $pseudoRoom->id,
+        ]);
+        $deletedEquipment = $this->createEquipment($category, [
+            'numero_serie' => 'REPAIR-DELETED-'.uniqid(),
+            'localisation' => "Chambre {$roomNumber}",
+            'chambre_id' => null,
+            'emplacement_id' => $pseudoRoom->id,
+        ]);
+        $deletedEquipment->delete();
+
+        $this->assertSame(0, Artisan::call('equipment:repair-legacy-locations', ['--apply' => true]));
+
+        foreach ([$activeEquipment, $deletedEquipment] as $equipment) {
+            $repaired = Equipement::withTrashed()->findOrFail($equipment->id);
+            $this->assertSame($room->id, $repaired->chambre_id);
+            $this->assertNull($repaired->emplacement_id);
+            $this->assertNull($repaired->localisation);
+        }
+
+        $this->assertSoftDeleted('equipements', ['id' => $deletedEquipment->id]);
+        $this->assertDatabaseMissing('emplacements', ['id' => $pseudoRoom->id]);
+    }
+
+    public function test_legacy_location_repair_reports_unresolved_and_ignores_internal_locations(): void
+    {
+        $category = $this->createCategory();
+        $missingRoom = $this->createEmplacement('Chambre 999-'.uniqid());
+        $unsupported = $this->createEmplacement('Porte Chambre 201-'.uniqid());
+        $internal = $this->createEmplacement('Couloir 1er Étage '.uniqid());
+        $missingEquipment = $this->createEquipment($category, [
+            'numero_serie' => 'MISSING-ROOM-'.uniqid(),
+            'chambre_id' => null,
+            'emplacement_id' => $missingRoom->id,
+        ]);
+        $unsupportedEquipment = $this->createEquipment($category, [
+            'numero_serie' => 'UNSUPPORTED-ROOM-'.uniqid(),
+            'chambre_id' => null,
+            'emplacement_id' => $unsupported->id,
+        ]);
+        $internalEquipment = $this->createEquipment($category, [
+            'numero_serie' => 'INTERNAL-LOCATION-'.uniqid(),
+            'chambre_id' => null,
+            'emplacement_id' => $internal->id,
+        ]);
+
+        $this->assertSame(0, Artisan::call('equipment:repair-legacy-locations', ['--apply' => true]));
+        $output = Artisan::output();
+
+        $this->assertStringContainsString($missingRoom->nom, $output);
+        $this->assertStringContainsString('chambre réelle introuvable', $output);
+        $this->assertStringContainsString($unsupported->nom, $output);
+        $this->assertStringContainsString('format historique non pris en charge', $output);
+
+        foreach ([$missingEquipment, $unsupportedEquipment, $internalEquipment] as $equipment) {
+            $this->assertNull($equipment->fresh()->chambre_id);
+            $this->assertNotNull($equipment->fresh()->emplacement_id);
+        }
+    }
+
+    public function test_legacy_location_repair_dry_run_performs_no_writes(): void
+    {
+        $category = $this->createCategory();
+        $roomNumber = 'DRY'.uniqid();
+        $this->createRoom($roomNumber);
+        $pseudoRoom = $this->createEmplacement("Chambre {$roomNumber}");
+        $equipment = $this->createEquipment($category, [
+            'numero_serie' => 'DRY-RUN-'.uniqid(),
+            'localisation' => "Chambre {$roomNumber}",
+            'chambre_id' => null,
+            'emplacement_id' => $pseudoRoom->id,
+        ]);
+
+        $this->assertSame(0, Artisan::call('equipment:repair-legacy-locations', ['--dry-run' => true]));
+
+        $this->assertNull($equipment->fresh()->chambre_id);
+        $this->assertSame($pseudoRoom->id, $equipment->fresh()->emplacement_id);
+        $this->assertSame("Chambre {$roomNumber}", $equipment->fresh()->localisation);
+        $this->assertDatabaseHas('emplacements', ['id' => $pseudoRoom->id]);
+        $output = Artisan::output();
+        $this->assertStringContainsString('Mode simulation (aucune écriture)', $output);
+        $this->assertStringContainsString('Correspondances exactes', $output);
+    }
+
+    public function test_legacy_location_repair_apply_is_idempotent(): void
+    {
+        $category = $this->createCategory();
+        $roomNumber = 'IDEM'.uniqid();
+        $room = $this->createRoom($roomNumber);
+        $pseudoRoom = $this->createEmplacement("Chambre {$roomNumber}");
+        $equipment = $this->createEquipment($category, [
+            'numero_serie' => 'IDEMPOTENT-'.uniqid(),
+            'chambre_id' => null,
+            'emplacement_id' => $pseudoRoom->id,
+        ]);
+
+        $this->assertSame(0, Artisan::call('equipment:repair-legacy-locations', ['--apply' => true]));
+        $this->assertSame(0, Artisan::call('equipment:repair-legacy-locations', ['--apply' => true]));
+
+        $this->assertSame($room->id, $equipment->fresh()->chambre_id);
+        $this->assertNull($equipment->fresh()->emplacement_id);
+        $this->assertDatabaseMissing('emplacements', ['id' => $pseudoRoom->id]);
+    }
+
+    public function test_emplacement_store_and_update_reject_names_that_match_an_existing_room(): void
+    {
+        $roomNumber = 'BLOCK'.uniqid();
+        $this->createRoom($roomNumber);
+        $message = 'Cette localisation correspond à une chambre existante. Affectez l’équipement directement à la chambre.';
+
+        $this->postJson('/api/emplacements', ['nom' => "  cHaMbRe   {$roomNumber}  "])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('nom')
+            ->assertJsonPath('errors.nom.0', $message);
+
+        $emplacement = $this->createEmplacement('Stock '.uniqid());
+        $this->putJson("/api/emplacements/{$emplacement->id}", ['nom' => "Chambre {$roomNumber}"])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('nom')
+            ->assertJsonPath('errors.nom.0', $message);
+
+        $this->postJson('/api/emplacements', ['nom' => 'Chambre froide dédiée'])
+            ->assertCreated();
+    }
+
+    public function test_equipment_index_contract_supports_exact_room_context_filtering(): void
+    {
+        $category = $this->createCategory();
+        $room = $this->createRoom('CTX'.uniqid());
+        $internal = $this->createEmplacement('Réception '.uniqid());
+        $roomEquipment = $this->createEquipment($category, [
+            'numero_serie' => 'ROOM-CONTEXT-'.uniqid(),
+            'chambre_id' => $room->id,
+            'emplacement_id' => null,
+        ]);
+        $internalEquipment = $this->createEquipment($category, [
+            'numero_serie' => 'INTERNAL-CONTEXT-'.uniqid(),
+            'chambre_id' => null,
+            'emplacement_id' => $internal->id,
+        ]);
+
+        $rowsForRoom = collect($this->getJson('/api/equipements')->assertOk()->json('equipements.data'))
+            ->filter(fn (array $equipment) => (string) ($equipment['chambre_id'] ?? '') === (string) $room->id);
+
+        $this->assertTrue($rowsForRoom->contains('id', $roomEquipment->id));
+        $this->assertFalse($rowsForRoom->contains('id', $internalEquipment->id));
+    }
+
+    public function test_equipment_assignment_rejects_numeric_pseudo_rooms_but_accepts_valid_locations(): void
+    {
+        $category = $this->createCategory();
+        $pseudoRoom = $this->createEmplacement('Chambre 999999');
+        $coldRoom = $this->createEmplacement('Chambre froide');
+        $realRoom = $this->createRoom('REAL'.uniqid());
+        $message = 'Cette localisation historique ne peut plus être affectée. Sélectionnez une chambre réelle ou un emplacement interne valide.';
+
+        $this->postJson('/api/equipements', $this->validPayload($category, [
+            'numero_serie' => 'PSEUDO-ROOM-'.uniqid(),
+            'chambre_id' => null,
+            'emplacement_id' => $pseudoRoom->id,
+        ]))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('emplacement_id')
+            ->assertJsonPath('errors.emplacement_id.0', $message);
+
+        $historicalEquipment = $this->createEquipment($category, [
+            'numero_serie' => 'HISTORICAL-EDIT-'.uniqid(),
+            'chambre_id' => null,
+            'emplacement_id' => $pseudoRoom->id,
+        ]);
+
+        $this->putJson("/api/equipements/{$historicalEquipment->id}", [
+            'nom' => 'Tentative de modification historique',
+            'emplacement_id' => $pseudoRoom->id,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('emplacement_id')
+            ->assertJsonPath('errors.emplacement_id.0', $message);
+
+        $this->assertSame('Test equipment', $historicalEquipment->fresh()->nom);
+        $this->assertSame($pseudoRoom->id, $historicalEquipment->fresh()->emplacement_id);
+
+        $this->postJson('/api/equipements', $this->validPayload($category, [
+            'numero_serie' => 'COLD-ROOM-'.uniqid(),
+            'chambre_id' => null,
+            'emplacement_id' => $coldRoom->id,
+        ]))
+            ->assertCreated()
+            ->assertJsonPath('emplacement.id', $coldRoom->id);
+
+        $this->postJson('/api/equipements', $this->validPayload($category, [
+            'numero_serie' => 'REAL-ROOM-'.uniqid(),
+            'chambre_id' => $realRoom->id,
+            'emplacement_id' => null,
+        ]))
+            ->assertCreated()
+            ->assertJsonPath('chambre.id', $realRoom->id)
+            ->assertJsonPath('emplacement', null);
     }
 
     private function createCategory(): CategorieEquipement

@@ -3,6 +3,12 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import RequiredLabel from "../../components/RequiredLabel";
 import { faPlus, faTrash } from "@fortawesome/free-solid-svg-icons";
 
+const equipmentStatusLabel = (status) => (
+  status === "hors_service" ? "Hors service" : "En maintenance"
+);
+
+const hasDegradedService = (room) => Number(room?.equipment_alerts?.count || 0) > 0;
+
 const RoomAllocationTable = ({
   rows,
   errors,
@@ -108,7 +114,9 @@ const RoomAllocationTable = ({
                     {roomOptions.length === 0 ? "Aucune chambre compatible" : "Sélectionner une chambre"}
                   </option>
                   {roomOptions.map((room) => (
-                    <option key={room.id} value={room.id}>Chambre {room.num_chambre}</option>
+                    <option key={room.id} value={room.id}>
+                      Chambre {room.num_chambre}{hasDegradedService(room) ? " — service dégradé" : ""}
+                    </option>
                   ))}
                 </Form.Select>
                 <Form.Control.Feedback type="invalid">
@@ -130,11 +138,28 @@ const RoomAllocationTable = ({
             )}
 
             {row.room && (
-              <div className="reservation-room-metadata">
-                <span><strong>Capacité standard :</strong> {row.room.capacite_standard ?? "—"}</span>
-                <span><strong>Capacité supplémentaire :</strong> {row.room.lits_supplementaires_max ?? 0}</span>
-                <span><strong>Maximum :</strong> {maximumOccupants} occupants</span>
-              </div>
+              <>
+                {hasDegradedService(row.room) && (
+                  <div className="reservation-equipment-warning" role="status">
+                    <strong>Attention — service dégradé</strong>
+                    <ul>
+                      {row.room.equipment_alerts.items.map((equipment) => (
+                        <li key={equipment.id}>
+                          {equipment.nom} : {equipmentStatusLabel(equipment.statut)}
+                        </li>
+                      ))}
+                    </ul>
+                    <span>
+                      La chambre reste réservable. Vérifiez que le client peut être accueilli dans ces conditions.
+                    </span>
+                  </div>
+                )}
+                <div className="reservation-room-metadata">
+                  <span><strong>Capacité standard :</strong> {row.room.capacite_standard ?? "—"}</span>
+                  <span><strong>Capacité supplémentaire :</strong> {row.room.lits_supplementaires_max ?? 0}</span>
+                  <span><strong>Maximum :</strong> {maximumOccupants} occupants</span>
+                </div>
+              </>
             )}
 
             <div className="reservation-occupancy-row">

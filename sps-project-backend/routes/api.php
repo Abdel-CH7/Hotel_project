@@ -292,6 +292,9 @@ Route::delete('/maintenances/{id}', [MaintenanceRecordController::class, 'destro
     // Routes pour les équipements
     Route::get('/equipements/stats', [EquipementController::class, 'stats']);
     Route::get('/equipements/categories', [EquipementController::class, 'categories']);
+    Route::post('/equipements/categories', [EquipementController::class, 'storeCategory']);
+    Route::put('/equipements/categories/{category}', [EquipementController::class, 'updateCategory'])
+        ->whereNumber('category');
     Route::apiResource('equipements', EquipementController::class)
         ->whereNumber('equipement');
     Route::apiResource('emplacements', EmplacementController::class)
@@ -373,12 +376,8 @@ Route::put('/reservations/{reservation}', [ReservationController::class, 'update
 // Deprecated compatibility aliases retained until the Phase 3C frontend migration.
 Route::get('/available-rooms', [ReservationController::class, 'availableRooms']);
 Route::post('/reservations/calculate-tarif', [ReservationController::class, 'calculatePrice']);
-Route::delete('/reservations/{reservation}', [ReservationController::class, 'cancelFromDelete'])
-    ->whereNumber('reservation');
 Route::get('/reservations/{reservationReference}', [ReservationController::class, 'showByNumber'])
     ->where('reservationReference', 'R[A-Za-z0-9]+');
 Route::put('/reservations/{reservationReference}', [ReservationController::class, 'updateByNumber'])
-    ->where('reservationReference', 'R[A-Za-z0-9]+');
-Route::delete('/reservations/{reservationReference}', [ReservationController::class, 'cancelByNumberFromDelete'])
     ->where('reservationReference', 'R[A-Za-z0-9]+');
 });

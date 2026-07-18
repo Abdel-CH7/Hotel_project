@@ -1,4 +1,5 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { Link } from "react-router-dom";
 import { faBan, faCheck, faChevronDown, faChevronRight, faPlay, faRotateLeft } from "@fortawesome/free-solid-svg-icons";
 import ExpandRTable from "../../components/ExpandRTable";
 import ListPagination from "../../components/ListPagination";
@@ -18,8 +19,8 @@ const ReclamationList = ({ rows, searchTerm, page, rowsPerPage, totalRows, setPa
     { key: "numero", label: "N° Réclamation", width: 180, render: (row) => <button type="button" className="reclamation-expand-button" onClick={() => toggleRow(row)} aria-expanded={Boolean(expandedRows[row.id])}><FontAwesomeIcon icon={expandedRows[row.id] ? faChevronDown : faChevronRight} /><span>{highlightText(row.numero, searchTerm)}</span></button> },
     { key: "date", label: "Date", width: 105, render: (row) => highlightText(formatDate(row.date), searchTerm) },
     { key: "objet", label: "Type / Objet", width: 175, render: (row) => highlightText(row.objet?.nom || "—", searchTerm) },
-    { key: "client", label: "Client / Réservation", width: 220, render: (row) => <div className="reclamation-cell-stack"><strong>{highlightText(row.client?.display_name || "—", searchTerm)}</strong><small>{highlightText(row.reservation?.numero || row.client?.type_label || "Sans liaison", searchTerm)}</small></div> },
-    { key: "chambre", label: "Chambre", width: 100, render: (row) => highlightText(row.chambre?.numero || "—", searchTerm) },
+    { key: "client", label: "Client / Réservation", width: 220, render: (row) => <div className="reclamation-cell-stack"><strong>{highlightText(row.client?.display_name || "—", searchTerm)}</strong><small>{row.reservation?.id ? <Link className="app-context-link" to={`/reservation?open=${row.reservation.id}`} aria-label={`Ouvrir la réservation ${row.reservation.numero}`}>{highlightText(row.reservation.numero, searchTerm)}</Link> : highlightText(row.client?.type_label || "Sans liaison", searchTerm)}</small></div> },
+    { key: "chambre", label: "Chambre", width: 145, render: (row) => row.chambre?.id ? <div className="reclamation-cell-stack"><Link className="app-context-link" to={`/chambre?room_id=${row.chambre.id}`} aria-label={`Voir la chambre ${row.chambre.numero}`}>{highlightText(`Chambre ${row.chambre.numero}`, searchTerm)}</Link><small><Link className="app-context-link" to={`/etat-chambre?room_id=${row.chambre.id}`} aria-label={`Voir l’état de la chambre ${row.chambre.numero}`}>Voir l’état</Link></small></div> : highlightText("—", searchTerm) },
     { key: "departement", label: "Département", width: 155, render: (row) => highlightText(row.departement?.nom || "—", searchTerm) },
     { key: "priorite", label: "Priorité", width: 105, render: (row) => <span className={`reclamation-priority-badge ${priorityClass(row.priorite)}`}>{highlightText(row.priorite_label || "—", searchTerm)}</span> },
     { key: "statut", label: "Statut", width: 110, render: (row) => <span className={`reclamation-status-badge ${statusClass(row.statut)}`}>{highlightText(row.statut || "—", searchTerm)}</span> },

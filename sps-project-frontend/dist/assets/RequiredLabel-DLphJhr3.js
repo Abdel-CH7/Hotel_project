@@ -1,0 +1,1 @@
+import{j as e}from"./index-C9tzjjhC.js";const i=({children:a,required:s=!1})=>e.jsxs(e.Fragment,{children:[a,s&&e.jsxs(e.Fragment,{children:[e.jsx("span",{className:"app-required-mark","aria-hidden":"true",children:"*"}),e.jsx("span",{className:"visually-hidden",children:" champ obligatoire"})]})]});export{i as R};
