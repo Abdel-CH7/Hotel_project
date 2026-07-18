@@ -1,0 +1,296 @@
+@startuml
+!pragma layout smetana
+!include theme.puml
+hide methods
+hide stereotypes
+title Modèle relationnel simplifié de la base de données
+
+entity users {
+  * id : bigint <<PK>>
+  --
+  name : varchar
+  email : varchar <<UQ>>
+  photo : varchar?
+  role : varchar
+  is_active : boolean
+  deleted_at : timestamp?
+}
+entity personal_access_tokens {
+  * id : bigint <<PK>>
+  tokenable_type, tokenable_id
+  token : varchar <<UQ>>
+}
+users ||--o{ personal_access_tokens
+
+package "Clients" {
+  entity clients {
+    * id : bigint <<PK>>
+    CodeClient : varchar <<UQ>>
+    raison_sociale : varchar
+    type_organisation : varchar?
+    secteur_id : bigint? <<FK>>
+    mod_id : bigint? <<FK>>
+    user_id : bigint? <<FK>>
+    credit_autorise : boolean
+  }
+  entity clients_particulier {
+    * id : bigint <<PK>>
+    CodeClient : varchar <<UQ>>
+    name, prenom : varchar
+    type_piece, cin : varchar
+    pays_code, region_nom, ville : varchar?
+    user_id : bigint? <<FK>>
+  }
+  entity contact_clients {
+    * id : bigint <<PK>>
+    idClient : int
+    type : varchar?
+    email : varchar?
+  }
+  entity enfants {
+    * id : bigint <<PK>>
+    idClient : bigint <<FK>>
+    type : varchar?
+    age : int?
+  }
+  clients ||--o{ contact_clients
+  clients_particulier ||--o{ enfants
+}
+users |o--o{ clients
+users |o--o{ clients_particulier
+
+package "Chambres" {
+  entity types_chambre {
+    * id : bigint <<PK>>
+    code : varchar <<UQ>>
+    type_chambre : varchar <<UQ>>
+    capacite_standard : int?
+    lits_supplementaires_max : int?
+  }
+  entity etages {
+    * id : bigint <<PK>>
+    etage : varchar
+  }
+  entity vues {
+    * id : bigint <<PK>>
+    vue : varchar
+  }
+  entity chambres {
+    * id : bigint <<PK>>
+    num_chambre : varchar <<UQ>>
+    type_chambre_id : bigint <<FK>>
+    etage_id : bigint <<FK>>
+    vue_id : bigint <<FK>>
+  }
+  entity etat_chambre {
+    * id : bigint <<PK>>
+    num_chambre : varchar <<FK,UQ>>
+    status : varchar
+    maintenance : boolean
+    maintenance_type_id : bigint? <<FK>>
+    nettoyee_par_id : bigint? <<FK>>
+  }
+  types_chambre ||--o{ chambres
+  etages ||--o{ chambres
+  vues ||--o{ chambres
+  chambres ||--|| etat_chambre
+}
+
+package "Tarifs" {
+  entity tarifs_chambre {
+    * id : bigint <<PK>>
+    designation : varchar <<UQ>>
+  }
+  entity tarif_chambre_detail {
+    * id : bigint <<PK>>
+    code : varchar <<UQ>>
+    tarif_chambre_id : bigint <<FK>>
+    type_chambre_id : bigint <<FK>>
+    prix_1_personne : decimal?
+    prix_2_personnes : decimal?
+    prix_3_personnes : decimal?
+  }
+  entity tarifs_repas {
+    * id : bigint <<PK>>
+    designation : varchar <<UQ>>
+  }
+  entity tarif_repas_detail {
+    * id : bigint <<PK>>
+    tarif_repas_id : bigint <<FK>>
+    type_repas_id : bigint <<FK>>
+    prix_par_personne : decimal
+  }
+  entity tarifs_reduction {
+    * id : bigint <<PK>>
+    designation : varchar <<UQ>>
+  }
+  entity tarif_reduction_detail {
+    * id : bigint <<PK>>
+    tarif_reduction_id : bigint <<FK>>
+    type_reduction_id : bigint <<FK>>
+    montant_fixe : decimal
+    pourcentage : decimal
+  }
+  entity tarifs_actuel {
+    * id : bigint <<PK>>
+    designation : varchar
+    date_debut, date_fin : date
+    tarif_chambre_id : bigint <<FK>>
+    tarif_repas_id : bigint? <<FK>>
+    tarif_reduction_id : bigint? <<FK>>
+    statut : varchar
+  }
+  tarifs_chambre ||--o{ tarif_chambre_detail
+  types_chambre ||--o{ tarif_chambre_detail
+  tarifs_repas ||--o{ tarif_repas_detail
+  tarifs_reduction ||--o{ tarif_reduction_detail
+  tarifs_chambre ||--o{ tarifs_actuel
+  tarifs_repas |o--o{ tarifs_actuel
+  tarifs_reduction |o--o{ tarifs_actuel
+}
+
+package "Réservations et paiements" {
+  entity reservations {
+    * id : bigint <<PK>>
+    reservation_num : varchar <<UQ>>
+    client_type : varchar
+    client_id : bigint
+    date_debut, date_fin : date
+    status : varchar
+    tarif_actuel_id : bigint? <<FK>>
+    politique_paiement : varchar
+    montant_total : decimal
+  }
+  entity details_reservation {
+    * id : bigint <<PK>>
+    reservation_id : bigint <<FK>>
+    chambre_id : bigint <<FK>>
+    type_chambre_id : bigint? <<FK>>
+    adultes, enfants : int
+    montant_total : decimal
+    (reservation_id, chambre_id) <<UQ>>
+  }
+  entity reservation_room_price_segments {
+    * id : bigint <<PK>>
+    reservation_room_id : bigint <<FK>>
+    tarif_actuel_id : bigint? <<FK>>
+    tarif_chambre_detail_id : bigint? <<FK>>
+    segment_date_debut, segment_date_fin : date
+    montant_segment : decimal
+  }
+  entity reservation_meals {
+    * id : bigint <<PK>>
+    reservation_id : bigint <<FK>>
+    tarif_actuel_id : bigint? <<FK>>
+    tarif_repas_detail_id : bigint? <<FK>>
+    type_repas_id : bigint? <<FK>>
+    montant_total : decimal
+  }
+  entity reservation_reductions {
+    * id : bigint <<PK>>
+    reservation_id : bigint <<FK,UQ>>
+    tarif_actuel_id : bigint? <<FK>>
+    tarif_reduction_detail_id : bigint? <<FK>>
+    montant_applique : decimal
+  }
+  entity reservation_paiements {
+    * id : bigint <<PK>>
+    paiement_num : varchar <<UQ>>
+    reservation_id : bigint <<FK>>
+    mode_paiement_id : bigint <<FK>>
+    montant : decimal
+    statut : varchar
+    user_id : bigint? <<FK>>
+    annule_par_id : bigint? <<FK>>
+  }
+  reservations ||--|{ details_reservation
+  chambres ||--o{ details_reservation
+  details_reservation ||--|{ reservation_room_price_segments
+  reservations ||--o{ reservation_meals
+  reservations ||--o| reservation_reductions
+  reservations ||--o{ reservation_paiements
+  users |o--o{ reservation_paiements : user_id
+  users |o--o{ reservation_paiements : annule_par_id
+  tarifs_actuel |o--o{ reservations
+}
+
+package "Réclamations" {
+  entity reclamation_types {
+    * id : bigint <<PK>>
+    nom : varchar <<UQ>>
+    departement_par_defaut_id : bigint? <<FK>>
+    actif : boolean
+  }
+  entity reclamation_canaux {
+    * id : bigint <<PK>>
+    nom : varchar <<UQ>>
+    est_autre : boolean
+    actif : boolean
+  }
+  entity departements {
+    * id : bigint <<PK>>
+    nom : varchar
+    actif : boolean
+  }
+  entity reclamations {
+    * id : bigint <<PK>>
+    reclamation_num : varchar <<UQ>>
+    reservation_id : bigint? <<FK>>
+    client_type : varchar?
+    client_id : bigint?
+    chambre_id : bigint? <<FK>>
+    reclamation_type_id : bigint <<FK>>
+    reclamation_canal_id : bigint <<FK>>
+    departement_id : bigint <<FK>>
+    suivi : varchar
+    created_by : bigint? <<FK>>
+    updated_by : bigint? <<FK>>
+  }
+  entity reclamation_historique {
+    * id : bigint <<PK>>
+    reclamation_id : bigint <<FK>>
+    type_evenement : varchar
+    ancien_statut : varchar?
+    nouveau_statut : varchar?
+    user_id : bigint? <<FK>>
+  }
+  reclamation_types ||--o{ reclamations
+  reclamation_canaux ||--o{ reclamations
+  departements ||--o{ reclamations
+  reservations |o--o{ reclamations
+  chambres |o--o{ reclamations
+  reclamations ||--|{ reclamation_historique
+  users |o--o{ reclamation_historique
+}
+
+package "Équipements" {
+  entity categories_equipements {
+    * id : bigint <<PK>>
+    nom : varchar
+    deleted_at : timestamp?
+  }
+  entity emplacements {
+    * id : bigint <<PK>>
+    nom : varchar <<UQ>>
+    type : varchar
+  }
+  entity equipements {
+    * id : bigint <<PK>>
+    numero_serie : varchar <<UQ>>
+    categorie_id : bigint <<FK>>
+    chambre_id : bigint? <<FK>>
+    emplacement_id : bigint? <<FK>>
+    statut : varchar
+    document_path : varchar?
+    deleted_at : timestamp?
+  }
+  categories_equipements ||--o{ equipements
+  chambres |o--o{ equipements
+  emplacements |o--o{ equipements
+}
+
+note bottom of reservations
+  client_id est polymorphe : clients.id si client_type = societe,
+  clients_particulier.id si client_type = particulier.
+end note
+@enduml

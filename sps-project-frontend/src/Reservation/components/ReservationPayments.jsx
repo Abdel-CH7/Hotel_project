@@ -2,6 +2,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { Button, Form } from "react-bootstrap";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faFilePdf, faPrint } from "@fortawesome/free-solid-svg-icons";
+import RequiredLabel from "../../components/RequiredLabel";
 import {
   cancelReservationPayment,
   createReservationPayment,
@@ -310,13 +311,14 @@ const ReservationPayments = ({ reservation, onChanged }) => {
       {formOpen && (
         <div className="reservation-payment-form">
           <h4>Ajouter un paiement</h4>
+          <p className="app-required-note"><span className="app-required-mark" aria-hidden="true">*</span> Champs obligatoires</p>
           <div className="reservation-payment-form-grid">
             <Form.Group>
               <Form.Label>Classification automatique</Form.Label>
               <div className="reservation-payment-classification">{automaticClassification}</div>
             </Form.Group>
             <Form.Group>
-              <Form.Label>Mode de paiement *</Form.Label>
+              <Form.Label><RequiredLabel required>Mode de paiement</RequiredLabel></Form.Label>
               <Form.Select value={form.mode_paiement_id} onChange={(event) => setField("mode_paiement_id", event.target.value)} isInvalid={Boolean(errors.mode_paiement_id)}>
                 <option value="">Sélectionner</option>
                 {modes.map((mode) => <option key={mode.id} value={mode.id}>{mode.label}</option>)}
@@ -324,12 +326,12 @@ const ReservationPayments = ({ reservation, onChanged }) => {
               <Form.Control.Feedback type="invalid">{errors.mode_paiement_id}</Form.Control.Feedback>
             </Form.Group>
             <Form.Group>
-              <Form.Label>Montant * <small>Maximum : {formatMoney(summary.reste_a_payer)}</small></Form.Label>
+              <Form.Label><RequiredLabel required>Montant</RequiredLabel> <small>Maximum : {formatMoney(summary.reste_a_payer)}</small></Form.Label>
               <Form.Control type="number" min="0.01" max={summary.reste_a_payer || undefined} step="0.01" value={form.montant} onChange={(event) => setField("montant", event.target.value)} isInvalid={Boolean(errors.montant)} />
               <Form.Control.Feedback type="invalid">{errors.montant}</Form.Control.Feedback>
             </Form.Group>
             <Form.Group>
-              <Form.Label>Date du paiement *</Form.Label>
+              <Form.Label><RequiredLabel required>Date du paiement</RequiredLabel></Form.Label>
               <Form.Control type="date" min={reservationDate} max={localToday} value={form.date_paiement} onChange={(event) => setField("date_paiement", event.target.value)} isInvalid={Boolean(errors.date_paiement)} />
               <Form.Control.Feedback type="invalid">{errors.date_paiement}</Form.Control.Feedback>
             </Form.Group>
@@ -354,12 +356,13 @@ const ReservationPayments = ({ reservation, onChanged }) => {
       {cancelTarget && (
         <div className="reservation-payment-cancel-panel">
           <h4>Annuler la saisie</h4>
+          <p className="app-required-note"><span className="app-required-mark" aria-hidden="true">*</span> Champs obligatoires</p>
           <p><strong>{cancelTarget.numero}</strong> · {formatMoney(cancelTarget.montant)} · {cancelTarget.mode?.label || "—"} · {formatDate(cancelTarget.date)}</p>
           <div className="reservation-alert is-warning">
             Cette action annule uniquement la saisie du paiement. Elle ne représente pas un remboursement au client.
           </div>
           <Form.Group>
-            <Form.Label>Motif d’annulation *</Form.Label>
+            <Form.Label><RequiredLabel required>Motif d’annulation</RequiredLabel></Form.Label>
             <Form.Control as="textarea" rows={3} value={cancelReason} onChange={(event) => { setCancelReason(event.target.value); setActionError(""); }} />
           </Form.Group>
           <div className="app-form-actions">

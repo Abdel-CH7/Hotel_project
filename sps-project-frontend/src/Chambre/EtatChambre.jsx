@@ -20,6 +20,7 @@ import {
 import { useOpen } from "../Acceuil/OpenProvider";
 import SearchWithExport from "../components/SearchWithExport";
 import AppStats from "../components/AppStats";
+import RequiredLabel from "../components/RequiredLabel";
 import ListFilterReset from "../components/ListFilterReset";
 import ListPagination from "../components/ListPagination";
 import ListState from "../components/ListState";
@@ -37,8 +38,11 @@ import {
 import ChambreTable, {
   formatFrenchDate,
   getCleanerLabel,
+  getCurrentStayLabel,
   getEmployeeFullName,
   getMaintenanceTypeLabel,
+  getOccupationLabel,
+  getRoomOccupation,
   getRoomMaintenanceType,
   maintenanceToOuiNon,
   toInputDate,
@@ -47,6 +51,10 @@ import ChambreTable, {
 const ROOM_STATE_EXPORT_COLUMNS = [
   { key: "roomNumber", label: "Numéro de chambre" },
   { key: "cleanliness", label: "Propreté" },
+  { key: "occupation", label: "Occupation" },
+  { key: "currentReservation", label: "Réservation actuelle" },
+  { key: "currentClient", label: "Client actuel" },
+  { key: "currentStay", label: "Séjour actuel" },
   { key: "lastCleaning", label: "Dernier nettoyage" },
   { key: "cleaner", label: "Nettoyée par" },
   { key: "maintenance", label: "Maintenance" },
@@ -170,6 +178,7 @@ const EtatChambre = () => {
 
   const [selectedStatus, setSelectedStatus] = useState("");
   const [selectedMaintenance, setSelectedMaintenance] = useState("");
+  const [selectedOccupation, setSelectedOccupation] = useState("");
   const [dateNettoyage, setDateNettoyage] = useState("");
   const [dateDebutMaintenance, setDateDebutMaintenance] = useState("");
   const [dateFinMaintenance, setDateFinMaintenance] = useState("");
@@ -748,6 +757,7 @@ const EtatChambre = () => {
   const handleFilterChange = (key, value) => {
     if (key === "status") setSelectedStatus(value);
     if (key === "maintenance") setSelectedMaintenance(value);
+    if (key === "occupation") setSelectedOccupation(value);
     if (key === "date_nettoyage") setDateNettoyage(value);
     if (key === "date_debut_maintenance") setDateDebutMaintenance(value);
     if (key === "date_fin_maintenance") setDateFinMaintenance(value);
@@ -767,6 +777,9 @@ const EtatChambre = () => {
         chambre.status === "nettoyée" ? "Nettoyée" : "Non nettoyée";
       const maintenanceLabel =
         maintenanceValue === "oui" ? "En maintenance" : "Aucune maintenance";
+      const occupation = getRoomOccupation(chambre);
+      const occupationLabel = getOccupationLabel(chambre);
+      const currentReservation = occupation.reservation;
       const matchesSearch = matchesNormalizedSearch(currentSearchTerm, [
         chambre.num_chambre,
         chambre.status,
@@ -774,6 +787,11 @@ const EtatChambre = () => {
         getCleanerLabel(chambre),
         maintenanceLabel,
         maintenanceTypeLabel,
+        occupationLabel,
+        currentReservation?.numero,
+        currentReservation?.client,
+        getDateSearchVariants(currentReservation?.date_debut),
+        getDateSearchVariants(currentReservation?.date_fin),
         getDateSearchVariants(chambre.date_nettoyage),
         getDateSearchVariants(chambre.date_debut_maintenance),
         getDateSearchVariants(chambre.date_fin_maintenance),
@@ -783,6 +801,8 @@ const EtatChambre = () => {
         !selectedStatus || chambre.status === selectedStatus;
       const matchesMaintenance =
         !selectedMaintenance || maintenanceValue === selectedMaintenance;
+      const matchesOccupation =
+        !selectedOccupation || occupation.statut === selectedOccupation;
       const matchesCleaningDate =
         !dateNettoyage || toInputDate(chambre.date_nettoyage) === dateNettoyage;
       const selectedMaintenanceStart = toInputDate(dateDebutMaintenance);
@@ -804,6 +824,7 @@ const EtatChambre = () => {
         matchesSearch &&
         matchesStatus &&
         matchesMaintenance &&
+        matchesOccupation &&
         matchesCleaningDate &&
         matchesMaintenanceRange
       );
@@ -814,6 +835,7 @@ const EtatChambre = () => {
       dateNettoyage,
       maintenanceTypes,
       selectedMaintenance,
+      selectedOccupation,
       selectedStatus,
     ]
   );
@@ -839,6 +861,7 @@ const EtatChambre = () => {
     searchTerm ||
       selectedStatus ||
       selectedMaintenance ||
+      selectedOccupation ||
       dateNettoyage ||
       dateDebutMaintenance ||
       dateFinMaintenance
@@ -849,12 +872,15 @@ const EtatChambre = () => {
     { key: "clean", title: "Nettoyées", value: chambres.filter((room) => room.status === "nettoyée").length, icon: faCheckCircle, variant: "success" },
     { key: "dirty", title: "Non nettoyées", value: chambres.filter((room) => room.status === "non nettoyée").length, icon: faTriangleExclamation, variant: "warning" },
     { key: "maintenance", title: "En maintenance", value: chambres.filter((room) => maintenanceToOuiNon(room.maintenance) === "oui").length, icon: faWrench, variant: "danger" },
+    { key: "occupied", title: "Occupées", value: chambres.filter((room) => getRoomOccupation(room).occupee).length, icon: faBed, variant: "warning" },
+    { key: "free", title: "Libres", value: chambres.filter((room) => !getRoomOccupation(room).occupee).length, icon: faCheckCircle, variant: "success" },
   ], [chambres]);
 
   const resetFilters = useCallback(() => {
     setSearchTerm("");
     setSelectedStatus("");
     setSelectedMaintenance("");
+    setSelectedOccupation("");
     setDateNettoyage("");
     setDateDebutMaintenance("");
     setDateFinMaintenance("");
@@ -881,11 +907,17 @@ const EtatChambre = () => {
                 .filter(Boolean)
                 .join(" - ")
             : "Aucune";
+        const occupation = getRoomOccupation(chambre);
+        const currentReservation = occupation.reservation;
 
         return {
           roomNumber: chambre.num_chambre || "",
           cleanliness:
             chambre.status === "nettoyée" ? "Nettoyée" : "Non nettoyée",
+          occupation: getOccupationLabel(chambre),
+          currentReservation: currentReservation?.numero || "—",
+          currentClient: currentReservation?.client || "—",
+          currentStay: currentReservation ? getCurrentStayLabel(chambre) : "—",
           lastCleaning: formatFrenchDate(chambre.date_nettoyage),
           cleaner: getCleanerLabel(chambre),
           maintenance: maintenanceDetails,
@@ -998,6 +1030,25 @@ const EtatChambre = () => {
   </div>
 
   <div className="etat-chambre-filter-field">
+    <span>Occupation</span>
+
+    <Form.Select
+      value={selectedOccupation}
+      onChange={(event) =>
+        handleFilterChange(
+          "occupation",
+          event.target.value
+        )
+      }
+      className="app-filter-select"
+    >
+      <option value="">Toutes</option>
+      <option value="libre">Libres</option>
+      <option value="occupée">Occupées</option>
+    </Form.Select>
+  </div>
+
+  <div className="etat-chambre-filter-field">
     <span>Dernier nettoyage</span>
 
     <Form.Control
@@ -1100,13 +1151,14 @@ const EtatChambre = () => {
             <h4 className="app-form-drawer-title">
               Modifier l’état et la maintenance
             </h4>
+            <p className="app-required-note"><span className="app-required-mark" aria-hidden="true">*</span> Champs obligatoires</p>
             <div className="row g-3">
               <Form.Group className="col-md-6">
-                <Form.Label>Numéro de Chambre</Form.Label>
+                <Form.Label>Numéro de chambre</Form.Label>
                 <Form.Control value={formData.num_chambre} readOnly />
               </Form.Group>
               <Form.Group className="col-md-6">
-                <Form.Label>Propreté</Form.Label>
+                <Form.Label><RequiredLabel required>Propreté</RequiredLabel></Form.Label>
                 <Form.Select
                   name="status"
                   value={formData.status}
@@ -1121,7 +1173,7 @@ const EtatChambre = () => {
                 </Form.Control.Feedback>
               </Form.Group>
               <Form.Group className="col-md-6">
-                <Form.Label>Date de Nettoyage</Form.Label>
+                <Form.Label><RequiredLabel required={formData.status === "nettoyée"}>Date de nettoyage</RequiredLabel></Form.Label>
                 <Form.Control
                   type="date"
                   name="date_nettoyage"
@@ -1134,7 +1186,8 @@ const EtatChambre = () => {
                 </Form.Control.Feedback>
               </Form.Group>
               <Form.Group className="col-md-6">
-                <div className="d-flex align-items-center">
+                <div className="app-label-action etat-chambre-field-heading">
+                  <Form.Label><RequiredLabel required={formData.status === "nettoyée"}>Nettoyée par</RequiredLabel></Form.Label>
                   <button
                     type="button"
                     className="etat-chambre-label-action"
@@ -1144,7 +1197,6 @@ const EtatChambre = () => {
                   >
                     <FontAwesomeIcon icon={faPlus} />
                   </button>
-                  <Form.Label className="mb-0">Nettoyée par</Form.Label>
                 </div>
                 <Form.Select
                   name="nettoyee_par_id"
@@ -1169,7 +1221,7 @@ const EtatChambre = () => {
                 </Form.Control.Feedback>
               </Form.Group>
               <Form.Group className="col-12">
-                <Form.Label>Maintenance</Form.Label>
+                <Form.Label><RequiredLabel required>Maintenance</RequiredLabel></Form.Label>
                 <div className="d-flex gap-4">
                   <Form.Check
                     type="radio"
@@ -1200,8 +1252,8 @@ const EtatChambre = () => {
               {formData.maintenance === "oui" && (
                 <>
                   <Form.Group className="col-12">
-                    <div className="etat-chambre-field-heading">
-                      <Form.Label>Type de Maintenance</Form.Label>
+                    <div className="app-label-action etat-chambre-field-heading">
+                      <Form.Label><RequiredLabel required>Type de maintenance</RequiredLabel></Form.Label>
                       <button
                         type="button"
                         className="etat-chambre-icon-button"
@@ -1230,7 +1282,7 @@ const EtatChambre = () => {
                     </Form.Control.Feedback>
                   </Form.Group>
                   <Form.Group className="col-md-6">
-                    <Form.Label>Date Début Maintenance</Form.Label>
+                    <Form.Label><RequiredLabel required>Date de début de maintenance</RequiredLabel></Form.Label>
                     <Form.Control
                       type="date"
                       name="date_debut_maintenance"
@@ -1243,7 +1295,7 @@ const EtatChambre = () => {
                     </Form.Control.Feedback>
                   </Form.Group>
                   <Form.Group className="col-md-6">
-                    <Form.Label>Date Fin Maintenance</Form.Label>
+                    <Form.Label><RequiredLabel required>Date de fin de maintenance</RequiredLabel></Form.Label>
                     <Form.Control
                       type="date"
                       name="date_fin_maintenance"
@@ -1302,12 +1354,14 @@ const EtatChambre = () => {
               </Modal.Title>
             </Modal.Header>
             <Modal.Body>
+              <p className="app-required-note"><span className="app-required-mark" aria-hidden="true">*</span> Champs obligatoires</p>
               {actionError && <Alert variant="danger">{actionError}</Alert>}
               <p>
                 Chambre <strong>{quickCleanRoom?.num_chambre}</strong>
               </p>
               <Form.Group className="mb-3">
-                <div className="d-flex align-items-center">
+                <div className="app-label-action">
+                  <Form.Label><RequiredLabel required>Employé</RequiredLabel></Form.Label>
                   <button
                     type="button"
                     className="etat-chambre-label-action"
@@ -1317,7 +1371,6 @@ const EtatChambre = () => {
                   >
                     <FontAwesomeIcon icon={faPlus} />
                   </button>
-                  <Form.Label className="mb-0">Employé</Form.Label>
                 </div>
                 <Form.Select
                   value={quickCleanData.nettoyee_par_id}
@@ -1350,7 +1403,7 @@ const EtatChambre = () => {
                 </Form.Control.Feedback>
               </Form.Group>
               <Form.Group>
-                <Form.Label>Date de nettoyage</Form.Label>
+                <Form.Label><RequiredLabel required>Date de nettoyage</RequiredLabel></Form.Label>
                 <Form.Control
                   type="date"
                   value={quickCleanData.date_nettoyage}
@@ -1402,9 +1455,10 @@ const EtatChambre = () => {
             )}
 
             <Form onSubmit={submitEmployee} noValidate>
+              <p className="app-required-note"><span className="app-required-mark" aria-hidden="true">*</span> Champs obligatoires</p>
               <div className="row g-3">
                 <Form.Group className="col-md-4">
-                  <Form.Label>Matricule</Form.Label>
+                  <Form.Label><RequiredLabel required>Matricule</RequiredLabel></Form.Label>
                   <Form.Control
                     name="matricule"
                     value={employeeForm.matricule}
@@ -1416,7 +1470,7 @@ const EtatChambre = () => {
                   </Form.Control.Feedback>
                 </Form.Group>
                 <Form.Group className="col-md-4">
-                  <Form.Label>Nom</Form.Label>
+                  <Form.Label><RequiredLabel required>Nom</RequiredLabel></Form.Label>
                   <Form.Control
                     name="nom"
                     value={employeeForm.nom}
@@ -1428,7 +1482,7 @@ const EtatChambre = () => {
                   </Form.Control.Feedback>
                 </Form.Group>
                 <Form.Group className="col-md-4">
-                  <Form.Label>Prénom</Form.Label>
+                  <Form.Label><RequiredLabel required>Prénom</RequiredLabel></Form.Label>
                   <Form.Control
                     name="prenom"
                     value={employeeForm.prenom}
@@ -1440,7 +1494,7 @@ const EtatChambre = () => {
                   </Form.Control.Feedback>
                 </Form.Group>
                 <Form.Group className="col-md-4">
-                  <Form.Label>Fonction</Form.Label>
+                  <Form.Label><RequiredLabel required>Fonction</RequiredLabel></Form.Label>
                   <Form.Select
                     name="fonction"
                     value={employeeForm.fonction}
@@ -1618,9 +1672,10 @@ const EtatChambre = () => {
               <Alert variant="danger">{maintenanceTypeActionError}</Alert>
             )}
             <Form onSubmit={submitMaintenanceType} noValidate>
+              <p className="app-required-note"><span className="app-required-mark" aria-hidden="true">*</span> Champs obligatoires</p>
               <div className="row g-3">
                 <Form.Group className="col-md-4">
-                  <Form.Label>Code</Form.Label>
+                  <Form.Label><RequiredLabel required>Code</RequiredLabel></Form.Label>
                   <Form.Control
                     name="code"
                     value={maintenanceTypeForm.code}
@@ -1632,7 +1687,7 @@ const EtatChambre = () => {
                   </Form.Control.Feedback>
                 </Form.Group>
                 <Form.Group className="col-md-8">
-                  <Form.Label>Libellé</Form.Label>
+                  <Form.Label><RequiredLabel required>Libellé</RequiredLabel></Form.Label>
                   <Form.Control
                     name="types_maintenance"
                     value={maintenanceTypeForm.types_maintenance}

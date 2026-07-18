@@ -55,6 +55,24 @@ export const getRoomMaintenanceType = (roomState, maintenanceTypes = []) =>
     (type) => String(type.id) === String(roomState?.maintenance_type_id)
   ) || roomState?.maintenance_type;
 
+export const getRoomOccupation = (roomState) => ({
+  statut: roomState?.occupation?.occupee ? "occupée" : "libre",
+  occupee: roomState?.occupation?.occupee === true,
+  reservation: roomState?.occupation?.reservation || null,
+});
+
+export const getOccupationLabel = (roomState) =>
+  getRoomOccupation(roomState).occupee ? "Occupée" : "Libre";
+
+export const getCurrentStayLabel = (roomState) => {
+  const reservation = getRoomOccupation(roomState).reservation;
+  if (!reservation) return "—";
+
+  return `${formatFrenchDate(reservation.date_debut)} → ${formatFrenchDate(
+    reservation.date_fin
+  )}`;
+};
+
 const shortenComment = (comment, limit = 48) => {
   if (!comment) return "-";
   return comment.length > limit ? `${comment.slice(0, limit)}...` : comment;
@@ -84,6 +102,7 @@ const ChambreTable = ({
             <tr>
               <th>N° Chambre</th>
               <th>Propreté</th>
+              <th>Occupation</th>
               <th>Dernier nettoyage</th>
               <th>Nettoyée par</th>
               <th>Maintenance</th>
@@ -102,6 +121,8 @@ const ChambreTable = ({
                   chambre,
                   maintenanceTypes
                 );
+                const occupation = getRoomOccupation(chambre);
+                const currentReservation = occupation.reservation;
 
                 return (
                   <tr key={chambre.id || chambre.num_chambre}>
@@ -114,6 +135,45 @@ const ChambreTable = ({
                       >
                         {highlightText(isClean ? "Nettoyée" : "Non nettoyée", searchTerm)}
                       </span>
+                    </td>
+                    <td>
+                      <div className="etat-chambre-occupation-cell">
+                        <span
+                          className={`app-status-badge ${
+                            occupation.occupee ? "is-warning" : "is-success"
+                          }`}
+                        >
+                          {highlightText(
+                            occupation.occupee ? "Occupée" : "Libre",
+                            searchTerm
+                          )}
+                        </span>
+                        {currentReservation && (
+                          <>
+                            <strong>
+                              {highlightText(
+                                currentReservation.numero || "—",
+                                searchTerm
+                              )}
+                            </strong>
+                            <span
+                              className="etat-chambre-occupation-client"
+                              title={currentReservation.client || ""}
+                            >
+                              {highlightText(
+                                currentReservation.client || "—",
+                                searchTerm
+                              )}
+                            </span>
+                            <span className="etat-chambre-occupation-period">
+                              {highlightText(
+                                getCurrentStayLabel(chambre),
+                                searchTerm
+                              )}
+                            </span>
+                          </>
+                        )}
+                      </div>
                     </td>
                     <td>{highlightText(formatFrenchDate(chambre.date_nettoyage), searchTerm)}</td>
                     <td>{highlightText(getCleanerLabel(chambre), searchTerm)}</td>
@@ -174,7 +234,7 @@ const ChambreTable = ({
               })
             ) : (
               <tr>
-                <td colSpan={7} className="text-center">
+                <td colSpan={8} className="text-center">
                   Aucun état de chambre disponible
                 </td>
               </tr>

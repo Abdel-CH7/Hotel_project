@@ -129,12 +129,20 @@
   background: #fff;
 }
 
-.reclamation-expanded-content h3,
-.reclamation-form-section h3 {
+.reclamation-expanded-content h3 {
   margin: 0 0 12px;
   color: #0f766e;
   font-size: 15px;
   font-weight: 700;
+  letter-spacing: 0;
+}
+
+.reclamation-form-section h3 {
+  margin: 0 0 12px;
+  color: #176d6a;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.3;
   letter-spacing: 0;
 }
 
@@ -201,7 +209,7 @@
 .reclamation-form-grid { display: grid; gap: 14px; }
 .reclamation-form-grid.two-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .reclamation-label-action { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.reclamation-label-action .form-label { margin-bottom: 6px; }
+.reclamation-label-action .form-label { margin-bottom: 0; }
 .app-inline-add { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 4px; background: #00afaa; color: #fff; }
 .reclamation-derived-context { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 10px 0; padding: 10px 12px; border-left: 3px solid #00afaa; background: #f0fdfa; }
 

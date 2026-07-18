@@ -1,0 +1,1 @@
+import{u as i,c}from"./Form-DfZG0WX_.js";import{f,j as x}from"./index-C1n1CBbA.js";const $=f.forwardRef(({bsPrefix:r,variant:s,animation:o="border",size:e,as:t="div",className:n,...p},m)=>{r=i(r,"spinner");const a=`${r}-${o}`;return x.jsx(t,{ref:m,...p,className:c(n,a,e&&`${a}-${e}`,s&&`text-${s}`)})});$.displayName="Spinner";export{$ as S};

@@ -15,7 +15,9 @@ import {
 import { Visibility, VisibilityOff } from "@mui/icons-material";
 import { useAuth } from "../AuthContext";
 import AnimatedBackground from "../components/AnimatedBackground";
+import RequiredLabel from "../components/RequiredLabel";
 import { AUTH_REDIRECT_MESSAGE_KEY } from "../utils/apiClient";
+import "../style.css";
 
 const CREDENTIALS_ERROR = "Adresse e-mail ou mot de passe incorrect.";
 const NETWORK_ERROR = "Serveur inaccessible. Vérifiez que l’API Laravel est démarrée.";
@@ -98,11 +100,28 @@ const Login = () => {
           }}
         >
           <Box
-            component="img"
-            src="/sps-logo.svg"
-            alt="SPS Technologies"
-            sx={{ display: "block", width: "min(180px, 70%)", mx: "auto", mb: 3 }}
-          />
+            sx={{
+              width: "100%",
+              maxWidth: 360,
+              height: { xs: 96, sm: 110 },
+              mx: "auto",
+              mb: 2.5,
+              overflow: "hidden",
+            }}
+          >
+            <Box
+              component="img"
+              src="/hms-logo.png"
+              alt="HMS Gestion hôtelière"
+              sx={{
+                display: "block",
+                width: "100%",
+                height: "100%",
+                objectFit: "contain",
+                transform: "scale(1.3)",
+              }}
+            />
+          </Box>
 
           <Typography component="h1" variant="h5" align="center" sx={{ color: "#0b4d54", fontWeight: 700 }}>
             Connexion
@@ -114,14 +133,17 @@ const Login = () => {
           {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
           <Box component="form" onSubmit={handleSubmit} noValidate>
+            <Typography component="p" className="app-required-note" sx={{ mb: 1.5 }}>
+              <span className="app-required-mark" aria-hidden="true">*</span> Champs obligatoires
+            </Typography>
             <TextField
-              required
               fullWidth
               autoFocus
               type="email"
               id="email"
               name="email"
-              label="Adresse e-mail"
+              label={<RequiredLabel required>Adresse e-mail</RequiredLabel>}
+              aria-required="true"
               autoComplete="email"
               value={formData.email}
               onChange={handleChange}
@@ -130,11 +152,11 @@ const Login = () => {
             />
 
             <TextField
-              required
               fullWidth
               id="password"
               name="password"
-              label="Mot de passe"
+              label={<RequiredLabel required>Mot de passe</RequiredLabel>}
+              aria-required="true"
               type={showPassword ? "text" : "password"}
               autoComplete="current-password"
               value={formData.password}

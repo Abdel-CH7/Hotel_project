@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Chambre;
 use App\Models\Etage;
+use App\Models\EtatChambre;
 use App\Models\TypeChambre;
 use App\Models\Vue;
 use Illuminate\Http\Request;
@@ -77,7 +78,32 @@ class ChambreController extends Controller
 
         try {
             DB::transaction(function () use ($chambre, $validatedData): void {
+                $oldRoomNumber = $chambre->num_chambre;
+                $roomState = EtatChambre::where('num_chambre', $oldRoomNumber)
+                    ->lockForUpdate()
+                    ->first();
+
                 $chambre->update($validatedData);
+
+                if (! $roomState) {
+                    EtatChambre::create([
+                        'num_chambre' => $chambre->num_chambre,
+                        'status' => 'non nettoyée',
+                        'maintenance' => false,
+                    ]);
+
+                    Log::warning('Missing room state repaired during room update.', [
+                        'chambre_id' => $chambre->id,
+                        'old_num_chambre' => $oldRoomNumber,
+                        'new_num_chambre' => $chambre->num_chambre,
+                    ]);
+
+                    return;
+                }
+
+                if ($oldRoomNumber !== $chambre->num_chambre) {
+                    $roomState->update(['num_chambre' => $chambre->num_chambre]);
+                }
             });
 
             return response()->json([

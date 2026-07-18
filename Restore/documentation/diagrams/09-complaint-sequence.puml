@@ -1,0 +1,69 @@
+@startuml
+!include theme.puml
+title Séquence — traitement d’une réclamation
+
+actor "Employé" as Staff
+participant "Frontend React" as UI
+participant "ReclamationController /\nReclamationStatusController" as Controller
+participant "Store/Update/Status Request" as Request
+participant "ReclamationService" as Service
+participant "ReclamationHistoryService" as History
+database "Eloquent / MySQL" as DB
+
+Staff -> UI : saisit type, contexte, description, canal, département et priorité
+UI -> Controller : POST /reclamations
+Controller -> Request : valider références et champs requis
+Request -> Service : create(data, Auth::id())
+Service -> DB : BEGIN TRANSACTION
+Service -> DB : créer REC-... avec statut « En attente »
+Service -> History : record(creation)
+History -> DB : créer reclamation_historique
+Service -> DB : COMMIT
+Controller --> UI : ressource normalisée
+
+Staff -> UI : démarrer le traitement
+UI -> Controller : PATCH /reclamations/{id}/status\nstatut = « En cours »
+Controller -> Service : changeStatus()
+Service -> DB : verrouiller et mettre à jour
+Service -> History : journaliser la transition
+Controller --> UI : « En cours »
+
+Staff -> UI : saisir une réponse et marquer « Traité »
+UI -> Controller : PATCH statut « Traité » + réponse
+Controller -> Service : changeStatus()
+alt réponse vide
+  Service --> UI : 422 « Une réponse est obligatoire... »
+else réponse présente
+  Service -> DB : enregistrer réponse + statut « Traité »
+  Service -> History : journaliser réponse et transition
+  Controller --> UI : réclamation traitée
+end
+
+alt poursuivre le traitement
+  Staff -> UI : fournir une note de réouverture
+  UI -> Controller : PATCH statut « En cours » + note
+  Controller -> Service : changeStatus()
+  Service -> DB : statut « En cours »
+  Service -> History : journaliser motif et transition
+else résoudre
+  Staff -> UI : demander la résolution
+  UI -> Controller : PATCH statut « Résolu »
+  Controller -> Service : changeStatus()
+  alt aucune réponse existante
+    Service --> Controller : response_required (422)
+    Controller --> UI : « Une réponse existante est obligatoire avant la résolution. »
+  else réponse existante
+    Service -> DB : statut « Résolu » + resolved_at
+    Service -> History : journaliser la résolution
+    Controller --> UI : réclamation résolue
+  end
+else annuler avant clôture
+  Staff -> UI : saisir un motif
+  UI -> Controller : PATCH /reclamations/{id}/cancel
+  Controller -> Service : cancel(reclamation, motif, Auth::id())
+  Service -> DB : statut « Annulé » + motif + cancelled_at
+  Service -> History : journaliser l’annulation
+  Controller --> UI : réclamation annulée
+end
+@enduml
+

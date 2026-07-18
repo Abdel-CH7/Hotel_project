@@ -1,4 +1,5 @@
 import { Button, Form, Modal } from "react-bootstrap";
+import RequiredLabel from "../../components/RequiredLabel";
 import { formatMoney } from "../reservationUtils";
 
 const CancelReservationModal = ({ show, reservation, reason, error, saving, onReasonChange, onConfirm, onHide }) => (
@@ -14,7 +15,7 @@ const CancelReservationModal = ({ show, reservation, reason, error, saving, onRe
         </div>
       )}
       <Form.Group>
-        <Form.Label>Motif d’annulation</Form.Label>
+        <Form.Label><RequiredLabel required>Motif d’annulation</RequiredLabel></Form.Label>
         <Form.Control
           as="textarea"
           rows={3}

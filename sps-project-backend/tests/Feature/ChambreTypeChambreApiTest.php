@@ -3,10 +3,17 @@
 namespace Tests\Feature;
 
 use App\Models\Chambre;
+use App\Models\Employe;
+use App\Models\EtatChambre;
+use App\Models\MaintenanceType;
 use App\Models\TypeChambre;
+use App\Services\ReservationAvailabilityService;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use RuntimeException;
 use Tests\TestCase;
 
 class ChambreTypeChambreApiTest extends TestCase
@@ -178,13 +185,19 @@ class ChambreTypeChambreApiTest extends TestCase
             );
     }
 
-    public function test_updating_room_preserves_exactly_one_room_state(): void
+    public function test_updating_room_without_renaming_preserves_the_same_state(): void
     {
         [$type, $floorId, $viewId] = $this->roomDependencies();
         $room = $this->createRoom($type, $floorId, $viewId, '501A');
+        $state = $room->etatChambre;
+        $state->update([
+            'status' => 'nettoyée',
+            'date_nettoyage' => '2092-01-02',
+            'commentaire' => 'Etat conserve',
+        ]);
 
         $this->putJson("/api/chambres/{$room->id}", [
-            'num_chambre' => '501B',
+            'num_chambre' => '501A',
             'type_chambre_id' => $type->id,
             'etage_id' => $floorId,
             'vue_id' => $viewId,
@@ -192,8 +205,168 @@ class ChambreTypeChambreApiTest extends TestCase
             'wifi' => true,
         ])->assertOk();
 
+        $this->assertDatabaseHas('etat_chambre', [
+            'id' => $state->id,
+            'num_chambre' => '501A',
+            'status' => 'nettoyée',
+            'date_nettoyage' => '2092-01-02',
+            'commentaire' => 'Etat conserve',
+        ]);
+        $this->assertSame(1, DB::table('etat_chambre')->where('num_chambre', '501A')->count());
+    }
+
+    public function test_renaming_room_preserves_all_operational_state_values(): void
+    {
+        [$type, $floorId, $viewId] = $this->roomDependencies();
+        $room = $this->createRoom($type, $floorId, $viewId, '501A');
+        $employee = $this->createEmployee();
+        $maintenanceType = $this->createMaintenanceType();
+        $state = $room->etatChambre;
+        $state->update([
+            'status' => 'nettoyée',
+            'date_nettoyage' => '2092-02-01',
+            'nettoyee_par_id' => $employee->id,
+            'maintenance' => true,
+            'maintenance_type_id' => $maintenanceType->id,
+            'date_debut_maintenance' => '2092-02-02',
+            'date_fin_maintenance' => '2092-02-05',
+            'commentaire' => 'Maintenance planifiée',
+        ]);
+
+        $this->putJson("/api/chambres/{$room->id}", $this->roomPayload(
+            $type,
+            $floorId,
+            $viewId,
+            '501B'
+        ))->assertOk();
+
+        $this->assertDatabaseMissing('etat_chambre', ['num_chambre' => '501A']);
+        $this->assertDatabaseHas('etat_chambre', [
+            'id' => $state->id,
+            'num_chambre' => '501B',
+            'status' => 'nettoyée',
+            'date_nettoyage' => '2092-02-01',
+            'nettoyee_par_id' => $employee->id,
+            'maintenance' => true,
+            'maintenance_type_id' => $maintenanceType->id,
+            'date_debut_maintenance' => '2092-02-02',
+            'date_fin_maintenance' => '2092-02-05',
+            'commentaire' => 'Maintenance planifiée',
+        ]);
         $this->assertSame(1, DB::table('etat_chambre')->where('num_chambre', '501B')->count());
-        $this->assertSame(0, DB::table('etat_chambre')->where('num_chambre', '501A')->count());
+    }
+
+    public function test_renamed_room_in_maintenance_remains_unavailable(): void
+    {
+        [$type, $floorId, $viewId] = $this->roomDependencies();
+        $room = $this->createRoom($type, $floorId, $viewId, '601A');
+        $room->etatChambre->update([
+            'maintenance' => true,
+            'date_debut_maintenance' => '2092-03-01',
+            'date_fin_maintenance' => '2092-03-10',
+        ]);
+
+        $this->putJson("/api/chambres/{$room->id}", $this->roomPayload(
+            $type,
+            $floorId,
+            $viewId,
+            '601B'
+        ))->assertOk();
+
+        $availableIds = collect(app(ReservationAvailabilityService::class)
+            ->availableRooms('2092-03-03', '2092-03-05'))
+            ->pluck('id');
+
+        $this->assertNotContains($room->id, $availableIds);
+        $this->assertDatabaseHas('etat_chambre', [
+            'num_chambre' => '601B',
+            'maintenance' => true,
+        ]);
+    }
+
+    public function test_failed_state_sync_rolls_back_room_and_state_numbers(): void
+    {
+        [$type, $floorId, $viewId] = $this->roomDependencies();
+        $room = $this->createRoom($type, $floorId, $viewId, '701A');
+        $stateId = $room->etatChambre->id;
+        $eventName = 'eloquent.updating: '.EtatChambre::class;
+
+        Event::listen($eventName, function (EtatChambre $state): void {
+            if ($state->isDirty('num_chambre')) {
+                throw new RuntimeException('Forced room-state synchronization failure.');
+            }
+        });
+
+        try {
+            $this->putJson("/api/chambres/{$room->id}", $this->roomPayload(
+                $type,
+                $floorId,
+                $viewId,
+                '701B'
+            ))->assertStatus(500);
+        } finally {
+            Event::forget($eventName);
+        }
+
+        $this->assertDatabaseHas('chambres', [
+            'id' => $room->id,
+            'num_chambre' => '701A',
+        ]);
+        $this->assertDatabaseHas('etat_chambre', [
+            'id' => $stateId,
+            'num_chambre' => '701A',
+        ]);
+        $this->assertDatabaseMissing('chambres', ['num_chambre' => '701B']);
+        $this->assertDatabaseMissing('etat_chambre', ['num_chambre' => '701B']);
+    }
+
+    public function test_duplicate_room_number_validation_preserves_both_rooms_and_states(): void
+    {
+        [$type, $floorId, $viewId] = $this->roomDependencies();
+        $first = $this->createRoom($type, $floorId, $viewId, '801A');
+        $second = $this->createRoom($type, $floorId, $viewId, '801B');
+
+        $this->putJson("/api/chambres/{$first->id}", $this->roomPayload(
+            $type,
+            $floorId,
+            $viewId,
+            '801B'
+        ))->assertUnprocessable()->assertJsonValidationErrors('num_chambre');
+
+        $this->assertDatabaseHas('chambres', ['id' => $first->id, 'num_chambre' => '801A']);
+        $this->assertDatabaseHas('chambres', ['id' => $second->id, 'num_chambre' => '801B']);
+        $this->assertDatabaseHas('etat_chambre', ['num_chambre' => '801A']);
+        $this->assertDatabaseHas('etat_chambre', ['num_chambre' => '801B']);
+        $this->assertSame(2, DB::table('etat_chambre')->whereIn('num_chambre', ['801A', '801B'])->count());
+    }
+
+    public function test_updating_room_repairs_missing_historical_state_and_logs_warning(): void
+    {
+        [$type, $floorId, $viewId] = $this->roomDependencies();
+        $room = $this->createRoom($type, $floorId, $viewId, '901A');
+        DB::table('etat_chambre')->where('num_chambre', '901A')->delete();
+        Log::spy();
+
+        $this->putJson("/api/chambres/{$room->id}", $this->roomPayload(
+            $type,
+            $floorId,
+            $viewId,
+            '901B'
+        ))->assertOk();
+
+        $this->assertDatabaseMissing('etat_chambre', ['num_chambre' => '901A']);
+        $this->assertDatabaseHas('etat_chambre', [
+            'num_chambre' => '901B',
+            'status' => 'non nettoyée',
+            'maintenance' => false,
+        ]);
+        Log::shouldHaveReceived('warning')
+            ->once()
+            ->with('Missing room state repaired during room update.', [
+                'chambre_id' => $room->id,
+                'old_num_chambre' => '901A',
+                'new_num_chambre' => '901B',
+            ]);
     }
 
     private function roomDependencies(): array
@@ -241,6 +414,41 @@ class ChambreTypeChambreApiTest extends TestCase
             'vue_id' => $viewId,
             'climat' => true,
             'wifi' => true,
+        ]);
+    }
+
+    private function roomPayload(
+        TypeChambre $type,
+        int $floorId,
+        int $viewId,
+        string $number
+    ): array {
+        return [
+            'num_chambre' => $number,
+            'type_chambre_id' => $type->id,
+            'etage_id' => $floorId,
+            'vue_id' => $viewId,
+            'climat' => false,
+            'wifi' => true,
+        ];
+    }
+
+    private function createEmployee(): Employe
+    {
+        return Employe::create([
+            'matricule' => 'EMP-'.uniqid(),
+            'nom' => 'Employé',
+            'prenom' => uniqid(),
+            'fonction' => 'nettoyage',
+            'actif' => true,
+        ]);
+    }
+
+    private function createMaintenanceType(): MaintenanceType
+    {
+        return MaintenanceType::create([
+            'code' => 'MT-'.uniqid(),
+            'types_maintenance' => 'Maintenance test',
         ]);
     }
 }

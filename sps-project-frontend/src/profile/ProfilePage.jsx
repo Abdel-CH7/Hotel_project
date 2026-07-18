@@ -5,6 +5,7 @@ import Swal from "sweetalert2";
 import { useAuth } from "../AuthContext";
 import { useOpen } from "../Acceuil/OpenProvider";
 import UserAvatar from "../components/UserAvatar";
+import RequiredLabel from "../components/RequiredLabel";
 import { removeProfilePhoto, updateProfile, updateProfilePassword, uploadProfilePhoto } from "./profileApi";
 import "../style.css";
 
@@ -147,8 +148,9 @@ const ProfilePage = () => {
           <section className="app-card profile-section">
             <h2>Informations personnelles</h2>
             <Form onSubmit={submitDetails}>
-              <Form.Group className="mb-3"><Form.Label>Nom complet</Form.Label><Form.Control name="name" value={details.name} onChange={(event) => { setDetails((previous) => ({ ...previous, name: event.target.value })); setDetailsErrors((previous) => ({ ...previous, name: "" })); }} isInvalid={Boolean(fieldError(detailsErrors, "name"))} disabled={savingDetails} /><Form.Control.Feedback type="invalid">{fieldError(detailsErrors, "name")}</Form.Control.Feedback></Form.Group>
-              <Form.Group className="mb-3"><Form.Label>Email</Form.Label><Form.Control type="email" name="email" value={details.email} onChange={(event) => { setDetails((previous) => ({ ...previous, email: event.target.value })); setDetailsErrors((previous) => ({ ...previous, email: "" })); }} isInvalid={Boolean(fieldError(detailsErrors, "email"))} disabled={savingDetails} /><Form.Control.Feedback type="invalid">{fieldError(detailsErrors, "email")}</Form.Control.Feedback></Form.Group>
+              <p className="app-required-note"><span className="app-required-mark" aria-hidden="true">*</span> Champs obligatoires</p>
+              <Form.Group className="mb-3"><Form.Label><RequiredLabel required>Nom complet</RequiredLabel></Form.Label><Form.Control name="name" value={details.name} onChange={(event) => { setDetails((previous) => ({ ...previous, name: event.target.value })); setDetailsErrors((previous) => ({ ...previous, name: "" })); }} isInvalid={Boolean(fieldError(detailsErrors, "name"))} disabled={savingDetails} aria-required="true" /><Form.Control.Feedback type="invalid">{fieldError(detailsErrors, "name")}</Form.Control.Feedback></Form.Group>
+              <Form.Group className="mb-3"><Form.Label><RequiredLabel required>Email</RequiredLabel></Form.Label><Form.Control type="email" name="email" value={details.email} onChange={(event) => { setDetails((previous) => ({ ...previous, email: event.target.value })); setDetailsErrors((previous) => ({ ...previous, email: "" })); }} isInvalid={Boolean(fieldError(detailsErrors, "email"))} disabled={savingDetails} aria-required="true" /><Form.Control.Feedback type="invalid">{fieldError(detailsErrors, "email")}</Form.Control.Feedback></Form.Group>
               <div className="profile-readonly-grid"><div><span>Rôle</span><strong>{user?.role_label || "—"}</strong></div><div><span>Statut</span><strong>{user?.is_active ? "Actif" : "Inactif"}</strong></div></div>
               <Button type="submit" className="app-primary-button" disabled={savingDetails}>{savingDetails && <Spinner size="sm" className="me-2" />}Enregistrer les modifications</Button>
             </Form>
@@ -157,9 +159,10 @@ const ProfilePage = () => {
           <section className="app-card profile-section profile-security-section">
             <h2>Sécurité</h2>
             <Form onSubmit={submitPassword}>
-              <Form.Group className="mb-3"><Form.Label>Mot de passe actuel</Form.Label><Form.Control type="password" name="current_password" autoComplete="current-password" value={passwords.current_password} onChange={updatePasswordField} isInvalid={Boolean(fieldError(passwordErrors, "current_password"))} disabled={savingPassword} /><Form.Control.Feedback type="invalid">{fieldError(passwordErrors, "current_password")}</Form.Control.Feedback></Form.Group>
-              <Form.Group className="mb-3"><Form.Label>Nouveau mot de passe</Form.Label><Form.Control type="password" name="password" autoComplete="new-password" value={passwords.password} onChange={updatePasswordField} isInvalid={Boolean(fieldError(passwordErrors, "password"))} disabled={savingPassword} /><Form.Control.Feedback type="invalid">{fieldError(passwordErrors, "password")}</Form.Control.Feedback></Form.Group>
-              <Form.Group className="mb-3"><Form.Label>Confirmation du nouveau mot de passe</Form.Label><Form.Control type="password" name="password_confirmation" autoComplete="new-password" value={passwords.password_confirmation} onChange={updatePasswordField} disabled={savingPassword} /></Form.Group>
+              <p className="app-required-note"><span className="app-required-mark" aria-hidden="true">*</span> Champs obligatoires</p>
+              <Form.Group className="mb-3"><Form.Label><RequiredLabel required>Mot de passe actuel</RequiredLabel></Form.Label><Form.Control type="password" name="current_password" autoComplete="current-password" value={passwords.current_password} onChange={updatePasswordField} isInvalid={Boolean(fieldError(passwordErrors, "current_password"))} disabled={savingPassword} aria-required="true" /><Form.Control.Feedback type="invalid">{fieldError(passwordErrors, "current_password")}</Form.Control.Feedback></Form.Group>
+              <Form.Group className="mb-3"><Form.Label><RequiredLabel required>Nouveau mot de passe</RequiredLabel></Form.Label><Form.Control type="password" name="password" autoComplete="new-password" value={passwords.password} onChange={updatePasswordField} isInvalid={Boolean(fieldError(passwordErrors, "password"))} disabled={savingPassword} aria-required="true" /><Form.Control.Feedback type="invalid">{fieldError(passwordErrors, "password")}</Form.Control.Feedback></Form.Group>
+              <Form.Group className="mb-3"><Form.Label><RequiredLabel required>Confirmation du nouveau mot de passe</RequiredLabel></Form.Label><Form.Control type="password" name="password_confirmation" autoComplete="new-password" value={passwords.password_confirmation} onChange={updatePasswordField} disabled={savingPassword} aria-required="true" /></Form.Group>
               <Button type="submit" className="app-primary-button" disabled={savingPassword}>{savingPassword && <Spinner size="sm" className="me-2" />}Modifier le mot de passe</Button>
             </Form>
           </section>

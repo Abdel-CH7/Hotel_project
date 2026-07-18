@@ -322,12 +322,29 @@ const Navigation = () => {
             }}
           >
             {open && (
-              <img
-                src="../../images/SPS2.png"
-                loading="lazy"
-                alt="Logo SPS"
-                style={{ width: "145px", maxWidth: "70%", height: "auto" }}
-              />
+              <Box
+                sx={{
+                  width: 210,
+                  height: 62,
+                  flexShrink: 1,
+                  overflow: "hidden",
+                  backgroundColor: "#fff",
+                  borderRadius: 1,
+                }}
+              >
+                <Box
+                  component="img"
+                  src="/hms-logo.png"
+                  alt="HMS Gestion hôtelière"
+                  sx={{
+                    display: "block",
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "contain",
+                    transform: "scale(1.4)",
+                  }}
+                />
+              </Box>
             )}
             <IconButton onClick={handleToggle}>
               <ChevronLeftIcon />

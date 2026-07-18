@@ -5,14 +5,19 @@ namespace App\Http\Controllers;
 use App\Models\Employe;
 use App\Models\EtatChambre;
 use App\Models\MaintenanceType;
+use App\Models\Reservation;
+use App\Support\ReservationClientData;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use DateTimeInterface;
 
 class EtatChambreController extends Controller
 {
     private const RELATIONS = ['chambre', 'maintenanceType', 'nettoyeePar'];
+    private const OCCUPYING_RESERVATION_STATUSES = ['en attente', 'confirmé'];
 
     public function index()
     {
@@ -34,7 +39,7 @@ class EtatChambreController extends Controller
 
         return response()->json([
             'success' => true,
-            'etat_chambre' => $etatChambre,
+            'etat_chambre' => $this->withCurrentOccupation(collect([$etatChambre]))->first(),
         ]);
     }
 
@@ -44,9 +49,11 @@ class EtatChambreController extends Controller
         $validatedData = $this->normalizeMaintenance($validatedData);
         $etatChambre = EtatChambre::create($validatedData);
 
+        $etatChambre = $etatChambre->load(self::RELATIONS);
+
         return response()->json([
             'success' => true,
-            'etat_chambre' => $etatChambre->load(self::RELATIONS),
+            'etat_chambre' => $this->withCurrentOccupation(collect([$etatChambre]))->first(),
         ], 201);
     }
 
@@ -66,9 +73,11 @@ class EtatChambreController extends Controller
         $validatedData = $this->normalizeMaintenance($validatedData);
         $etatChambre->update($validatedData);
 
+        $etatChambre = $etatChambre->fresh(self::RELATIONS);
+
         return response()->json([
             'success' => true,
-            'etat_chambre' => $etatChambre->fresh(self::RELATIONS),
+            'etat_chambre' => $this->withCurrentOccupation(collect([$etatChambre]))->first(),
         ]);
     }
 
@@ -102,17 +111,114 @@ class EtatChambreController extends Controller
 
     private function indexPayload(): array
     {
+        $roomStates = EtatChambre::with(self::RELATIONS)
+            ->orderByDesc('created_at')
+            ->get();
+
         return [
             'success' => true,
-            'etat_chambres' => EtatChambre::with(self::RELATIONS)
-                ->orderByDesc('created_at')
-                ->get(),
+            'etat_chambres' => $this->withCurrentOccupation($roomStates),
             'maintenance_types' => MaintenanceType::orderBy('code')->get(),
             'employes' => Employe::where('actif', true)
                 ->whereIn('fonction', ['nettoyage', 'supervision'])
                 ->orderBy('nom')
                 ->orderBy('prenom')
                 ->get(),
+        ];
+    }
+
+    private function withCurrentOccupation(Collection $roomStates): Collection
+    {
+        $roomIds = $roomStates
+            ->pluck('chambre.id')
+            ->filter()
+            ->map(fn ($id): int => (int) $id)
+            ->unique()
+            ->values();
+        $reservationsByRoom = collect();
+
+        if ($roomIds->isNotEmpty()) {
+            $today = today()->toDateString();
+            $reservations = Reservation::query()
+                ->with([
+                    'client',
+                    'reservationRooms' => fn ($query) => $query
+                        ->whereIn('chambre_id', $roomIds)
+                        ->select(['id', 'reservation_id', 'chambre_id']),
+                ])
+                ->whereIn('status', self::OCCUPYING_RESERVATION_STATUSES)
+                ->whereDate('date_debut', '<=', $today)
+                ->whereDate('date_fin', '>', $today)
+                ->whereHas(
+                    'reservationRooms',
+                    fn ($query) => $query->whereIn('chambre_id', $roomIds)
+                )
+                ->orderByRaw("CASE WHEN status = 'confirmé' THEN 0 ELSE 1 END")
+                ->orderBy('date_debut')
+                ->orderBy('id')
+                ->get([
+                    'id',
+                    'reservation_num',
+                    'client_id',
+                    'client_type',
+                    'client_name_snapshot',
+                    'status',
+                    'date_debut',
+                    'date_fin',
+                ]);
+
+            foreach ($reservations as $reservation) {
+                foreach ($reservation->reservationRooms as $allocation) {
+                    $roomId = (int) $allocation->chambre_id;
+                    if ($reservationsByRoom->has($roomId)) {
+                        $selected = $reservationsByRoom->get($roomId);
+                        Log::warning('Multiple current reservations found for room.', [
+                            'chambre_id' => $roomId,
+                            'selected_reservation_id' => $selected->id,
+                            'ignored_reservation_id' => $reservation->id,
+                        ]);
+
+                        continue;
+                    }
+
+                    $reservationsByRoom->put($roomId, $reservation);
+                }
+            }
+        }
+
+        return $roomStates->each(function (EtatChambre $roomState) use ($reservationsByRoom): void {
+            $roomId = $roomState->chambre?->id;
+            $reservation = $roomId
+                ? $reservationsByRoom->get((int) $roomId)
+                : null;
+
+            $roomState->setAttribute('occupation', $this->occupationPayload($reservation));
+        });
+    }
+
+    private function occupationPayload(?Reservation $reservation): array
+    {
+        if (! $reservation) {
+            return [
+                'statut' => 'libre',
+                'occupee' => false,
+                'reservation' => null,
+            ];
+        }
+
+        $client = ReservationClientData::reservationClient($reservation);
+
+        return [
+            'statut' => 'occupée',
+            'occupee' => true,
+            'reservation' => [
+                'id' => (int) $reservation->id,
+                'numero' => $reservation->reservation_num,
+                'statut' => $reservation->status,
+                'date_debut' => $reservation->date_debut?->format('Y-m-d'),
+                'date_fin' => $reservation->date_fin?->format('Y-m-d'),
+                'client' => $client['display_name'],
+            ],
         ];
     }
 

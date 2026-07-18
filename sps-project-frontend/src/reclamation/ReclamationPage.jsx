@@ -1,16 +1,30 @@
 import { useCallback, useMemo, useState, useEffect } from "react";
 import Box from "@mui/material/Box";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCircleExclamation, faClock, faComments, faSpinner, faPlus } from "@fortawesome/free-solid-svg-icons";
+import {
+  faBellConcierge,
+  faBroom,
+  faBuilding,
+  faCalendarCheck,
+  faCircleExclamation,
+  faClock,
+  faComments,
+  faPlus,
+  faScrewdriverWrench,
+  faShieldHalved,
+  faSpinner,
+  faUtensils,
+} from "@fortawesome/free-solid-svg-icons";
 import Swal from "sweetalert2";
 import { useOpen } from "../Acceuil/OpenProvider";
 import SearchWithExport from "../components/SearchWithExport";
 import AppStats from "../components/AppStats";
 import ListFilterReset from "../components/ListFilterReset";
 import ListState from "../components/ListState";
+import VisualFilterCarousel from "../components/VisualFilterCarousel";
 import useListControls from "../components/useListControls";
 import { exportToExcel, exportToPdf, printRows } from "../utils/listExportUtils";
-import { matchesNormalizedSearch } from "../utils/textUtils";
+import { matchesNormalizedSearch, normalizeSearchValue } from "../utils/textUtils";
 import {
   cancelReclamation,
   changeReclamationStatus,
@@ -56,6 +70,20 @@ const upsertRow = (rows, saved) => {
 };
 
 const lookupCollection = { type: "types", canal: "canaux", departement: "departements" };
+
+const departmentIcon = (name) => {
+  const normalizedName = normalizeSearchValue(name);
+
+  if (normalizedName.includes("reception")) return faBellConcierge;
+  if (normalizedName.includes("maintenance")) return faScrewdriverWrench;
+  if (normalizedName.includes("menage") || normalizedName.includes("nettoyage") || normalizedName.includes("housekeeping")) return faBroom;
+  if (normalizedName.includes("restaur")) return faUtensils;
+  if (normalizedName.includes("conciergerie")) return faBellConcierge;
+  if (normalizedName.includes("securite")) return faShieldHalved;
+  if (normalizedName.includes("reservation")) return faCalendarCheck;
+
+  return faBuilding;
+};
 
 const mergeLookupOption = (current, kind, saved) => {
   const key = lookupCollection[kind];
@@ -139,10 +167,17 @@ const ReclamationPage = () => {
   };
 
   const filterOptions = useMemo(() => ({
-    departments: [...new Map(reclamations.map((row) => [row.departement?.id, row.departement]).filter(([id]) => id)).values()].sort((a, b) => a.nom.localeCompare(b.nom, "fr")),
     types: [...new Map(reclamations.map((row) => [row.objet?.id, row.objet]).filter(([id]) => id)).values()].sort((a, b) => a.nom.localeCompare(b.nom, "fr")),
     channels: [...new Map(reclamations.map((row) => [row.canal?.id, row.canal]).filter(([id]) => id)).values()].sort((a, b) => a.nom.localeCompare(b.nom, "fr")),
   }), [reclamations]);
+
+  const departmentOptions = useMemo(
+    () => (options.departements || [])
+      .filter((department) => department.actif !== false)
+      .slice()
+      .sort((left, right) => (left.nom || "").localeCompare(right.nom || "", "fr")),
+    [options.departements]
+  );
 
   const exportRows = useMemo(() => filteredRows.map((row) => ({
     numero: row.numero || "—", date: formatDate(row.date), type: row.objet?.nom || "—",
@@ -282,10 +317,27 @@ const ReclamationPage = () => {
 
         <AppStats items={reclamationStats} loading={loading} />
 
+        <VisualFilterCarousel
+          title="Départements"
+          ariaLabel="Filtrer les réclamations par département"
+          className="reclamation-department-filter app-section"
+          items={departmentOptions.map((department) => ({
+            id: department.id,
+            label: department.nom,
+            photo: department.photo,
+          }))}
+          value={departmentFilter}
+          onChange={(departmentId) => {
+            setDepartmentFilter(String(departmentId ?? ""));
+            resetPage();
+          }}
+          renderAllIcon={() => <FontAwesomeIcon icon={faBuilding} />}
+          renderIcon={(item) => <FontAwesomeIcon icon={departmentIcon(item.label)} />}
+        />
+
         <div className="app-controls-row reclamation-controls-row">
           <button type="button" className="app-add-button" onClick={openCreate}><FontAwesomeIcon icon={faPlus} /> Ajouter une réclamation</button>
           <div className="app-filter-controls reclamation-filter-controls">
-            <select className="app-filter-select" value={departmentFilter} onChange={setFilter(setDepartmentFilter)} aria-label="Département"><option value="">Tous les départements</option>{filterOptions.departments.map((row) => <option key={row.id} value={row.id}>{row.nom}</option>)}</select>
             <select className="app-filter-select" value={statusFilter} onChange={setFilter(setStatusFilter)} aria-label="Statut"><option value="">Tous les statuts</option>{["En attente", "En cours", "Traité", "Résolu", "Annulé"].map((status) => <option key={status} value={status}>{status}</option>)}</select>
             <select className="app-filter-select" value={priorityFilter} onChange={setFilter(setPriorityFilter)} aria-label="Priorité"><option value="">Toutes les priorités</option>{[{ value: "faible", label: "Faible" }, { value: "normale", label: "Normale" }, { value: "elevee", label: "Élevée" }, { value: "urgente", label: "Urgente" }].map((row) => <option key={row.value} value={row.value}>{row.label}</option>)}</select>
             <select className="app-filter-select" value={typeFilter} onChange={setFilter(setTypeFilter)} aria-label="Type"><option value="">Tous les types</option>{filterOptions.types.map((row) => <option key={row.id} value={row.id}>{row.nom}</option>)}</select>

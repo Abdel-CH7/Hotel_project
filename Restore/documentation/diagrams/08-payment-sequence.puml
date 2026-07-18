@@ -1,0 +1,68 @@
+@startuml
+!include theme.puml
+title Séquence — enregistrement et annulation d’un paiement
+
+actor "Employé / Administrateur" as Staff
+participant "Frontend React" as UI
+participant "auth:sanctum + active" as Auth
+participant "ReservationPaymentController" as Controller
+participant "Store/CancelPaymentRequest" as Request
+participant "ReservationPaymentService" as Service
+participant "paymentDocumentUtils.js" as Documents
+database "Eloquent / MySQL" as DB
+
+group Enregistrement
+  Staff -> UI : ouvre l’historique des paiements
+  UI -> Controller : POST /reservations/{id}/payments
+  Controller -> Auth : authentifier et vérifier le compte actif
+  Auth --> Controller : utilisateur courant
+  Controller -> Request : valider mode, montant et date
+  alt identifiant d’audit fourni par le client
+    Request --> UI : 422 champ interdit
+  else requête valide
+    Request -> Controller : données validées
+    Controller -> Service : create(reservation, data, Auth::id())
+    Service -> DB : BEGIN + verrouiller réservation
+    Service -> DB : sommer les paiements valides
+    alt réservation annulée / montant invalide ou excessif
+      Service -> DB : ROLLBACK
+      Service --> UI : erreur métier 409 ou 422
+    else paiement accepté
+      Service -> DB : créer paiement (user_id authentifié)
+      Service -> DB : COMMIT
+      Service --> Controller : paiement + solde normalisés
+      Controller --> UI : 201
+      UI -> UI : actualiser détails et liste
+      opt impression ou téléchargement
+        UI -> Documents : générer reçu / récapitulatif
+        Documents --> Staff : document PDF / impression
+      end
+    end
+  end
+end
+
+group Annulation d’une saisie
+  Staff -> UI : saisit le motif d’annulation
+  UI -> Controller : PATCH .../payments/{payment}/cancel
+  Controller -> Auth : résoudre l’utilisateur courant
+  Controller -> Request : valider le motif et interdire annule_par_id
+  Request -> Service : cancel(..., Auth::id())
+  Service -> DB : verrouiller réservation et paiement
+  alt paiement déjà annulé ou autre réservation
+    Service --> UI : erreur 409 / 404
+  else annulation acceptée
+    Service -> DB : statut = annule, annule_par_id, motif, date
+    note right of DB
+      La ligne n’est pas supprimée :
+      elle reste dans l’historique.
+    end note
+    Service --> Controller : historique et solde actualisés
+    Controller --> UI : 200
+    UI -> UI : actualiser l’historique
+    opt reçu demandé
+      UI -> Documents : générer avec « PAIEMENT ANNULÉ »
+    end
+  end
+end
+@enduml
+

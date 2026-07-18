@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEdit, faPlus } from "@fortawesome/free-solid-svg-icons";
 import { Button, Form, Modal, Spinner, Table } from "react-bootstrap";
+import RequiredLabel from "../../components/RequiredLabel";
 import Swal from "sweetalert2";
 import { createReclamationLookup, listReclamationLookups, setReclamationLookupActive, updateReclamationLookup } from "../api/reclamationApi";
 import { apiErrorMessage, apiFieldErrors } from "../reclamationUtils";
@@ -129,8 +130,9 @@ const ReclamationLookupManager = ({ kind, options, onClose, onSavedLookup }) => 
       <Modal.Header closeButton><Modal.Title>{labels[kind]?.title}</Modal.Title></Modal.Header>
       <Modal.Body>
         <Form onSubmit={submit} className="reclamation-lookup-form">
+          <p className="app-required-note"><span className="app-required-mark" aria-hidden="true">*</span> Champs obligatoires</p>
           {errors._form && <div className="alert alert-danger">{errors._form}</div>}
-          <Form.Group><Form.Label>Nom *</Form.Label><Form.Control value={form.nom} onChange={(event) => setForm((previous) => ({ ...previous, nom: event.target.value }))} isInvalid={Boolean(errors.nom)} /><Form.Control.Feedback type="invalid">{errors.nom}</Form.Control.Feedback></Form.Group>
+          <Form.Group><Form.Label><RequiredLabel required>Nom</RequiredLabel></Form.Label><Form.Control value={form.nom} onChange={(event) => setForm((previous) => ({ ...previous, nom: event.target.value }))} isInvalid={Boolean(errors.nom)} aria-required="true" /><Form.Control.Feedback type="invalid">{errors.nom}</Form.Control.Feedback></Form.Group>
           {kind === "type" && <><Form.Group><Form.Label>Département suggéré</Form.Label><Form.Select value={form.departement_par_defaut_id} onChange={(event) => setForm((previous) => ({ ...previous, departement_par_defaut_id: event.target.value }))}><option value="">Aucun</option>{(options.departements || []).map((row) => <option key={row.id} value={row.id}>{row.nom}</option>)}</Form.Select></Form.Group><Form.Group><Form.Label>Priorité suggérée</Form.Label><Form.Select value={form.priorite_par_defaut} onChange={(event) => setForm((previous) => ({ ...previous, priorite_par_defaut: event.target.value }))}><option value="">Normale par défaut</option>{(options.priorites || []).map((row) => <option key={row.value} value={row.value}>{row.label}</option>)}</Form.Select></Form.Group></>}
           {kind === "canal" && <Form.Check type="checkbox" label="Canal « Autre »" checked={form.est_autre} onChange={(event) => setForm((previous) => ({ ...previous, est_autre: event.target.checked }))} />}
           {kind === "departement" && <Form.Group><Form.Label>Photo optionnelle</Form.Label><Form.Control type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={(event) => setForm((previous) => ({ ...previous, photo: event.target.files?.[0] || null }))} /></Form.Group>}

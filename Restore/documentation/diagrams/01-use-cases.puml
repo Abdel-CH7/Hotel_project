@@ -1,0 +1,59 @@
+@startuml
+!include theme.puml
+left to right direction
+title Diagramme de cas d’utilisation — système interne de gestion hôtelière
+
+actor "Visiteur non\nauthentifié" as Visitor
+actor "Employé" as Staff
+actor "Administrateur" as Admin
+Admin --|> Staff
+
+rectangle "Application de gestion hôtelière" {
+  usecase "S’authentifier" as Login
+  usecase "Se déconnecter" as Logout
+  usecase "Consulter et modifier\nson profil" as Profile
+  usecase "Modifier son mot de passe\net sa photo" as ProfileSecurity
+  usecase "Consulter le tableau de bord" as Dashboard
+  usecase "Gérer les clients\nparticuliers et sociétés" as Clients
+  usecase "Gérer les chambres\net leur état" as Rooms
+  usecase "Gérer les tarifs" as Tariffs
+  usecase "Gérer les réservations" as Reservations
+  usecase "Enregistrer et consulter\nles paiements" as Payments
+  usecase "Gérer les réclamations" as Complaints
+  usecase "Gérer les équipements" as Equipment
+  usecase "Rechercher, filtrer, imprimer\net exporter les listes compatibles" as Lists
+
+  usecase "Gérer les utilisateurs" as Users
+  usecase "Créer ou modifier\nun compte" as UserEdit
+  usecase "Activer ou désactiver\nun compte" as UserStatus
+  usecase "Modifier un rôle" as UserRole
+  usecase "Réinitialiser le mot de passe\nd’un autre utilisateur" as UserPassword
+}
+
+Visitor --> Login
+Staff --> Login
+Staff --> Logout
+Staff --> Profile
+Profile .> ProfileSecurity : <<include>>
+Staff --> Dashboard
+Staff --> Clients
+Staff --> Rooms
+Staff --> Tariffs
+Staff --> Reservations
+Staff --> Payments
+Staff --> Complaints
+Staff --> Equipment
+Staff --> Lists
+
+Admin --> Users
+Users .> UserEdit : <<include>>
+Users .> UserStatus : <<include>>
+Users .> UserRole : <<include>>
+Users .> UserPassword : <<include>>
+
+note bottom of Admin
+  Les opérations d’administration sont aussi
+  protégées côté API par le middleware admin.
+end note
+@enduml
+

@@ -1,0 +1,237 @@
+@startuml
+!pragma layout smetana
+!include theme.puml
+hide methods
+hide empty members
+title Diagramme de classes / domaine
+
+package "Authentification et utilisateurs" {
+  class User {
+    id : bigint
+    name : string
+    email : string
+    role : admin | staff
+    is_active : bool
+    photo : string?
+  }
+}
+
+package "Clients" {
+  class ClientSociete <<Client>> {
+    id : bigint
+    CodeClient : string
+    raison_sociale : string
+    type_organisation : string
+    credit_autorise : bool
+  }
+  class ClientParticulier {
+    id : bigint
+    CodeClient : string
+    name, prenom : string
+    type_piece, cin : string
+    pays_code, region_nom, ville : string?
+  }
+  class ContactClient {
+    name, prenom
+    telephone, email
+  }
+  class Enfant {
+    name, prenom
+    age
+  }
+  ClientSociete "1" *-- "0..*" ContactClient
+  ClientParticulier "1" *-- "0..*" Enfant
+}
+
+package "Chambres" {
+  class Chambre {
+    id
+    num_chambre
+    climat, wifi
+  }
+  class TypeChambre {
+    id, code
+    type_chambre
+    capacite_standard
+    lits_supplementaires_max
+  }
+  class Etage {
+    id, etage
+  }
+  class Vue {
+    id, vue
+  }
+  class EtatChambre {
+    status
+    maintenance
+    date_debut_maintenance
+    date_fin_maintenance
+  }
+  class Employe {
+    matricule
+    nom, prenom
+    fonction, actif
+  }
+  class MaintenanceType {
+    code
+    types_maintenance
+  }
+  TypeChambre "1" -- "0..*" Chambre
+  Etage "1" -- "0..*" Chambre
+  Vue "1" -- "0..*" Chambre
+  Chambre "1" *-- "1" EtatChambre
+  Employe "0..1" -- "0..*" EtatChambre : nettoyée par
+  MaintenanceType "0..1" -- "0..*" EtatChambre
+}
+
+package "Tarifs" {
+  class TarifActuel {
+    designation
+    date_debut, date_fin
+    statut
+  }
+  class TarifChambre {
+    designation
+  }
+  class TarifChambreDetail {
+    code
+    prix_1_personne
+    prix_2_personnes
+    prix_3_personnes
+    prix_lit_supplementaire
+  }
+  class TarifRepas {
+    designation
+  }
+  class TarifRepasDetail {
+    prix_par_personne
+  }
+  class TypeRepas {
+    code, type_repas
+  }
+  class TarifReduction {
+    designation
+  }
+  class TarifReductionDetail {
+    montant_fixe
+    pourcentage
+  }
+  class TypeReduction {
+    code, type_reduction
+  }
+  TarifChambre "1" *-- "1..*" TarifChambreDetail
+  TypeChambre "1" -- "0..*" TarifChambreDetail
+  TarifRepas "1" *-- "1..*" TarifRepasDetail
+  TypeRepas "1" -- "0..*" TarifRepasDetail
+  TarifReduction "1" *-- "1..*" TarifReductionDetail
+  TypeReduction "1" -- "0..*" TarifReductionDetail
+  TarifActuel "0..*" --> "1" TarifChambre
+  TarifActuel "0..*" --> "0..1" TarifRepas
+  TarifActuel "0..*" --> "0..1" TarifReduction
+}
+
+package "Réservations et paiements" {
+  class Reservation {
+    reservation_num
+    client_type, client_id
+    date_debut, date_fin
+    status
+    politique_paiement
+    montant_total
+  }
+  class ReservationRoom {
+    adultes, enfants
+    lits_supplementaires
+    montant_total
+  }
+  class ReservationRoomPriceSegment {
+    segment_date_debut, segment_date_fin
+    nuits
+    prix_par_nuit_snapshot
+  }
+  class ReservationMeal {
+    type_repas_nom_snapshot
+    quantite_par_jour
+    montant_total
+  }
+  class ReservationReduction {
+    type_reduction_nom_snapshot
+    montant_applique
+  }
+  class ReservationPaiement {
+    paiement_num
+    type_paiement
+    montant, statut
+    annule_at
+  }
+  class ModePaimant {
+    mode_paimants
+  }
+  Reservation "1" *-- "1..*" ReservationRoom
+  Chambre "1" -- "0..*" ReservationRoom
+  ReservationRoom "1" *-- "1..*" ReservationRoomPriceSegment
+  Reservation "1" *-- "0..*" ReservationMeal
+  Reservation "1" *-- "0..1" ReservationReduction
+  Reservation "1" *-- "0..*" ReservationPaiement
+  ModePaimant "1" -- "0..*" ReservationPaiement
+  ReservationRoomPriceSegment "0..*" --> "0..1" TarifActuel
+  ReservationMeal "0..*" --> "0..1" TarifActuel
+  ReservationReduction "0..1" --> "0..1" TarifActuel
+  Reservation ..> ClientSociete : client_type = societe
+  Reservation ..> ClientParticulier : client_type = particulier
+  User "0..1" -- "0..*" ReservationPaiement : saisi par
+  User "0..1" -- "0..*" ReservationPaiement : annulé par
+}
+
+package "Réclamations" {
+  class Reclamation {
+    reclamation_num
+    client_type, client_id
+    description
+    priorite, suivi
+    reponse
+  }
+  class ReclamationType {
+    nom
+    priorite_par_defaut
+    actif
+  }
+  class ReclamationCanal {
+    nom
+    est_autre, actif
+  }
+  class Departement {
+    nom, actif
+  }
+  class Historique {
+    type_evenement
+    ancien_statut, nouveau_statut
+    description
+  }
+  ReclamationType "1" -- "0..*" Reclamation
+  ReclamationCanal "1" -- "0..*" Reclamation
+  Departement "1" -- "0..*" Reclamation
+  Reclamation "1" *-- "1..*" Historique
+  Reservation "0..1" -- "0..*" Reclamation
+  Chambre "0..1" -- "0..*" Reclamation
+  User "0..1" -- "0..*" Historique
+}
+
+package "Équipements" {
+  class Equipement {
+    nom, numero_serie
+    localisation, statut
+    document_path
+  }
+  class CategorieEquipement {
+    nom, description
+  }
+  class Emplacement {
+    nom, type
+    description
+  }
+  CategorieEquipement "1" -- "0..*" Equipement
+  Chambre "0..1" -- "0..*" Equipement
+  Emplacement "0..1" -- "0..*" Equipement
+}
+@enduml

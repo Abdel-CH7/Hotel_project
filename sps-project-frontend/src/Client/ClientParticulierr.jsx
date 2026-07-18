@@ -94,11 +94,11 @@ const GuestField = ({ label, required = false, error, children, className = "", 
   const errorId = fieldName ? `${fieldName.replace(/[^a-zA-Z0-9_-]/g, "-")}-error` : undefined;
 
   return (
-  <Form.Group className={`client-guest-field ${className}`.trim()} data-field={fieldName || undefined}>
-    <Form.Label>
+  <Form.Group className={`app-form-field client-guest-field ${className}`.trim()} data-field={fieldName || undefined}>
+    <Form.Label className="app-form-label">
       <RequiredLabel required={required}>{label}</RequiredLabel>
     </Form.Label>
-    <div className="client-form-control-stack">
+    <div className="app-form-control-stack client-form-control-stack">
       {React.Children.map(children, (child) => (
         React.isValidElement(child) && child.props?.name
           ? React.cloneElement(child, {

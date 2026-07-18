@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import axios from "axios";
 import Swal from "sweetalert2";
 import { sanitizeInput } from '../utils/sanitizeInput';
-import { Form, Button, Modal, Carousel, Table } from "react-bootstrap";
+import { Form, Button, Modal, Table } from "react-bootstrap";
 import {
   highlightText,
   matchesNormalizedSearch,
@@ -13,6 +13,7 @@ import ListFilterReset from "../components/ListFilterReset";
 import ListPagination from "../components/ListPagination";
 import ListState from "../components/ListState";
 import RequiredLabel from "../components/RequiredLabel";
+import VisualFilterCarousel from "../components/VisualFilterCarousel";
 import useListControls from "../components/useListControls";
 import {
   exportToExcel as exportRowsToExcel,
@@ -20,12 +21,11 @@ import {
   printRows,
 } from "../utils/listExportUtils";
 import { focusFirstInvalidField, normalizeBackendFieldErrors, setValidationErrors } from "../utils/formValidationUtils";
+import { getStorageImageUrl } from "../utils/mediaUtils";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import PeopleIcon from "@mui/icons-material/People";
 import { storeDataInIndexedDB } from "../indexDB";
 import ExpandRTable from "../components/ExpandRTable";
-import allFilterImage from "../assets/sectors/all.png";
-
 import {
   faTrash,
   faPlus,
@@ -34,13 +34,14 @@ import {
   faSquarePlus,
   faEdit,
   faList,
+  faMountainSun,
+  faBuilding,
 } from "@fortawesome/free-solid-svg-icons";
 import "../style.css";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import Box from "@mui/material/Box";
 import { Checkbox, Fab, Toolbar } from "@mui/material";
 import { useOpen } from "../Acceuil/OpenProvider"; // Importer le hook personnalisé
-import { FaArrowLeft, FaArrowRight } from "react-icons/fa6";
 
 const ROOM_EXPORT_COLUMNS = [
   { key: "roomNumber", label: "Numéro de chambre" },
@@ -54,32 +55,13 @@ const ROOM_EXPORT_COLUMNS = [
   { key: "comment", label: "Commentaire" },
 ];
 
+const getFloorNumber = (label) => {
+  const match = String(label ?? "").match(/\d+/);
+  return match?.[0] || "";
+};
+
 //------------------------- Chambres ---------------------//
 const Chambre = () => {
-  const STORAGE_URL = "http://127.0.0.1:8000/storage";
-
-const getStorageImageUrl = (photo, fallbackImage) => {
-  if (!photo) {
-    return `${STORAGE_URL}/${fallbackImage}`;
-  }
-
-  const photoPath = String(photo);
-
-  if (
-    photoPath.startsWith("http://") ||
-    photoPath.startsWith("https://") ||
-    photoPath.startsWith("data:") ||
-    photoPath.startsWith("blob:")
-  ) {
-    return photoPath;
-  }
-
-  const cleanPath = photoPath
-    .replace(/^\/+/, "")
-    .replace(/^storage\//, "");
-
-  return `${STORAGE_URL}/${cleanPath}`;
-};
   const [chambres, setChambres] = useState([]);
   const [vueErrors, setVueErrors] = useState({ vue: "", photo: "", vueAdd: "" });
   const [typeErrors, setTypeErrors] = useState({
@@ -89,15 +71,12 @@ const getStorageImageUrl = (photo, fallbackImage) => {
   const [etageErrors, setEtageErrors] = useState({
   etage: "",
   etageAdd: "",
-  photo: "",
 });
   const [vues, setVues] = useState([]);
   const [etages, setEtages] = useState([]);
   const [types, setTypes] = useState([]);
   const [selectedVue, setSelectedVue] = useState("");
   const [selectedEtage, setSelectedEtage] = useState("");
-  const [activeVueIndex, setActiveVueIndex] = useState(0);
-  const [activeEtageIndex, setActiveEtageIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const emptyTypeChambre = {
@@ -166,8 +145,6 @@ const getStorageImageUrl = (photo, fallbackImage) => {
 const [newEtage, setNewEtage] = useState({
   etage: "",
   etageAdd: "",
-  photo: null,
-  existingPhoto: null,
 });
 
   const [showEditModalSecteur, setShowEditModalSecteur] = useState(false);
@@ -397,7 +374,7 @@ const handleChange = (e) => {
         vue: "",
       });
       setVueErrors({ vue: "", photo: "", vueAdd: "" });
-      setEtageErrors({ photo: "", etageAdd: "" });
+      setEtageErrors({ etage: "", etageAdd: "" });
       setTypeErrors({
         codeAdd: "",
         nb_litAdd: "",
@@ -1088,23 +1065,6 @@ const handleDeleteType = async (categorieId) => {
   }
 };
 
-const handleVueSelect = (selectedIndex) => {
-  setActiveVueIndex(selectedIndex);
-};const handleEtageSelect = (selectedIndex) => {
-  setActiveEtageIndex(selectedIndex);
-};
-const chunkArray = (array, size) => {
-  const result = [];
-  for (let i = 0; i < array?.length; i += size) {
-    result.push(array.slice(i, i + size));
-  }
-  return result;
-};
-const chunkSize = 3;
-const chunks = chunkArray(vues, chunkSize);
-const chunks1 = chunkArray(etages, chunkSize);
-
-
 const handleVueFilterChange = (vueId) => {
   setSelectedVue(vueId);
   resetPage();
@@ -1169,10 +1129,6 @@ const handleAddEtage = async () => {
 
     requestData.append("etage", etageValue);
 
-    if (newEtage.photo instanceof File) {
-      requestData.append("photo", newEtage.photo);
-    }
-
     await axios.post(
       "http://localhost:8000/api/etages",
       requestData
@@ -1189,7 +1145,7 @@ const handleAddEtage = async () => {
   } catch (error) {
     if (error.response?.status === 422) {
       const backendErrors = normalizeBackendFieldErrors(error);
-      const mappedErrors = { etageAdd: backendErrors.etage || "", photo: backendErrors.photo || "" };
+      const mappedErrors = { etageAdd: backendErrors.etage || "" };
       setEtageErrors((previous) => ({ ...previous, ...mappedErrors }));
       focusFirstInvalidField(mappedErrors);
       return;
@@ -1203,8 +1159,6 @@ const handleAddEtage = async () => {
         backendErrors.etage?.[0] || "",
       etageAdd:
         backendErrors.etage?.[0] || "",
-      photo:
-        backendErrors.photo?.[0] || "",
     }));
 
     Swal.fire({
@@ -1212,7 +1166,6 @@ const handleAddEtage = async () => {
       title: "Erreur!",
       text:
         backendErrors.etage?.[0] ||
-        backendErrors.photo?.[0] ||
         error.response?.data?.message ||
         "Impossible d'ajouter l'étage.",
     });
@@ -1246,14 +1199,11 @@ const handleEditEtage = (etage) => {
   setNewEtage({
     etage: etage.etage || "",
     etageAdd: "",
-    photo: null,
-    existingPhoto: etage.photo || null,
   });
 
   setEtageErrors({
     etage: "",
     etageAdd: "",
-    photo: "",
   });
 
   setShowEditModalEtage(true);
@@ -1264,8 +1214,6 @@ const closeEditEtageModal = () => {
   setNewEtage({
     etage: "",
     etageAdd: "",
-    photo: null,
-    existingPhoto: null,
   });
 
   setEditingEtage([]);
@@ -1274,7 +1222,6 @@ const closeEditEtageModal = () => {
   setEtageErrors({
     etage: "",
     etageAdd: "",
-    photo: "",
   });
 };
 const handleSaveEtage = async () => {
@@ -1298,10 +1245,6 @@ const handleSaveEtage = async () => {
     requestData.append("_method", "PUT");
     requestData.append("etage", etageValue);
 
-    if (newEtage.photo instanceof File) {
-      requestData.append("photo", newEtage.photo);
-    }
-
     await axios.post(
       `http://localhost:8000/api/etages/${categorieId}`,
       requestData
@@ -1323,7 +1266,7 @@ const handleSaveEtage = async () => {
 
     if (error.response?.status === 422) {
       const backendErrors = normalizeBackendFieldErrors(error);
-      const mappedErrors = { etage: backendErrors.etage || "", photo: backendErrors.photo || "" };
+      const mappedErrors = { etage: backendErrors.etage || "" };
       setEtageErrors((previous) => ({ ...previous, ...mappedErrors }));
       focusFirstInvalidField(mappedErrors);
       return;
@@ -1336,8 +1279,6 @@ const handleSaveEtage = async () => {
       ...previousErrors,
       etage:
         backendErrors.etage?.[0] || "",
-      photo:
-        backendErrors.photo?.[0] || "",
     }));
 
     Swal.fire({
@@ -1345,7 +1286,6 @@ const handleSaveEtage = async () => {
       title: "Erreur!",
       text:
         backendErrors.etage?.[0] ||
-        backendErrors.photo?.[0] ||
         error.response?.data?.message ||
         `Erreur serveur ${error.response?.status || ""}`,
     });
@@ -1583,14 +1523,11 @@ const openAddEtageModal = () => {
   setNewEtage({
     etage: "",
     etageAdd: "",
-    photo: null,
-    existingPhoto: null,
   });
 
   setEtageErrors({
     etage: "",
     etageAdd: "",
-    photo: "",
   });
 
   setShowAddEtage(true);
@@ -1602,14 +1539,11 @@ const closeAddEtageModal = () => {
   setNewEtage({
     etage: "",
     etageAdd: "",
-    photo: null,
-    existingPhoto: null,
   });
 
   setEtageErrors({
     etage: "",
     etageAdd: "",
-    photo: "",
   });
 };
 const handleSelectItem = (item) => {
@@ -1989,19 +1923,19 @@ const columns = [
   },
   {
     key: "nb_salle",
-    label: "Nombre de Salle",
+    label: "Nombre de salles de bain",
     width: 160,
     render: (item) => highlightText(getRoomBathroomCount(item), searchTerm),
   },
   {
     key: "climat",
-    label: "Climat",
+    label: "Climatisation",
     width: 120,
     render: (item) => highlightText(formatOuiNon(item.climat), searchTerm),
   },
   {
     key: "wifi",
-    label: "Wifi",
+    label: "Wi-Fi",
     width: 120,
     render: (item) => highlightText(formatOuiNon(item.wifi), searchTerm),
   },
@@ -2081,171 +2015,40 @@ const columns = [
             )}
           </section>
 
-          
-            <div className="app-filter-grid app-section">
-            <div className="app-card app-filter-card">
-              <h5 className="app-filter-title">Vues du Chambre</h5>
-              <div className="bgSecteur app-filter-carousel d-flex justify-content-around">
-              <Carousel 
-  activeIndex={activeVueIndex}
-  onSelect={handleVueSelect}
-  interval={null}
-  nextIcon={<FaArrowRight className="app-carousel-arrow-icon" />}
-  prevIcon={<FaArrowLeft className="app-carousel-arrow-icon" />}
->
-{chunks?.map((chunk, chunkIndex) => (
-  <Carousel.Item key={chunkIndex}>
-    <div className="app-carousel-strip">
-      <a
-        href="#"
-        style={{ marginLeft: "60px" }}
-        onClick={(e) => e.preventDefault()}
-      >
-        <div
-          className={`category-item ${
-            selectedVue === "" ? "active" : ""
-          }`}
-          onClick={() => handleVueFilterChange("")}
-        >
-          <img
-            src={allFilterImage}
-            alt="Toutes les vues"
-            loading="lazy"
-            className={`rounded-circle category-img ${
-              selectedVue === "" ? "selected" : ""
-            }`}
-          />
-
-          <p className="category-text">Tout</p>
-        </div>
-      </a>
-
-      {chunk?.map((category) => (
-        <a
-          href="#"
-          className="mx-5"
-          key={category.id}
-          onClick={(e) => e.preventDefault()}
-        >
-          <div
-            className={`category-item ${
-              String(selectedVue) === String(category.id)
-                ? "active"
-                : ""
-            }`}
-            onClick={() =>
-              handleVueFilterChange(category.id)
-            }
-          >
-            <img
-              src={getStorageImageUrl(
-                category.photo,
-                "vue-img.webp"
-              )}
-              alt={category.vue}
-              loading="lazy"
-              className={`rounded-circle category-img ${
-                String(selectedVue) ===
-                String(category.id)
-                  ? "selected"
-                  : ""
-              }`}
+          <div className="app-filter-grid app-section">
+            <VisualFilterCarousel
+              title="Vues"
+              ariaLabel="Filtrer les chambres par vue"
+              items={vues.map((vue) => ({
+                id: vue.id,
+                label: vue.vue,
+                photo: vue.photo,
+              }))}
+              value={selectedVue}
+              onChange={handleVueFilterChange}
+              renderAllIcon={() => <FontAwesomeIcon icon={faMountainSun} />}
+              renderIcon={() => <FontAwesomeIcon icon={faMountainSun} />}
             />
 
-            <p className="category-text">
-              {category.vue}
-            </p>
-          </div>
-        </a>
-      ))}
-    </div>
-  </Carousel.Item>
-))}
-</Carousel>
-</div>
-</div>
-<div className="app-card app-filter-card">
-              <h5 className="app-filter-title">Etages du Chambre</h5>
-              <div className="bgSecteur app-filter-carousel d-flex justify-content-around">
-              <Carousel 
-  activeIndex={activeEtageIndex}
-  onSelect={handleEtageSelect}
-  interval={null}
-  nextIcon={<FaArrowRight className="app-carousel-arrow-icon" />}
-  prevIcon={<FaArrowLeft className="app-carousel-arrow-icon" />}
->
-{chunks1?.map((chunk, chunkIndex) => (
-  <Carousel.Item key={chunkIndex}>
-    <div className="app-carousel-strip">
-      <a
-        href="#"
-        style={{ marginLeft: "60px" }}
-        onClick={(e) => e.preventDefault()}
-      >
-        <div
-          className={`category-item ${
-            selectedEtage === "" ? "active" : ""
-          }`}
-          onClick={() => handleEtageFilterChange("")}
-        >
-          <img
-            src={allFilterImage}
-            alt="Tous les étages"
-            loading="lazy"
-            className={`rounded-circle category-img ${
-              selectedEtage === "" ? "selected" : ""
-            }`}
-          />
-
-          <p className="category-text">Tout</p>
-        </div>
-      </a>
-
-      {chunk?.map((category) => (
-        <a
-          href="#"
-          className="mx-5"
-          key={category.id}
-          onClick={(e) => e.preventDefault()}
-        >
-          <div
-            className={`category-item ${
-              String(selectedEtage) ===
-              String(category.id)
-                ? "active"
-                : ""
-            }`}
-            onClick={() =>
-              handleEtageFilterChange(category.id)
-            }
-          >
-            <img
-              src={getStorageImageUrl(
-                category.photo,
-                "etage-img.webp"
+            <VisualFilterCarousel
+              title="Étages"
+              ariaLabel="Filtrer les chambres par étage"
+              items={etages.map((etage) => ({
+                id: etage.id,
+                label: etage.etage,
+                floorNumber: getFloorNumber(etage.etage) || etage.etage,
+              }))}
+              value={selectedEtage}
+              onChange={handleEtageFilterChange}
+              renderAllIcon={() => <FontAwesomeIcon icon={faBuilding} />}
+              renderIcon={(item) => (
+                <>
+                  <FontAwesomeIcon icon={faBuilding} />
+                  <span className="app-visual-filter-badge">{item.floorNumber}</span>
+                </>
               )}
-              alt={category.etage}
-              loading="lazy"
-              className={`rounded-circle category-img ${
-                String(selectedEtage) ===
-                String(category.id)
-                  ? "selected"
-                  : ""
-              }`}
             />
-
-            <p className="category-text">
-              {category.etage}
-            </p>
           </div>
-        </a>
-      ))}
-    </div>
-  </Carousel.Item>
-))}</Carousel>
-</div>
-</div>
-</div>
 
 
 <div className="container-fluid px-0">
@@ -2285,15 +2088,13 @@ const columns = [
         <div>
         <div id="formContainer" className="app-form-drawer" style={{...formContainerStyle}}>
             <Form className="col row" onSubmit={handleSubmit}>
-              <Form.Label className="text-center">
-                <h4 className="app-form-drawer-title">
-                  {editingChambre ? "Modifier" : "Ajouter"} une Chambre
-                </h4>
-              </Form.Label>
+              <h4 className="app-form-drawer-title">
+                {editingChambre ? "Modifier" : "Ajouter"} une chambre
+              </h4>
               <p className="app-required-note"><span className="app-required-mark" aria-hidden="true">*</span> Champs obligatoires</p>
               <div className="row">
                 <Form.Group className="col-md-6 mb-3" controlId="num_chambre" data-field="num_chambre">
-                  <Form.Label><RequiredLabel required>Numero de Chambre</RequiredLabel></Form.Label>
+                  <Form.Label><RequiredLabel required>Numéro de chambre</RequiredLabel></Form.Label>
                   <Form.Control
                     type="text"
                     name="num_chambre"
@@ -2317,7 +2118,7 @@ const columns = [
   setShowAddCategory(true);
 }}
                     />
-                    <Form.Label><RequiredLabel required>Type</RequiredLabel></Form.Label>
+                    <Form.Label><RequiredLabel required>Type de chambre</RequiredLabel></Form.Label>
                   </div>
                   <Form.Select
                     name="type_chambre_id"
@@ -2325,7 +2126,7 @@ const columns = [
                     value={formData.type_chambre_id}
                     onChange={handleChange}
                   >
-                    <option value="">Sélectionner Type</option>
+                    <option value="">Sélectionner un type</option>
                     {types?.map((type) => (
                       <option key={type.id} value={type.id}>
                         {type.type_chambre}
@@ -2356,7 +2157,7 @@ const columns = [
                     value={formData.vue}
                     onChange={handleChange}
                   >
-                    <option value="">Sélectionner une Vue</option>
+                    <option value="">Sélectionner une vue</option>
                     {vues?.map((vue) => (
   <option key={vue.id} value={vue.id}>
     {vue.vue}
@@ -2377,7 +2178,7 @@ const columns = [
                       style={{ cursor: "pointer" }}
                       onClick={openAddEtageModal}
                     />
-                    <Form.Label><RequiredLabel required>Etage</RequiredLabel></Form.Label>
+                    <Form.Label><RequiredLabel required>Étage</RequiredLabel></Form.Label>
                   </div>
                   <Form.Select
                     name="etage"
@@ -2385,7 +2186,7 @@ const columns = [
                     value={formData.etage}
                     onChange={handleChange}
                   >
-                    <option value="">Sélectionner un Etage</option>
+                    <option value="">Sélectionner un étage</option>
                     {etages?.map((etage) => (
   <option key={etage.id} value={etage.id}>
     {etage.etage}
@@ -2402,7 +2203,7 @@ const columns = [
   onHide={closeEditVueModal}
 >
       <Modal.Header closeButton>
-        <Modal.Title>Modifier une Vue</Modal.Title>
+        <Modal.Title>Modifier une vue</Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <Form>
@@ -2492,64 +2293,16 @@ const columns = [
   onHide={closeEditEtageModal}
 >
       <Modal.Header closeButton>
-        <Modal.Title>Modifier une Etage</Modal.Title>
+        <Modal.Title>Modifier un étage</Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <Form>
           <p className="app-required-note"><span className="app-required-mark" aria-hidden="true">*</span> Champs obligatoires</p>
-          <Form.Group className="mb-3">
-  <Form.Label>Photo actuelle</Form.Label>
-
-  {newEtage.existingPhoto ? (
-    <div className="mb-2">
-      <img
-        src={getStorageImageUrl(
-          newEtage.existingPhoto,
-          "etage-img.webp"
-        )}
-        alt={newEtage.etage || "Étage"}
-        style={{
-          width: "70px",
-          height: "70px",
-          objectFit: "cover",
-          borderRadius: "50%",
-          border: "1px solid #e2e8f0",
-        }}
-      />
-    </div>
-  ) : (
-    <p className="text-muted">
-      Aucune photo actuelle
-    </p>
-  )}
-
-  <Form.Label>Nouvelle photo</Form.Label>
-
-  <Form.Control
-    type="file"
-    name="photo"
-    accept="image/jpeg,image/png,image/jpg,image/gif,image/webp"
-    isInvalid={!!etageErrors.photo}
-    onChange={(e) => {
-      setNewEtage((previousData) => ({
-        ...previousData,
-        photo: e.target.files?.[0] || null,
-      }));
-      setEtageErrors((current) => ({ ...current, photo: "" }));
-    }}
-  />
-
-  {etageErrors.photo && (
-    <Form.Control.Feedback type="invalid">
-      {etageErrors.photo}
-    </Form.Control.Feedback>
-  )}
-</Form.Group>
             <Form.Group data-field="etage">
-              <Form.Label><RequiredLabel required>Etage</RequiredLabel></Form.Label>
+              <Form.Label><RequiredLabel required>Étage</RequiredLabel></Form.Label>
               <Form.Control
                 type="text"
-                placeholder="Etage"
+                placeholder="Étage"
                 name="etage"
                 isInvalid={!!etageErrors.etage}
                 value={newEtage.etage}
@@ -2579,7 +2332,7 @@ const columns = [
     </Modal>
                 <Modal show={showAddVue} onHide={closeAddVueModal}>
         <Modal.Header closeButton>
-          <Modal.Title>Ajouter une Vue</Modal.Title>
+          <Modal.Title>Ajouter une vue</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Form encType="multipart/form-data">
@@ -2635,21 +2388,21 @@ const columns = [
 </Form.Group>
       </Form>
             
-            <Form.Group className="mt-3">
-            <div className="form-group mt-3" style={{maxHeight:'500px',overflowY:'auto'}}>
-            <table className="table table-bordred">
+            <div className="mt-3">
+            <div className="app-table-wrapper chambre-management-table-wrapper chambre-lookup-table-wrapper">
+            <table className="table table-bordered app-table chambre-lookup-table">
               <thead>
                 <tr>
                   <th>Vue</th>
                   <th>Photo</th>
-                  <th>Action</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {vues?.map(categ => (
-                  <tr>
+                {vues?.length ? vues.map(categ => (
+                  <tr key={categ.id}>
                     <td>{categ?.vue}</td>
-                    <td>  
+                    <td>
                     <img
                       src={getStorageImageUrl(
   categ.photo,
@@ -2657,34 +2410,41 @@ const columns = [
 )}
                       alt={categ.vue}
                       loading="lazy"
-                      className={`rounded-circle category-img`}
+                      className="chambre-lookup-image"
                       />
                     </td>
                     <td>
-                        <FontAwesomeIcon
-                                  onClick={() => handleEditVue(categ)}
-                                  icon={faEdit}
-                                  style={{
-                                    color: "#007bff",
-                                    cursor: "pointer",
-                                  }}
-                                />
-                                <span style={{ margin: "0 8px" }}></span>
-                                <FontAwesomeIcon
-                                  onClick={() => handleDeleteVue(categ.id)}
-                                  icon={faTrash}
-                                  style={{
-                                    color: "#ff0000",
-                                    cursor: "pointer",
-                                  }}
-                                />
+                      <div className="app-table-actions">
+                        <button
+                          type="button"
+                          className="chambre-table-action-button"
+                          onClick={() => handleEditVue(categ)}
+                          title="Modifier cette vue"
+                          aria-label={`Modifier la vue ${categ.vue}`}
+                        >
+                          <FontAwesomeIcon icon={faEdit} className="app-table-action is-edit" />
+                        </button>
+                        <button
+                          type="button"
+                          className="chambre-table-action-button"
+                          onClick={() => handleDeleteVue(categ.id)}
+                          title="Supprimer cette vue"
+                          aria-label={`Supprimer la vue ${categ.vue}`}
+                        >
+                          <FontAwesomeIcon icon={faTrash} className="app-table-action is-delete" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
-                ))}
+                )) : (
+                  <tr>
+                    <td colSpan={3} className="chambre-management-empty">Aucune vue enregistrée.</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
-            </Form.Group>
+            </div>
           <Form.Group className=" d-flex justify-content-center">
         
         <Fab
@@ -2707,41 +2467,16 @@ const columns = [
       </Modal>
       <Modal show={showAddEtage} onHide={closeAddEtageModal}>
         <Modal.Header closeButton>
-          <Modal.Title>Ajouter une Etage</Modal.Title>
+          <Modal.Title>Ajouter un étage</Modal.Title>
         </Modal.Header>
-        <Modal.Body>
-          <Form encType="multipart/form-data">
+      <Modal.Body>
+          <Form>
           <p className="app-required-note"><span className="app-required-mark" aria-hidden="true">*</span> Champs obligatoires</p>
-<Form.Group className="mb-3">
-  <Form.Label>Photo</Form.Label>
-
-  <Form.Control
-    type="file"
-    name="photo"
-    accept="image/jpeg,image/png,image/jpg,image/gif,image/webp"
-    isInvalid={!!etageErrors.photo}
-    onChange={(e) => {
-      setNewEtage((previousData) => ({
-        ...previousData,
-        photo: e.target.files?.[0] || null,
-      }));
-      setEtageErrors((current) => ({ ...current, photo: "" }));
-    }}
-    className="form-control"
-    lang="fr"
-  />
-
-  {etageErrors.photo && (
-    <Form.Control.Feedback type="invalid">
-      {etageErrors.photo}
-    </Form.Control.Feedback>
-  )}
-</Form.Group>
             <Form.Group data-field="etageAdd">
-              <Form.Label><RequiredLabel required>Etage</RequiredLabel></Form.Label>
+              <Form.Label><RequiredLabel required>Étage</RequiredLabel></Form.Label>
               <Form.Control
                 type="text"
-                placeholder="Etage"
+                placeholder="Étage"
                 name="etage"
                 isInvalid={!!etageErrors.etageAdd}
                 onChange={(e) => { setNewEtage({ ...newEtage, etageAdd: e.target.value }); setEtageErrors((current) => ({ ...current, etageAdd: "" })); }}
@@ -2750,56 +2485,51 @@ const columns = [
             </Form.Group>
       </Form>
             
-            <Form.Group className="mt-3">
-            <div className="form-group mt-3" style={{maxHeight:'500px',overflowY:'auto'}}>
-            <table className="table table-bordred">
+            <div className="mt-3">
+            <div className="app-table-wrapper chambre-management-table-wrapper chambre-lookup-table-wrapper">
+            <table className="table table-bordered app-table chambre-lookup-table">
               <thead>
                 <tr>
-                  <th>Etage</th>
-                  <th>Photo</th>
-                  <th>Action</th>
+                  <th>Étage</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {etages?.map(categ => (
-                  <tr>
+                {etages?.length ? etages.map(categ => (
+                  <tr key={categ.id}>
                     <td>{categ?.etage}</td>
-                    <td>  
-                    <img
-                        src={getStorageImageUrl(
-  categ.photo,
-  "etage-img.webp"
-)}
-                        alt={categ.etage}
-                        loading="lazy"
-                        className={`rounded-circle category-img`}
-                      />
-                    </td>
                     <td>
-                        <FontAwesomeIcon
-                                  onClick={() => handleEditEtage(categ)}
-                                  icon={faEdit}
-                                  style={{
-                                    color: "#007bff",
-                                    cursor: "pointer",
-                                  }}
-                                />
-                                <span style={{ margin: "0 8px" }}></span>
-                                <FontAwesomeIcon
-                                  onClick={() => handleDeleteEtage(categ.id)}
-                                  icon={faTrash}
-                                  style={{
-                                    color: "#ff0000",
-                                    cursor: "pointer",
-                                  }}
-                                />
+                      <div className="app-table-actions">
+                        <button
+                          type="button"
+                          className="chambre-table-action-button"
+                          onClick={() => handleEditEtage(categ)}
+                          title="Modifier cet étage"
+                          aria-label={`Modifier l’étage ${categ.etage}`}
+                        >
+                          <FontAwesomeIcon icon={faEdit} className="app-table-action is-edit" />
+                        </button>
+                        <button
+                          type="button"
+                          className="chambre-table-action-button"
+                          onClick={() => handleDeleteEtage(categ.id)}
+                          title="Supprimer cet étage"
+                          aria-label={`Supprimer l’étage ${categ.etage}`}
+                        >
+                          <FontAwesomeIcon icon={faTrash} className="app-table-action is-delete" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
-                ))}
+                )) : (
+                  <tr>
+                    <td colSpan={2} className="chambre-management-empty">Aucun étage enregistré.</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
-            </Form.Group>
+            </div>
           <Form.Group className=" d-flex justify-content-center">
         
         <Fab
@@ -2822,16 +2552,16 @@ const columns = [
       </Modal>
       <Modal show={showEditModal} onHide={() => setShowEditModal(false)}>
       <Modal.Header closeButton>
-        <Modal.Title>Modifier Type de Chambre</Modal.Title>
+        <Modal.Title>Modifier un type de chambre</Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <Form>
         <p className="app-required-note"><span className="app-required-mark" aria-hidden="true">*</span> Champs obligatoires</p>
         <Form.Group data-field="code">
-              <Form.Label><RequiredLabel required>Code Chambre</RequiredLabel></Form.Label>
+              <Form.Label><RequiredLabel required>Code</RequiredLabel></Form.Label>
               <Form.Control
                 type="text"
-                placeholder="Code Chambre"
+                placeholder="Code"
                 name="code"
                 isInvalid={!!typeErrors.code}
                 value={newTypeChambre.code}
@@ -2840,10 +2570,10 @@ const columns = [
               <Form.Control.Feedback type="invalid">{typeErrors.code}</Form.Control.Feedback>
             </Form.Group>
         <Form.Group data-field="type_chambre">
-              <Form.Label><RequiredLabel required>Type Chambre</RequiredLabel></Form.Label>
+              <Form.Label><RequiredLabel required>Type de chambre</RequiredLabel></Form.Label>
               <Form.Control
                 type="text"
-                placeholder="Type de Chambre"
+                placeholder="Type de chambre"
                 name="type_chambre"
                 isInvalid={!!typeErrors.type_chambre}
                 value={newTypeChambre.type_chambre}
@@ -2852,10 +2582,10 @@ const columns = [
               <Form.Control.Feedback type="invalid">{typeErrors.type_chambre}</Form.Control.Feedback>
             </Form.Group>
             <Form.Group data-field="nb_lit">
-              <Form.Label><RequiredLabel required>Nombre de Lit</RequiredLabel></Form.Label>
+              <Form.Label><RequiredLabel required>Nombre de lits</RequiredLabel></Form.Label>
               <Form.Control
                 type="number"
-                placeholder="Nombre de Lit"
+                placeholder="Nombre de lits"
                 name="nb_lit"
                 isInvalid={!!typeErrors.nb_lit}
                 value={newTypeChambre.nb_lit}
@@ -2864,10 +2594,10 @@ const columns = [
               <Form.Control.Feedback type="invalid">{typeErrors.nb_lit}</Form.Control.Feedback>
             </Form.Group>
             <Form.Group data-field="nb_salle">
-              <Form.Label><RequiredLabel required>Nombre de Salle</RequiredLabel></Form.Label>
+              <Form.Label><RequiredLabel required>Nombre de salles de bain</RequiredLabel></Form.Label>
               <Form.Control
                 type="number"
-                placeholder="Nombre de Salle"
+                placeholder="Nombre de salles de bain"
                 name="nb_salle"
                 isInvalid={!!typeErrors.nb_salle}
                 value={newTypeChambre.nb_salle}
@@ -3009,7 +2739,7 @@ const columns = [
 </Form.Control.Feedback>
             </Form.Group>
 <Form.Group className="room-type-form-field" data-field="type_chambreAdd">
-  <Form.Label><RequiredLabel required>Type Chambre</RequiredLabel></Form.Label>
+  <Form.Label><RequiredLabel required>Type de chambre</RequiredLabel></Form.Label>
 
   {typeCreationMode === "preset" ? (
     <Form.Select
@@ -3044,7 +2774,7 @@ const columns = [
   </Form.Control.Feedback>
 </Form.Group>            
             <Form.Group className="room-type-form-field" data-field="nb_litAdd">
-              <Form.Label><RequiredLabel required>Nombre de Lit</RequiredLabel></Form.Label>
+              <Form.Label><RequiredLabel required>Nombre de lits</RequiredLabel></Form.Label>
 <Form.Control
   type="number"
   min="1"
@@ -3064,7 +2794,7 @@ const columns = [
 </Form.Control.Feedback>
             </Form.Group>
             <Form.Group className="room-type-form-field" data-field="nb_salleAdd">
-              <Form.Label><RequiredLabel required>Nombre de Salle</RequiredLabel></Form.Label>
+              <Form.Label><RequiredLabel required>Nombre de salles de bain</RequiredLabel></Form.Label>
 <Form.Control
   type="number"
   min="1"
@@ -3153,8 +2883,8 @@ const columns = [
                   {types?.length ?? 0} {(types?.length ?? 0) === 1 ? "type" : "types"}
                 </span>
               </div>
-            <div ref={roomTypeTableRef} className="room-type-table-wrapper">
-            <table className="table table-bordered room-type-management-table">
+            <div ref={roomTypeTableRef} className="app-table-wrapper room-type-table-wrapper">
+            <table className="table table-bordered app-table room-type-management-table">
               <thead>
                 <tr>
                   <th className="room-type-cell-nowrap">Code</th>
@@ -3169,7 +2899,7 @@ const columns = [
                 </tr>
               </thead>
               <tbody>
-                {types?.map(categ => (
+                {types?.length ? types.map(categ => (
                   <tr key={categ.id}>
                     <td className="room-type-cell-nowrap">{categ.code}</td>
                     <td>{categ.type_chambre}</td>
@@ -3214,7 +2944,11 @@ const columns = [
                       </div>
                     </td>
                   </tr>
-                ))}
+                )) : (
+                  <tr>
+                    <td colSpan={9} className="chambre-management-empty">Aucun type de chambre enregistré.</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -3269,7 +3003,7 @@ const columns = [
 
 
               <Form.Group className="col-md-6 mb-3" controlId="climat" data-field="climat">
-                <Form.Label><RequiredLabel required>Climat</RequiredLabel></Form.Label>
+                <Form.Label><RequiredLabel required>Climatisation</RequiredLabel></Form.Label>
                 <div className="d-flex gap-3">
                   <Form.Check
                     type="radio"
@@ -3294,7 +3028,7 @@ const columns = [
               </Form.Group>
 
               <Form.Group className="col-md-6 mb-3" controlId="wifi" data-field="wifi">
-                <Form.Label><RequiredLabel required>Wifi</RequiredLabel></Form.Label>
+                <Form.Label><RequiredLabel required>Wi-Fi</RequiredLabel></Form.Label>
                 <div className="d-flex gap-3">
                   <Form.Check
                     type="radio"
