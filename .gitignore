@@ -27,7 +27,7 @@
 /sps-project-frontend/npm-debug.log*
 /sps-project-frontend/yarn-debug.log*
 /sps-project-frontend/yarn-error.log*
-
+Restore/
 # IDE and Editor files
 .idea/
 .vscode/
