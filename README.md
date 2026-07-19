@@ -1,4 +1,3 @@
-# SPS Project
 
 This is a monorepo containing both the frontend and backend code for the SPS Project.
 
